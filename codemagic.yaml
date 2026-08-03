@@ -1,0 +1,63 @@
+workflows:
+  ios-release:
+    name: iOS build (IPA)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      vars:
+        XCODE_PROJECT: "ios/App/App.xcodeproj"
+        XCODE_SCHEME: "App"
+        BUNDLE_ID: "com.techsnds.islamicelite"
+      node: 20
+      xcode: latest
+      # Enable this block in Codemagic UI (App Store Connect integration)
+      # to get automatic signing certificates + provisioning profiles:
+      # ios_signing:
+      #   distribution_type: app_store
+      #   bundle_identifier: com.techsnds.islamicelite
+    scripts:
+      - name: Install dependencies
+        script: npm ci || npm install
+      - name: Build web bundle
+        script: npm run build
+      - name: Sync Capacitor iOS
+        script: npx cap sync ios
+      - name: Set build number
+        script: |
+          cd ios/App
+          agvtool new-version -all "$(($BUILD_NUMBER + 1))"
+      - name: Resolve Swift packages
+        script: |
+          xcodebuild -project "$CM_BUILD_DIR/$XCODE_PROJECT" -scheme "$XCODE_SCHEME" \
+            -resolvePackageDependencies
+      - name: Build IPA
+        script: |
+          xcode-project build-ipa --project "$XCODE_PROJECT" --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      email:
+        recipients:
+          - um7171@gmail.com
+
+  ios-smoke-test:
+    name: iOS smoke build (no signing)
+    instance_type: mac_mini_m2
+    max_build_duration: 45
+    environment:
+      node: 20
+      xcode: latest
+    scripts:
+      - name: Install dependencies
+        script: npm ci || npm install
+      - name: Build web bundle
+        script: npm run build
+      - name: Sync Capacitor iOS
+        script: npx cap sync ios
+      - name: Compile without signing
+        script: |
+          xcodebuild -project ios/App/App.xcodeproj -scheme App \
+            -configuration Release -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            clean build
