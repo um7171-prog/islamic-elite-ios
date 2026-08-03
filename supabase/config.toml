@@ -1,0 +1,22 @@
+project_id = "zododbbdbjqxkasgzrbn"
+
+[functions.tiktok-extract]
+verify_jwt = false
+
+[functions.tiktok-proxy]
+verify_jwt = false
+
+[functions.youtube-extract]
+verify_jwt = false
+
+[functions.subscribe-push]
+verify_jwt = false
+
+[functions.send-prayer-pushes]
+verify_jwt = false
+
+[functions.ai-ocr]
+verify_jwt = false
+
+[functions.tiktok-profile]
+verify_jwt = false
