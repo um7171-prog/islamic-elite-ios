@@ -1,63 +1,109 @@
 workflows:
   ios-release:
-    name: iOS build (IPA)
+    name: iOS build (Unsigned IPA)
     instance_type: mac_mini_m2
     max_build_duration: 60
+
     environment:
       vars:
         XCODE_PROJECT: "ios/App/App.xcodeproj"
         XCODE_SCHEME: "App"
         BUNDLE_ID: "com.techsnds.islamicelite"
-      node: 20
+      node: 22
       xcode: latest
-      # Enable this block in Codemagic UI (App Store Connect integration)
-      # to get automatic signing certificates + provisioning profiles:
-      # ios_signing:
-      #   distribution_type: app_store
-      #   bundle_identifier: com.techsnds.islamicelite
+
     scripts:
       - name: Install dependencies
-        script: npm ci || npm install
-      - name: Build web bundle
-        script: npm run build
-      - name: Sync Capacitor iOS
-        script: npx cap sync ios
-      - name: Set build number
         script: |
-          cd ios/App
-          agvtool new-version -all "$(($BUILD_NUMBER + 1))"
+          npm ci || npm install
+
+      - name: Build web bundle
+        script: |
+          npm run build
+
+      - name: Sync Capacitor iOS
+        script: |
+          npx cap sync ios
+
       - name: Resolve Swift packages
         script: |
-          xcodebuild -project "$CM_BUILD_DIR/$XCODE_PROJECT" -scheme "$XCODE_SCHEME" \
+          xcodebuild \
+            -project "$CM_BUILD_DIR/$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
             -resolvePackageDependencies
-      - name: Build IPA
+
+      - name: Build unsigned iOS app
         script: |
-          xcode-project build-ipa --project "$XCODE_PROJECT" --scheme "$XCODE_SCHEME"
+          xcodebuild \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath "$CM_BUILD_DIR/build/ios" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            clean build
+
+      - name: Create unsigned IPA
+        script: |
+          APP_PATH="$CM_BUILD_DIR/build/ios/Build/Products/Release-iphoneos/App.app"
+          IPA_DIR="$CM_BUILD_DIR/build/ios/ipa"
+
+          if [ ! -d "$APP_PATH" ]; then
+            echo "App.app was not found at: $APP_PATH"
+            find "$CM_BUILD_DIR/build/ios" -name "*.app" -type d
+            exit 1
+          fi
+
+          mkdir -p "$IPA_DIR/Payload"
+          cp -R "$APP_PATH" "$IPA_DIR/Payload/App.app"
+
+          cd "$IPA_DIR"
+          zip -r "IslamicElite-unsigned.ipa" Payload
+          rm -rf Payload
+
     artifacts:
       - build/ios/ipa/*.ipa
+      - build/ios/Build/Products/Release-iphoneos/*.app
       - /tmp/xcodebuild_logs/*.log
+
     publishing:
       email:
         recipients:
           - um7171@gmail.com
 
   ios-smoke-test:
-    name: iOS smoke build (no signing)
+    name: iOS smoke build (No signing)
     instance_type: mac_mini_m2
     max_build_duration: 45
+
     environment:
-      node: 20
+      node: 22
       xcode: latest
+
     scripts:
       - name: Install dependencies
-        script: npm ci || npm install
+        script: |
+          npm ci || npm install
+
       - name: Build web bundle
-        script: npm run build
+        script: |
+          npm run build
+
       - name: Sync Capacitor iOS
-        script: npx cap sync ios
+        script: |
+          npx cap sync ios
+
       - name: Compile without signing
         script: |
-          xcodebuild -project ios/App/App.xcodeproj -scheme App \
-            -configuration Release -sdk iphoneos \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+          xcodebuild \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath "$CM_BUILD_DIR/build/ios-smoke" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
             clean build
