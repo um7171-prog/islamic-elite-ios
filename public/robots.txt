@@ -1,0 +1,28 @@
+# robots.txt — النخبة الإسلامية
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /reset-password
+
+User-agent: Googlebot
+Allow: /
+
+User-agent: Googlebot-Image
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Twitterbot
+Allow: /
+
+User-agent: facebookexternalhit
+Allow: /
+
+User-agent: Mediapartners-Google
+Allow: /
+
+User-agent: AdsBot-Google
+Allow: /
+
+Sitemap: https://www.techsnds.com/sitemap.xml

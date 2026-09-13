@@ -1,0 +1,13 @@
+project_id = "zododbbdbjqxkasgzrbn"
+
+[functions.subscribe-push]
+verify_jwt = false
+
+[functions.register-device-token]
+verify_jwt = false
+
+[functions.send-prayer-pushes]
+verify_jwt = false
+
+[functions.ai-ocr]
+verify_jwt = false
