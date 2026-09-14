@@ -201,13 +201,13 @@ function Dashboard() {
                     "مواقيت الصلاة والقرآن والأذكار وأدوات ذكية مفيدة",
                   )
                 : t(
-                    "A platform for video downloads, media and smart tools",
-                    "منصة لتحميل الفيديوهات والوسائط والأدوات الذكية",
+                    "A platform for file downloads, conversion and smart tools",
+                    "منصة لتنزيل الملفات وتحويلها وأدوات ذكية مفيدة",
                   )}
             </p>
             <ul className="mt-2.5 flex flex-wrap items-center justify-center gap-1.5">
               {[
-                ...(!iosNative ? [{ icon: Download, label: t("Video downloads", "تحميل الفيديوهات") }] : []),
+                ...(!iosNative ? [{ icon: Download, label: t("File downloads", "تنزيل الملفات") }] : []),
                 { icon: Sparkles, label: t("Smart tools", "أدوات ذكية") },
                 { icon: Zap, label: t("Fast & easy", "سريعة وسهلة") },
               ].map((p) => (

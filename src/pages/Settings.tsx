@@ -9,7 +9,6 @@ import {
   MapPin,
   BookOpen,
   Bell,
-  Sparkles,
   Check,
   MessageCircle,
   Phone,
@@ -317,20 +316,6 @@ export default function Settings() {
           subtitle={t("Morning & evening Athkar notifications", "تنبيهات أذكار الصباح والمساء")}
         >
           <AthkarRemindersCard />
-        </Section>
-
-        {/* Customization */}
-        <Section
-          icon={Sparkles}
-          title={t("Customization", "التخصيص")}
-          subtitle={t("App interface", "واجهة التطبيق")}
-        >
-          <p className="text-xs text-foreground/60 leading-relaxed">
-            {t(
-              "More customization options (tool order, hidden sections) are coming soon.",
-              "المزيد من خيارات التخصيص (ترتيب الأدوات، إخفاء الأقسام) قريباً.",
-            )}
-          </p>
         </Section>
 
         {/* Contact Us */}
