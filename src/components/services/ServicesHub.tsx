@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Baby, BadgeDollarSign, Banknote, CalendarDays, CalendarHeart, CalendarRange, Clock4, Coins,
-  Flag, GraduationCap, Landmark, Moon, PiggyBank, Ruler, Scale, Search, Star, Sunrise, Timer,
-  Wallet, X,
+  Baby, BadgeDollarSign, CalendarDays, CalendarRange, Clock4, Coins,
+  Flag, GraduationCap, Landmark, Moon, PiggyBank, Ruler, Scale, Search, Star, Timer,
+  X,
 } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
 import { Input } from "@/components/ui/input";
@@ -60,35 +60,16 @@ const TOOLS: Tool[] = [
   { id: "hijri", en: "Hijri converter", ar: "تحويل التاريخ", descEn: "Hijri ↔ Gregorian", descAr: "هجري ↔ ميلادي", category: "calc", Icon: CalendarRange, gradient: BLUE, keywords: "تاريخ هجري ميلادي تحويل hijri", render: () => <HijriConverter /> },
 
   // 📅 Counters
-  { id: "gov-salary", en: "Government salary", ar: "رواتب القطاع الحكومي", descEn: "27th of each Gregorian month", descAr: "٢٧ من كل شهر ميلادي", category: "counters", Icon: Banknote, gradient: EMERALD, keywords: "راتب رواتب حكومي salary", render: () => <SingleCountdown id="gov-salary" /> },
-  { id: "private-salary", en: "Private sector salary", ar: "راتب القطاع الخاص", descEn: "Choose your own payday", descAr: "حدّد يوم راتبك بنفسك", category: "counters", Icon: Wallet, gradient: GOLD, keywords: "راتب salary payday قطاع خاص", render: () => <SingleCountdown id="private-salary" /> },
-  { id: "citizen-account", en: "Citizen Account", ar: "حساب المواطن", descEn: "10th of each Gregorian month", descAr: "١٠ من كل شهر ميلادي", category: "counters", Icon: Landmark, gradient: BLUE, keywords: "حساب المواطن دعم citizen", render: () => <SingleCountdown id="citizen-account" /> },
-  { id: "social-security", en: "Developed Social Security", ar: "الضمان الاجتماعي المطور", descEn: "1st of each Gregorian month", descAr: "الأول من كل شهر ميلادي", category: "counters", Icon: Landmark, gradient: EMERALD, keywords: "ضمان اجتماعي security", render: () => <SingleCountdown id="social-security" /> },
-  { id: "retirement-pension", en: "Retirement pension", ar: "راتب التقاعد", descEn: "1st of each Gregorian month", descAr: "الأول من كل شهر ميلادي", category: "counters", Icon: Landmark, gradient: PURPLE, keywords: "تقاعد معاش راتب pension", render: () => <SingleCountdown id="retirement-pension" /> },
-  { id: "all-payouts", en: "All payouts", ar: "كل مواعيد الصرف", descEn: "Every deposit date", descAr: "جميع مواعيد الإيداع", category: "counters", Icon: CalendarDays, gradient: GOLD, keywords: "رواتب صرف مواعيد payouts", render: () => <PayoutCountdowns /> },
+  { id: "all-payouts", en: "All payouts", ar: "كل مواعيد الصرف", descEn: "Every deposit date — tap one to expand", descAr: "جميع مواعيد الإيداع — اضغط أي موعد لتفاصيله", category: "counters", Icon: CalendarDays, gradient: GOLD, keywords: "راتب رواتب حكومي قطاع خاص حساب المواطن ضمان اجتماعي تقاعد معاش صرف مواعيد payouts salary citizen pension", render: () => <PayoutCountdowns /> },
   { id: "retirement", en: "Retirement", ar: "كم باقي على التقاعد", descEn: "Based on your birth date", descAr: "حسب تاريخ ميلادك", category: "counters", Icon: Clock4, gradient: BLUE, keywords: "تقاعد retirement معاش", render: () => <RetirementCountdown /> },
   { id: "custom", en: "Custom countdown", ar: "عداد لأي تاريخ", descEn: "Any date you choose", descAr: "أي تاريخ تختاره", category: "counters", Icon: Timer, gradient: ROSE, keywords: "عداد تاريخ مخصص countdown", render: () => <CustomCountdown /> },
 
   // 🏫 Education
-  { id: "school-all", en: "Academic calendar", ar: "التقويم الدراسي", descEn: "All school dates", descAr: "كل مواعيد الدراسة", category: "school", Icon: GraduationCap, gradient: EMERALD, keywords: "دراسة مدرسة تقويم school", render: () => <SchoolCountdowns /> },
-  { id: "school-start", en: "Start of school", ar: "بداية الدراسة", descEn: "23 August 2026", descAr: "٢٣ أغسطس ٢٠٢٦", category: "school", Icon: GraduationCap, gradient: BLUE, keywords: "بداية الدراسة school start", render: () => <SingleCountdown id="school-start" /> },
-  { id: "autumn-break", en: "Autumn break", ar: "إجازة الخريف المطولة", descEn: "20 November 2026", descAr: "٢٠ نوفمبر ٢٠٢٦", category: "school", Icon: CalendarHeart, gradient: GOLD, keywords: "إجازة مطولة خريف break", render: () => <SingleCountdown id="autumn-break" /> },
-  { id: "term1-end", en: "End of first term", ar: "نهاية الفصل الأول", descEn: "7 January 2027", descAr: "٧ يناير ٢٠٢٧", category: "school", Icon: CalendarDays, gradient: ROSE, keywords: "نهاية الفصل اختبارات term", render: () => <SingleCountdown id="term1-end" /> },
-  { id: "midyear-break", en: "Mid-year break", ar: "إجازة منتصف العام", descEn: "8 January 2027", descAr: "٨ يناير ٢٠٢٧", category: "school", Icon: CalendarHeart, gradient: PURPLE, keywords: "منتصف العام midyear", render: () => <SingleCountdown id="midyear-break" /> },
-  { id: "year-end", en: "End of school year", ar: "نهاية العام الدراسي", descEn: "24 June 2027", descAr: "٢٤ يونيو ٢٠٢٧", category: "school", Icon: CalendarDays, gradient: BLUE, keywords: "نهاية العام الدراسي term", render: () => <SingleCountdown id="year-end" /> },
-  { id: "summer-break", en: "Summer holiday", ar: "الإجازة الصيفية", descEn: "25 June 2027", descAr: "٢٥ يونيو ٢٠٢٧", category: "school", Icon: Sunrise, gradient: GOLD, keywords: "الصيفية summer", render: () => <SingleCountdown id="summer-break" /> },
-
+  { id: "school-all", en: "Academic calendar", ar: "التقويم الدراسي", descEn: "All school dates — tap one to expand", descAr: "كل مواعيد الدراسة — اضغط أي موعد لتفاصيله", category: "school", Icon: GraduationCap, gradient: EMERALD, keywords: "دراسة مدرسة تقويم بداية الدراسة إجازة خريف نهاية الفصل منتصف العام صيفية school start break term midyear summer", render: () => <SchoolCountdowns /> },
   { id: "holidays", en: "Official holidays", ar: "الإجازات الرسمية", descEn: "All Saudi holidays", descAr: "كل إجازات المملكة", category: "school", Icon: Flag, gradient: EMERALD, keywords: "إجازات رسمية holidays", render: () => <OfficialHolidays /> },
 
   // 🕌 Islamic
-  { id: "islamic-all", en: "Islamic occasions", ar: "كل المناسبات الإسلامية", descEn: "Sorted by nearest", descAr: "مرتبة حسب الأقرب", category: "islamic", Icon: Moon, gradient: EMERALD, keywords: "مناسبات إسلامية islamic", render: () => <IslamicCountdowns /> },
-  { id: "ramadan", en: "Ramadan", ar: "كم باقي على رمضان", descEn: "Countdown", descAr: "عد تنازلي", category: "islamic", Icon: Moon, gradient: PURPLE, keywords: "رمضان ramadan", render: () => <SingleCountdown id="ramadan" /> },
-  { id: "eid-fitr", en: "Eid al-Fitr", ar: "عيد الفطر", descEn: "Countdown", descAr: "عد تنازلي", category: "islamic", Icon: CalendarHeart, gradient: GOLD, keywords: "عيد الفطر eid", render: () => <SingleCountdown id="eid-fitr" /> },
-  { id: "eid-adha", en: "Eid al-Adha", ar: "عيد الأضحى", descEn: "Countdown", descAr: "عد تنازلي", category: "islamic", Icon: CalendarHeart, gradient: EMERALD, keywords: "عيد الأضحى adha", render: () => <SingleCountdown id="eid-adha" /> },
-  { id: "arafah", en: "Day of Arafah", ar: "يوم عرفة", descEn: "Countdown", descAr: "عد تنازلي", category: "islamic", Icon: Sunrise, gradient: GOLD, keywords: "عرفة arafah حج", render: () => <SingleCountdown id="arafah" /> },
-  { id: "ashura", en: "Ashura", ar: "عاشوراء", descEn: "Countdown", descAr: "عد تنازلي", category: "islamic", Icon: Moon, gradient: BLUE, keywords: "عاشوراء ashura", render: () => <SingleCountdown id="ashura" /> },
-  { id: "hijri-new", en: "Hijri New Year", ar: "رأس السنة الهجرية", descEn: "1 Muharram", descAr: "١ محرم", category: "islamic", Icon: Moon, gradient: PURPLE, keywords: "رأس السنة الهجرية hijri new year محرم", render: () => <SingleCountdown id="hijri-new" /> },
-
+  { id: "islamic-all", en: "Islamic occasions", ar: "كل المناسبات الإسلامية", descEn: "Sorted by nearest — tap one to expand", descAr: "مرتبة حسب الأقرب — اضغط أي مناسبة لتفاصيلها", category: "islamic", Icon: Moon, gradient: EMERALD, keywords: "مناسبات إسلامية رمضان عيد الفطر عيد الأضحى عرفة عاشوراء رأس السنة الهجرية محرم islamic ramadan eid arafah ashura hijri new year", render: () => <IslamicCountdowns /> },
 
   // 🇸🇦 National
   { id: "national-all", en: "National occasions", ar: "كل المناسبات الوطنية", descEn: "Upcoming events", descAr: "المناسبات القادمة", category: "national", Icon: Flag, gradient: EMERALD, keywords: "وطنية national", render: () => <NationalCountdowns /> },
