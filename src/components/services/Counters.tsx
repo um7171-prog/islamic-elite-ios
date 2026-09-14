@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocale } from "@/contexts/LocaleContext";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import {
   CountdownEvent, countdown, formatDate, formatGregorian, formatHijri, formatLastUpdated, formatWeekday,
@@ -20,7 +21,9 @@ export function useNow(intervalMs = 1000) {
 
 function pad(n: number) { return String(n).padStart(2, "0"); }
 
-export function CountdownRow({ event, now, detailed }: { event: CountdownEvent; now: Date; detailed?: boolean }) {
+export function CountdownRow({
+  event, now, detailed, onToggle,
+}: { event: CountdownEvent; now: Date; detailed?: boolean; onToggle?: () => void }) {
   const { t, lang } = useLocale();
   const L = lang as "ar" | "en";
   const minuteKey = Math.floor(now.getTime() / 60000);
@@ -36,7 +39,13 @@ export function CountdownRow({ event, now, detailed }: { event: CountdownEvent; 
   const c = countdown(target, now);
 
   return (
-    <div className="rounded-2xl border border-border/60 bg-card/70 p-4 overflow-hidden">
+    <div
+      onClick={onToggle}
+      className={cn(
+        "rounded-2xl border border-border/60 bg-card/70 p-4 overflow-hidden",
+        onToggle && "cursor-pointer active:scale-[0.99] transition",
+      )}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-sm font-bold break-words">{lang === "ar" ? event.ar : event.en}</p>
@@ -128,6 +137,7 @@ function PrivateSalarySetting() {
 
 function EventList({ events }: { events: CountdownEvent[] }) {
   const now = useNow();
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const sorted = useMemo(
     () => [...events].sort((a, b) => a.resolve().getTime() - b.resolve().getTime()),
     [events, Math.floor(now.getTime() / 3600000)],
@@ -136,7 +146,15 @@ function EventList({ events }: { events: CountdownEvent[] }) {
   return (
     <div className="space-y-2.5">
       {hasPrivate && <PrivateSalarySetting />}
-      {sorted.map((e) => <CountdownRow key={e.id} event={e} now={now} />)}
+      {sorted.map((e) => (
+        <CountdownRow
+          key={e.id}
+          event={e}
+          now={now}
+          detailed={expandedId === e.id}
+          onToggle={() => setExpandedId((id) => (id === e.id ? null : e.id))}
+        />
+      ))}
     </div>
   );
 }
