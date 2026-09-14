@@ -68,48 +68,69 @@ export interface NativePermissionState {
   denied: boolean;
 }
 
-export async function ensureNativePermission(): Promise<NativePermissionState> {
-  if (!isNativeApp()) return { granted: false, denied: true };
-  const LN = await plugin();
-  let res = await LN.checkPermissions();
-  if (res.display !== "granted" && res.display !== "denied") {
-    res = await LN.requestPermissions();
+export type NotifPermissionStatus = "granted" | "denied" | "prompt";
+
+/**
+ * Single source of truth for the local-notification permission — every other
+ * function in this codebase that checks or requests it goes through this one.
+ *
+ * `allowPrompt: false` (the default) is READ-ONLY: it reports the current OS
+ * status and NEVER shows Apple's system dialog. Use this for anything
+ * automatic — app boot, returning to the foreground, opening Settings —
+ * so the system prompt never appears without the user having just tapped
+ * an explicit "enable notifications" action first.
+ *
+ * `allowPrompt: true` shows the real system dialog when the status is still
+ * undecided ("prompt"). Only two call sites in the whole app should ever
+ * pass true: the first-launch NotificationPermissionPrompt dialog, and the
+ * explicit "Enable notifications now" button in Settings.
+ */
+export async function checkOrRequestNotificationPermission(
+  allowPrompt = false,
+): Promise<{ status: NotifPermissionStatus; granted: boolean }> {
+  if (!isNativeApp()) return { status: "prompt", granted: false };
+  try {
+    const LN = await plugin();
+    const read = (display: string): NotifPermissionStatus =>
+      display === "granted" ? "granted" : display === "denied" ? "denied" : "prompt";
+    let status = read((await LN.checkPermissions()).display);
+    if (status === "prompt" && allowPrompt) {
+      status = read((await LN.requestPermissions()).display);
+    }
+    return { status, granted: status === "granted" };
+  } catch (e) {
+    console.info("[athan] permission check error", e);
+    return { status: "prompt", granted: false };
   }
-  return { granted: res.display === "granted", denied: res.display === "denied" };
+}
+
+/** @deprecated use checkOrRequestNotificationPermission — kept as a thin
+ * compatibility wrapper for existing call sites during the rollout. */
+export async function ensureNativePermission(allowPrompt = false): Promise<NativePermissionState> {
+  const { status, granted } = await checkOrRequestNotificationPermission(allowPrompt);
+  return { granted, denied: status === "denied" };
 }
 
 /**
- * Native iOS startup path (never used on the web):
- * LocalNotifications.checkPermissions() → requestPermissions() when not granted.
- * Returns the final OS permission status so the caller can schedule immediately.
+ * Native iOS startup/reschedule path.
+ * READ-ONLY by default (allowPrompt=false) — never pops the system dialog on
+ * its own. Returns the current OS permission status so the caller can
+ * schedule immediately when already granted.
  */
-export async function bootstrapNativeNotifications(): Promise<{
+export async function bootstrapNativeNotifications(allowPrompt = false): Promise<{
   native: boolean;
   status: string;
   granted: boolean;
 }> {
   if (!isNativeApp()) return { native: false, status: "web", granted: false };
-  try {
-    const LN = await plugin();
-    let res = await LN.checkPermissions();
-    let status = res.display;
-    if (status !== "granted" && status !== "denied") {
-      res = await LN.requestPermissions();
-      status = res.display;
-    }
-    console.info("[athan] bootstrap permission =", status);
-    return { native: true, status, granted: status === "granted" };
-  } catch (e) {
-    console.info("[athan] bootstrap error", e);
-    return { native: true, status: "error", granted: false };
-  }
+  const { status, granted } = await checkOrRequestNotificationPermission(allowPrompt);
+  console.info("[athan] bootstrap permission =", status);
+  return { native: true, status, granted };
 }
 
 export async function nativePermissionGranted(): Promise<boolean> {
-  if (!isNativeApp()) return false;
-  const LN = await plugin();
-  const res = await LN.checkPermissions();
-  return res.display === "granted";
+  const { granted } = await checkOrRequestNotificationPermission(false);
+  return granted;
 }
 
 /**

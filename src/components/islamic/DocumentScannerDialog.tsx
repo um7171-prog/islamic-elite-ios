@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useLocale } from "@/contexts/LocaleContext";
 import {
   Camera, Flashlight, FlashlightOff, X, Trash2, FileDown, Wand2, RotateCw,
-  Loader2, Share2, Plus, Check, ScanLine,
+  Loader2, Share2, Plus, Check, ScanLine, Image as ImageIcon, Crop,
 } from "lucide-react";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
@@ -23,6 +23,8 @@ interface ScanPage {
   id: string;
   dataUrl: string;        // processed
   croppedDataUrl: string; // after perspective crop, before filter
+  rawDataUrl: string;     // original uncropped capture — needed to re-open the crop editor later
+  quad: Quad;             // the quad used for this page's crop — re-crop starts from here
   filter: Filter;
   rotation: number;
 }
@@ -382,6 +384,11 @@ export function DocumentScannerDialog({ open, onOpenChange }: Props) {
     { x: 0.08, y: 0.08 }, { x: 0.92, y: 0.08 }, { x: 0.92, y: 0.92 }, { x: 0.08, y: 0.92 },
   ]);
   const [reviewBusy, setReviewBusy] = useState(false);
+  // Set when the review screen was opened to re-crop an already-saved page
+  // (via the gallery's "Edit crop" action) rather than a fresh capture —
+  // confirmCrop() replaces that page in place instead of appending a new one.
+  const [editingPageId, setEditingPageId] = useState<string | null>(null);
+  const libraryInputRef = useRef<HTMLInputElement | null>(null);
 
   // -------- camera lifecycle --------
   // Bumped every time the dialog opens/closes. A pending getUserMedia() call
@@ -439,7 +446,7 @@ export function DocumentScannerDialog({ open, onOpenChange }: Props) {
 
   useEffect(() => {
     if (open) {
-      setPages([]); setView("camera"); setRawCapture(null);
+      setPages([]); setView("camera"); setRawCapture(null); setEditingPageId(null);
       stableCountRef.current = 0; lastQuadRef.current = null; setDetected(false);
       start();
     }
@@ -581,6 +588,8 @@ export function DocumentScannerDialog({ open, onOpenChange }: Props) {
         id: crypto.randomUUID(),
         dataUrl: processed,
         croppedDataUrl: cropped,
+        rawDataUrl: raw,
+        quad: q,
         filter: "enhance",
         rotation: 0,
       };
@@ -647,15 +656,29 @@ export function DocumentScannerDialog({ open, onOpenChange }: Props) {
       const outW = Math.max(400, Math.round(Math.max(w1, w2)));
       const outH = Math.max(400, Math.round(Math.max(h1, h2)));
       const cropped = await warpQuadToRect(rawCapture, editQuad, outW, outH);
-      const processed = await applyFilter(cropped, "enhance", 0);
-      const page: ScanPage = {
-        id: crypto.randomUUID(),
-        dataUrl: processed,
-        croppedDataUrl: cropped,
-        filter: "enhance",
-        rotation: 0,
-      };
-      setPages((p) => [...p, page]);
+      if (editingPageId) {
+        // Re-crop of an existing page: keep its previously chosen filter/rotation.
+        const existing = pages.find((p) => p.id === editingPageId);
+        const filter = existing?.filter ?? "enhance";
+        const rotation = existing?.rotation ?? 0;
+        const processed = await applyFilter(cropped, filter, rotation);
+        setPages((p) => p.map((pg) => pg.id === editingPageId
+          ? { ...pg, dataUrl: processed, croppedDataUrl: cropped, rawDataUrl: rawCapture, quad: editQuad, filter, rotation }
+          : pg));
+        setEditingPageId(null);
+      } else {
+        const processed = await applyFilter(cropped, "enhance", 0);
+        const page: ScanPage = {
+          id: crypto.randomUUID(),
+          dataUrl: processed,
+          croppedDataUrl: cropped,
+          rawDataUrl: rawCapture,
+          quad: editQuad,
+          filter: "enhance",
+          rotation: 0,
+        };
+        setPages((p) => [...p, page]);
+      }
       setRawCapture(null);
       setView("gallery");
     } catch {
@@ -665,11 +688,48 @@ export function DocumentScannerDialog({ open, onOpenChange }: Props) {
 
   const retake = () => {
     setRawCapture(null);
-    setView("camera");
+    if (editingPageId) {
+      // Re-crop was canceled — nothing to retake a photo of, just go back.
+      setEditingPageId(null);
+      setView("gallery");
+    } else {
+      setView("camera");
+    }
+  };
+
+  // Opens the review/crop screen for a picked (non-camera) image.
+  const openReviewForImage = (rawDataUrl: string) => {
+    setEditingPageId(null);
+    setRawCapture(rawDataUrl);
+    setEditQuad([
+      { x: 0.06, y: 0.06 }, { x: 0.94, y: 0.06 }, { x: 0.94, y: 0.94 }, { x: 0.06, y: 0.94 },
+    ]);
+    setView("review");
+  };
+
+  const handleLibraryFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow picking the same file again later
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => openReviewForImage(reader.result as string);
+    reader.onerror = () => toast.error(t("Failed to read the selected image.", "تعذّر قراءة الصورة المختارة."));
+    reader.readAsDataURL(file);
   };
 
   // -------- gallery actions --------
   const addAnother = () => setView("camera");
+
+  // Re-opens the crop editor for an already-saved page, starting from the
+  // quad and raw capture it was created with, instead of forcing a rescan.
+  const editPageCrop = (id: string) => {
+    const page = pages.find((p) => p.id === id);
+    if (!page) return;
+    setEditingPageId(id);
+    setRawCapture(page.rawDataUrl);
+    setEditQuad(page.quad);
+    setView("review");
+  };
 
   const updateActiveFilter = async (id: string, filter: Filter) => {
     const page = pages.find((p) => p.id === id);
@@ -816,19 +876,37 @@ export function DocumentScannerDialog({ open, onOpenChange }: Props) {
                 </div>
               )}
 
-              <div className="absolute inset-x-0 top-0 flex justify-between p-3">
+              {/* z-10: must stay above the permission/error card below (inset-4
+                  from the top edge overlaps this bar's height) so Close and
+                  "Choose from library" are never blocked when the camera fails. */}
+              <div className="absolute inset-x-0 top-0 z-10 flex justify-between p-3">
                 <button onClick={() => { stop(); onOpenChange(false); }}
                   className="h-11 w-11 rounded-full bg-black/60 backdrop-blur grid place-items-center text-white border border-white/20"
                   aria-label={t("Close", "إغلاق")}>
                   <X className="h-5 w-5" />
                 </button>
-                {torchSupported && (
-                  <button onClick={toggleTorch}
+                <div className="flex gap-2">
+                  <input
+                    ref={libraryInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleLibraryFile}
+                  />
+                  <button onClick={() => libraryInputRef.current?.click()}
                     className="h-11 w-11 rounded-full bg-black/60 backdrop-blur grid place-items-center text-white border border-white/20"
-                    aria-label={t("Flashlight", "الفلاش")}>
-                    {torchOn ? <Flashlight className="h-5 w-5 text-yellow-400" /> : <FlashlightOff className="h-5 w-5" />}
+                    aria-label={t("Choose from library", "اختيار من الاستديو")}
+                    title={t("Choose from library", "اختيار من الاستديو")}>
+                    <ImageIcon className="h-5 w-5" />
                   </button>
-                )}
+                  {torchSupported && (
+                    <button onClick={toggleTorch}
+                      className="h-11 w-11 rounded-full bg-black/60 backdrop-blur grid place-items-center text-white border border-white/20"
+                      aria-label={t("Flashlight", "الفلاش")}>
+                      {torchOn ? <Flashlight className="h-5 w-5 text-yellow-400" /> : <FlashlightOff className="h-5 w-5" />}
+                    </button>
+                  )}
+                </div>
               </div>
 
               {error && permission !== "granted" && (
@@ -932,7 +1010,7 @@ export function DocumentScannerDialog({ open, onOpenChange }: Props) {
             <div className="px-4 grid grid-cols-4 gap-2">
               <button onClick={retake} disabled={reviewBusy}
                 className="h-14 rounded-xl bg-secondary text-secondary-foreground font-medium flex flex-col items-center justify-center gap-1 text-[11px] disabled:opacity-50">
-                <X className="h-4 w-4" />{t("Retake", "إعادة")}
+                <X className="h-4 w-4" />{editingPageId ? t("Cancel", "إلغاء") : t("Retake", "إعادة")}
               </button>
               <button
                 onClick={() => setEditQuad((q) => [q[1], q[2], q[3], q[0]] as Quad)}
@@ -958,7 +1036,7 @@ export function DocumentScannerDialog({ open, onOpenChange }: Props) {
             <div className="px-4 pb-4">
               <button onClick={confirmCrop} disabled={reviewBusy}
                 className="w-full h-11 rounded-xl bg-primary text-primary-foreground font-medium flex items-center justify-center gap-2 disabled:opacity-50">
-                <Check className="h-4 w-4" />{t("Keep scan", "اعتماد المسح")}
+                <Check className="h-4 w-4" />{editingPageId ? t("Save changes", "حفظ التعديل") : t("Keep scan", "اعتماد المسح")}
               </button>
             </div>
           </div>
@@ -977,6 +1055,9 @@ export function DocumentScannerDialog({ open, onOpenChange }: Props) {
                       {t(`Page ${i+1} of ${pages.length}`, `صفحة ${i+1} من ${pages.length}`)}
                     </span>
                     <div className="flex gap-1">
+                      <button onClick={() => editPageCrop(p.id)} className="h-10 w-10 grid place-items-center rounded-md hover:bg-muted" aria-label={t("Edit crop", "تعديل القص")} title={t("Edit crop", "تعديل القص")}>
+                        <Crop className="h-4 w-4" />
+                      </button>
                       <button onClick={() => rotatePage(p.id)} className="h-10 w-10 grid place-items-center rounded-md hover:bg-muted" aria-label="تدوير الصفحة" title="تدوير">
                         <RotateCw className="h-4 w-4" />
                       </button>

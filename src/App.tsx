@@ -13,10 +13,13 @@ import Index from "./pages/Index.tsx";
 import Admin from "./pages/Admin.tsx";
 import ResetPassword from "./pages/ResetPassword.tsx";
 import Settings from "./pages/Settings.tsx";
+import NotificationDiagnostics from "./pages/NotificationDiagnostics.tsx";
 import { NativeNotificationRouter } from "./components/NativeNotificationRouter";
 import { NativeAthanScheduler } from "./components/NativeAthanScheduler";
+import { NotificationPermissionPrompt } from "./components/islamic/NotificationPermissionPrompt";
 import Mushaf from "./pages/Mushaf.tsx";
 import AI from "./pages/AI.tsx";
+import FileConverterPage from "./pages/FileConverterPage.tsx";
 import { isIOSNativeApp } from "@/lib/platform";
 import BackgroundRemoverPage from "./pages/ai/BackgroundRemover.tsx";
 import ImageEnhancerPage from "./pages/ai/ImageEnhancer.tsx";
@@ -75,6 +78,7 @@ const AppShell = () => {
           ))}
           {iosNative && <Route path="/media" element={<Navigate to="/tools" replace />} />}
           <Route path="/mushaf" element={<Mushaf />} />
+          <Route path="/convert" element={<FileConverterPage />} />
           <Route path="/ai" element={<AI />} />
           <Route path="/ai/background-remover" element={<BackgroundRemoverPage />} />
           <Route path="/ai/image-enhancer" element={<ImageEnhancerPage />} />
@@ -92,6 +96,10 @@ const AppShell = () => {
           <Route path="/government-jobs" element={<GovernmentJobs />} />
           <Route path="/sitemap" element={<SitemapPage />} />
           <Route path="/settings" element={<Settings />} />
+          {/* Not linked from any user-facing nav — reachable only via the
+              collapsed "Advanced Settings" section in Settings, for developer
+              use. Kept as its own route instead of deleting the page/logic. */}
+          <Route path="/notification-diagnostics" element={<NotificationDiagnostics />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
@@ -114,6 +122,7 @@ const App = () => (
               <NativeAthanScheduler>
                 <BrowserRouter>
                   <NativeNotificationRouter />
+                  <NotificationPermissionPrompt />
                   <ScrollToTop />
 
                   <AppShell />

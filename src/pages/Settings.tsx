@@ -9,11 +9,14 @@ import {
   MapPin,
   BookOpen,
   Bell,
+  BellRing,
   Check,
+  ChevronDown,
   MessageCircle,
   Phone,
   Mail,
   Send,
+  Wrench,
 } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useTheme, type ThemeMode } from "@/contexts/ThemeContext";
@@ -24,6 +27,7 @@ import { AthanSettingsCard } from "@/components/islamic/AthanSettingsCard";
 import { AthkarRemindersCard } from "@/components/islamic/AthkarRemindersCard";
 import { useNativeAthanScheduler } from "@/components/NativeAthanScheduler";
 import { SEO } from "@/components/SEO";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { isNativeApp, runNotificationDeliveryTest } from "@/lib/nativeNotify";
 import { getAnnouncementPushEnabled, setAnnouncementPushEnabled } from "@/lib/pushDevice";
 
@@ -162,39 +166,10 @@ export default function Settings() {
       <div className="space-y-4">
         {nativeApp && (
           <Section
-            icon={Bell}
-            title={t("Notification test", "اختبار الإشعارات")}
-            subtitle={t("Uses the same native path as prayer alerts", "يستخدم نفس المسار الأصلي لتنبيهات الصلاة")}
+            icon={BellRing}
+            title={t("App Announcements", "إعلانات التطبيق")}
+            subtitle={t("Optional updates from the app administrator", "تحديثات اختيارية من إدارة التطبيق")}
           >
-            <button
-              type="button"
-              onClick={runNotificationTest}
-              disabled={notificationTest === "running"}
-              className="flex w-full items-center justify-between rounded-xl border border-foreground/10 p-3 transition hover:bg-foreground/5 active:scale-[0.99] disabled:opacity-60"
-            >
-              <div className="text-start">
-                <div className="text-sm font-medium">
-                  {notificationTest === "running"
-                    ? t("Scheduling…", "جارٍ الجدولة…")
-                    : t("Test after 12 seconds", "اختبار بعد 12 ثانية")}
-                </div>
-                <div className="text-[11px] text-foreground/60">
-                  {t("Schedules one isolated test without touching prayer reminders", "يجدول إشعار اختبار مستقل بدون لمس تنبيهات الصلاة")}
-                </div>
-              </div>
-              <Bell className="h-5 w-5 text-accent" />
-            </button>
-            {notificationTestMessage && (
-              <div
-                className={`rounded-xl border p-3 text-xs leading-relaxed ${
-                  notificationTest === "scheduled"
-                    ? "border-emerald-500/30 bg-emerald-500/10"
-                    : "border-destructive/30 bg-destructive/10"
-                }`}
-              >
-                {notificationTestMessage}
-              </div>
-            )}
             <Row
               label={t("App announcements", "إعلانات وتنبيهات التطبيق")}
               description={t(
@@ -265,8 +240,8 @@ export default function Settings() {
         {/* Prayer & Times */}
         <Section
           icon={MapPin}
-          title={t("Prayer & Times", "المواقيت والصلاة")}
-          subtitle={t("Location, madhab, per-prayer alerts", "الموقع، المذهب، تنبيهات كل صلاة")}
+          title={t("Prayer & Times", "مواقيت الصلاة")}
+          subtitle={t("Location and calculation method", "الموقع وطريقة الحساب")}
         >
           <Row label={t("Location", "الموقع")} description={lang === "ar" ? city.ar : city.en}>
             <CitySelector compact />
@@ -300,7 +275,18 @@ export default function Settings() {
               })}
             </div>
           </div>
+        </Section>
 
+        {/* Athan notifications & pre-prayer reminders — AthanSettingsCard already
+            covers both (per-prayer toggles, sounds, and the pre-prayer reminder
+            offset) internally; it gets its own Section here instead of being
+            folded into "Prayer & Times" so the notification settings the user
+            asked to see labeled distinctly are clearly separate from location/madhab. */}
+        <Section
+          icon={Bell}
+          title={t("Athan Notifications", "إشعارات الأذان")}
+          subtitle={t("Per-prayer alerts, sounds, and reminders before prayer", "تنبيهات كل صلاة، الأصوات، والتذكير قبل الصلاة")}
+        >
           <AthanSettingsCard
             settings={athan}
             onChange={updateAthan}
@@ -391,6 +377,64 @@ export default function Settings() {
             );
           })()}
         </Section>
+
+        {/* Advanced / technical settings — diagnostics for developers, not
+            meant for everyday use. Collapsed by default and placed last so
+            it doesn't compete with the settings a regular user actually
+            needs; its logic (runNotificationTest) is unchanged, just moved
+            out of the main "App Announcements" section it used to share. */}
+        {nativeApp && (
+          <Collapsible className="glass rounded-2xl p-5">
+            <CollapsibleTrigger className="flex w-full items-center gap-3 text-start [&[data-state=open]>svg]:rotate-180">
+              <div className="h-10 w-10 rounded-xl grid place-items-center bg-foreground/10 text-foreground/60 shrink-0">
+                <Wrench className="h-5 w-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h2 className="font-display text-base font-semibold text-foreground/80">{t("Advanced Settings", "إعدادات متقدمة")}</h2>
+                <p className="text-[11px] text-foreground/60">{t("Technical diagnostics — not needed for everyday use", "تشخيص تقني — غير مطلوب للاستخدام اليومي")}</p>
+              </div>
+              <ChevronDown className="h-4 w-4 text-foreground/50 transition-transform shrink-0" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-3 pt-4">
+              <button
+                type="button"
+                onClick={runNotificationTest}
+                disabled={notificationTest === "running"}
+                className="flex w-full items-center justify-between rounded-xl border border-foreground/10 p-3 transition hover:bg-foreground/5 active:scale-[0.99] disabled:opacity-60"
+              >
+                <div className="text-start">
+                  <div className="text-sm font-medium">
+                    {notificationTest === "running"
+                      ? t("Scheduling…", "جارٍ الجدولة…")
+                      : t("Test after 12 seconds", "اختبار بعد 12 ثانية")}
+                  </div>
+                  <div className="text-[11px] text-foreground/60">
+                    {t("Schedules one isolated test without touching prayer reminders", "يجدول إشعار اختبار مستقل بدون لمس تنبيهات الصلاة")}
+                  </div>
+                </div>
+                <Bell className="h-5 w-5 text-accent" />
+              </button>
+              {notificationTestMessage && (
+                <div
+                  className={`rounded-xl border p-3 text-xs leading-relaxed ${
+                    notificationTest === "scheduled"
+                      ? "border-emerald-500/30 bg-emerald-500/10"
+                      : "border-destructive/30 bg-destructive/10"
+                  }`}
+                >
+                  {notificationTestMessage}
+                </div>
+              )}
+              <Link
+                to="/notification-diagnostics"
+                className="flex items-center justify-between rounded-xl border border-foreground/10 p-3 text-sm hover:bg-foreground/5 transition"
+              >
+                <span>{t("Notification Diagnostics", "تشخيص الإشعارات")}</span>
+                <ArrowLeft className={`h-4 w-4 text-foreground/40 ${dir === "rtl" ? "" : "rotate-180"}`} />
+              </Link>
+            </CollapsibleContent>
+          </Collapsible>
+        )}
       </div>
     </div>
   );

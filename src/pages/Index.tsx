@@ -20,7 +20,6 @@ import { InstallPrompt } from "@/components/islamic/InstallPrompt";
 import { EventsCalendar } from "@/components/islamic/EventsCalendar";
 import { BottomNav, type TabKey } from "@/components/islamic/BottomNav";
 import { DownloadManager } from "@/components/islamic/DownloadManager";
-import { FileConverter } from "@/components/islamic/EliteTools";
 import { SEO } from "@/components/SEO";
 import { ServicesHub } from "@/components/services/ServicesHub";
 import { SideMenu } from "@/components/site/SideMenu";
@@ -36,7 +35,7 @@ const PATH_MAP: Record<string, { tab: TabKey; tool: string | null; title: string
   "/":                 { tab: "home",  tool: null,        title: "النخبة الإسلامية - مواقيت الصلاة والقرآن وأدوات إسلامية ذكية", description: "النخبة الإسلامية منصة إسلامية ذكية تجمع مواقيت الصلاة والقبلة، القرآن الكريم والأذكار، تحويل الملفات، QR Code، الترجمة، الطقس، والتقويم الهجري في مكان واحد." },
   "/tools":            { tab: "tools", tool: null,        title: "أدواتي الإسلامية — القرآن، الأذكار، القبلة",          description: "مجموعة أدوات متكاملة: القرآن الكريم، الأذكار، القبلة، التسبيح، الترجمة، والطقس." },
   "/calendar":         { tab: "tools", tool: null,        title: "التقويم والمواعيد — تقويم هجري وميلادي مع تذكيرات", description: "تقويم هجري وميلادي شهري مع إضافة المواعيد، التكرار اليومي والأسبوعي والشهري والسنوي، وتنبيهات محلية." },
-  "/media":            { tab: "media", tool: null,        title: "الوسائط — تنزيل الملفات ومحول الملفات",                description: "تنزيل ذكي للملفات من رابط مباشر، محول الملفات، وإدارة الوسائط المحفوظة." },
+  "/media":            { tab: "media", tool: null,        title: "الوسائط — تنزيل الملفات وإدارة الوسائط المحفوظة",      description: "تنزيل ذكي للملفات من رابط مباشر وإدارة الوسائط المحفوظة. للتحويل بين صيغ الملفات، زر صفحة تحويل الملفات." },
   "/athkar":           { tab: "tools", tool: "athkar",    title: "الأذكار — أذكار الصباح والمساء",                       description: "أذكار الصباح والمساء وأذكار النوم من الكتاب والسنة." },
   "/qibla":            { tab: "tools", tool: "qibla",     title: "اتجاه القبلة — بوصلة القبلة",                          description: "حدد اتجاه القبلة بدقة من أي مكان في العالم باستخدام البوصلة." },
   "/quran":            { tab: "tools", tool: "quran",     title: "القرآن الكريم — قراءة واستماع",                        description: "المصحف الشريف بالرسم العثماني مع تلاوات لأشهر القراء." },
@@ -92,6 +91,11 @@ function Dashboard() {
   } = useNativeAthanScheduler();
 
   const handleTabChange = (next: TabKey) => {
+    if (next === "convert") {
+      // Its own dedicated page, not one of Index's internal tabs.
+      navigate("/convert");
+      return;
+    }
     if (iosNative && next === "media") {
       setTab("tools");
       navigate("/tools");
@@ -310,6 +314,7 @@ function Dashboard() {
                 { to: "/notifications", label: t("Notifications", "الإشعارات") },
                 { to: "/qr-scanner", label: t("QR Scanner", "ماسح QR") },
                 { to: "/document-scanner", label: t("Document Scanner", "ماسح المستندات") },
+                { to: "/convert", label: t("File Converter", "تحويل الملفات") },
               ].map((l) => (
                 <li key={l.to}>
                   <a href={l.to} onClick={(e) => { e.preventDefault(); navigate(l.to); }} className="px-2 py-1 rounded-md glass hover:text-accent">
@@ -328,7 +333,6 @@ function Dashboard() {
             {t("Media", "الوسائط")}
           </h2>
           <DownloadManager />
-          <FileConverter />
         </section>
       )}
 

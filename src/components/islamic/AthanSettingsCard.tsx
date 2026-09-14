@@ -30,6 +30,10 @@ import {
   soundUrl,
 } from "@/lib/athanSettings";
 import { ensureNativePermission, isNativeApp, openNativeAppSettings } from "@/lib/nativeAthan";
+import {
+  NOTIFICATION_PERMISSION_ANSWERED_EVENT,
+  requestReopenNotificationPrompt,
+} from "@/components/islamic/NotificationPermissionPrompt";
 import { toast } from "@/hooks/use-toast";
 
 interface Props {
@@ -99,24 +103,40 @@ export function AthanSettingsCard({ settings, onChange, onReschedule }: Props) {
   const native = isNativeApp();
   const { method, setMethod, adjustments, setAdjustment, resetAdjustments, prefs, setPref } =
     usePrayerCalc();
-  const [denied, setDenied] = useState(false);
+  // "granted" | "denied" | "prompt" | "unknown" (unknown = not checked yet / web).
+  // Read-only check on mount — opening Settings must never pop Apple's system
+  // dialog on its own; only the explicit "Enable now" button below may do that.
+  const [permStatus, setPermStatus] = useState<"granted" | "denied" | "prompt" | "unknown">("unknown");
   const [playing, setPlaying] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Ask for the real iOS permission as soon as the settings open, then schedule.
   useEffect(() => {
     if (!native) return;
     let alive = true;
     void (async () => {
-      const p = await ensureNativePermission();
+      const p = await ensureNativePermission(false);
       if (!alive) return;
-      setDenied(!p.granted);
+      setPermStatus(p.denied ? "denied" : p.granted ? "granted" : "prompt");
       if (p.granted) await onReschedule?.();
     })();
     return () => {
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [native]);
+
+  // Refresh the banner once the shared first-launch dialog has been answered
+  // (enabled or deferred) — without this, accepting there wouldn't update
+  // this card's banner until the next time Settings is opened.
+  useEffect(() => {
+    if (!native) return;
+    const onAnswered = () => {
+      void ensureNativePermission(false).then((p) =>
+        setPermStatus(p.denied ? "denied" : p.granted ? "granted" : "prompt"),
+      );
+    };
+    window.addEventListener(NOTIFICATION_PERMISSION_ANSWERED_EVENT, onAnswered);
+    return () => window.removeEventListener(NOTIFICATION_PERMISSION_ANSWERED_EVENT, onAnswered);
   }, [native]);
 
   useEffect(() => () => audioRef.current?.pause(), []);
@@ -156,8 +176,11 @@ export function AthanSettingsCard({ settings, onChange, onReschedule }: Props) {
     // Update + persist immediately so the switch always reflects the tap on iOS.
     update({ perPrayerEnabled: { ...settings.perPrayerEnabled, [key]: on } });
     if (on && native) {
-      // Permission check runs in the background; it never blocks the toggle.
-      void ensureNativePermission().then((p) => setDenied(!p.granted)).catch(() => {});
+      // Read-only refresh of the banner state — never pops the system dialog
+      // on its own; the user taps "Enable now" for that.
+      void ensureNativePermission(false)
+        .then((p) => setPermStatus(p.denied ? "denied" : p.granted ? "granted" : "prompt"))
+        .catch(() => {});
     }
   };
 
@@ -205,7 +228,7 @@ export function AthanSettingsCard({ settings, onChange, onReschedule }: Props) {
 
   return (
     <div className="space-y-5">
-      {native && denied && (
+      {native && permStatus === "denied" && (
         <div className="rounded-2xl border border-destructive/40 bg-destructive/10 p-4 space-y-3">
           <div className="flex items-start gap-2">
             <AlertTriangle className="h-4 w-4 text-destructive mt-0.5" />
@@ -213,6 +236,18 @@ export function AthanSettingsCard({ settings, onChange, onReschedule }: Props) {
           </div>
           <Button size="sm" variant="outline" onClick={() => void openNativeAppSettings()}>
             فتح إعدادات iPhone
+          </Button>
+        </div>
+      )}
+
+      {native && permStatus === "prompt" && (
+        <div className="rounded-2xl border border-elite-gold/40 bg-elite-gold/10 p-4 space-y-3">
+          <div className="flex items-start gap-2">
+            <Bell className="h-4 w-4 text-elite-gold mt-0.5" />
+            <p className="text-sm">لم يتم تفعيل الإشعارات بعد — فعّلها لتصلك تنبيهات مواقيت الصلاة في وقتها.</p>
+          </div>
+          <Button size="sm" onClick={() => requestReopenNotificationPrompt()}>
+            {t("Enable notifications now", "تفعيل الإشعارات الآن")}
           </Button>
         </div>
       )}

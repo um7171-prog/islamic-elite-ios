@@ -50,13 +50,16 @@ export function useAthanScheduler(
   }, [nativeMode, native?.lat, native?.lng, native?.madhab, native?.signature, settingsSignature, lang]);
 
   // ---- Native (iPhone app): real OS-level local notifications ----
-  // Startup path: checkPermissions() → requestPermissions() → schedule().
+  // Startup path is READ-ONLY (allowPrompt=false): if the user already
+  // granted permission on a previous launch, schedule immediately. If not
+  // yet decided, this does NOT pop Apple's system dialog — that only
+  // happens from the explicit first-launch dialog or the Settings button.
   useEffect(() => {
     if (!nativeMode) return;
     let cancelled = false;
     void attachNotificationDiagnostics();
     (async () => {
-      const boot = await bootstrapNativeNotifications();
+      const boot = await bootstrapNativeNotifications(false);
       if (cancelled) return;
       if (boot.granted) await rescheduleNative();
     })();

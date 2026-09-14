@@ -1,4 +1,4 @@
-import { Menu, Home, LayoutGrid, Download, Bot, BookOpen, Settings as SettingsIcon, Info, Shield, FileText, Mail, Cookie, AlertTriangle, HelpCircle, Map, Briefcase, Landmark } from "lucide-react";
+import { Menu, Home, LayoutGrid, Download, Bot, BookOpen, Settings as SettingsIcon, Info, Shield, FileText, Mail, Cookie, AlertTriangle, HelpCircle, Map, Briefcase, Landmark, Repeat } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -15,6 +15,7 @@ export function SideMenu() {
       title: t("Browse", "التصفح"),
       items: [
         { to: "/", label: t("Home", "الرئيسية"), Icon: Home },
+        { to: "/convert", label: t("File Converter", "تحويل الملفات"), Icon: Repeat },
         { to: "/tools", label: t("My Tools", "أدواتي"), Icon: LayoutGrid },
         ...(!iosNative ? [
           { to: "/media", label: t("Media", "الوسائط"), Icon: Download },
