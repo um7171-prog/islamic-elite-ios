@@ -4,6 +4,7 @@ import { useLocale } from "@/contexts/LocaleContext";
 import { BrowserMultiFormatReader, IScannerControls } from "@zxing/browser";
 import { Flashlight, FlashlightOff, Copy, ExternalLink, RotateCcw, X, Camera, SearchX } from "lucide-react";
 import { toast } from "sonner";
+import { openNativeAppSettings } from "@/lib/nativeAthan";
 
 interface Props {
   open: boolean;
@@ -28,6 +29,11 @@ export function QRScannerDialog({ open, onOpenChange }: Props) {
   const genRef = useRef(0);
 
   const [result, setResult] = useState<string | null>(null);
+  // Tracked separately from `result`: a QR code can legitimately encode an
+  // empty string, and every truthy-check on `result` alone would then treat
+  // a real (empty) scan as "no scan yet" — leaving a dead camera on screen
+  // with no way to reach the Rescan button.
+  const [hasScanned, setHasScanned] = useState(false);
   const [status, setStatus] = useState<ScanStatus>("starting");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [torchOn, setTorchOn] = useState(false);
@@ -60,9 +66,13 @@ export function QRScannerDialog({ open, onOpenChange }: Props) {
     const myGen = ++genRef.current;
     setErrorMsg(null);
     setResult(null);
+    setHasScanned(false);
     setTorchOn(false);
     setStatus("starting");
     try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error(t("Camera not supported", "الكاميرا غير مدعومة"));
+      }
       const reader = new BrowserMultiFormatReader();
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: "environment" } },
@@ -89,6 +99,7 @@ export function QRScannerDialog({ open, onOpenChange }: Props) {
         if (genRef.current !== myGen || !res) return;
         clearNotFoundTimer();
         setResult(res.getText());
+        setHasScanned(true);
         stop();
       });
       if (genRef.current !== myGen) { stop(); return; }
@@ -146,12 +157,12 @@ export function QRScannerDialog({ open, onOpenChange }: Props) {
   const isUrl = result ? /^https?:\/\//i.test(result.trim()) : false;
 
   const handleOpen = () => {
-    if (!result) return;
+    if (result == null) return;
     if (isUrl) setInAppUrl(result.trim());
   };
 
   const handleCopy = async () => {
-    if (!result) return;
+    if (result == null) return;
     await navigator.clipboard.writeText(result);
     toast.success(t("Copied", "تم النسخ"));
   };
@@ -200,22 +211,31 @@ export function QRScannerDialog({ open, onOpenChange }: Props) {
             </div>
 
             {/* Blocking states: permission denied / camera unavailable / generic error */}
-            {blockingStatus && !result && (
+            {blockingStatus && !hasScanned && (
               <div className="absolute inset-4 rounded-xl bg-background/95 backdrop-blur p-4 flex flex-col items-center justify-center text-center gap-3">
                 <Camera className="h-10 w-10 text-accent" />
                 <p className="text-sm text-foreground">{errorMsg}</p>
-                <button
-                  onClick={handleRetry}
-                  className="h-10 px-4 rounded-xl bg-primary text-primary-foreground font-medium flex items-center gap-2"
-                >
-                  <RotateCcw className="h-4 w-4" />
-                  {t("Try again", "إعادة المحاولة")}
-                </button>
+                {status === "denied" ? (
+                  <button
+                    onClick={() => void openNativeAppSettings()}
+                    className="h-10 px-4 rounded-xl bg-primary text-primary-foreground font-medium flex items-center gap-2"
+                  >
+                    {t("Open Settings", "فتح الإعدادات")}
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleRetry}
+                    className="h-10 px-4 rounded-xl bg-primary text-primary-foreground font-medium flex items-center gap-2"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    {t("Try again", "إعادة المحاولة")}
+                  </button>
+                )}
               </div>
             )}
 
             {/* Soft hint after scanning for a while with no match — camera keeps running */}
-            {status === "not-found" && !result && (
+            {status === "not-found" && !hasScanned && (
               <div className="absolute inset-x-4 bottom-4 rounded-xl bg-background/90 backdrop-blur p-3 flex items-center gap-3 text-start">
                 <SearchX className="h-5 w-5 text-accent shrink-0" />
                 <p className="flex-1 text-xs text-foreground">
@@ -236,9 +256,11 @@ export function QRScannerDialog({ open, onOpenChange }: Props) {
 
           {/* Result */}
           <div className="p-4 space-y-3">
-            {result ? (
+            {hasScanned ? (
               <>
-                <div className="rounded-xl border bg-muted/40 p-3 text-sm break-all">{result}</div>
+                <div className="rounded-xl border bg-muted/40 p-3 text-sm break-all">
+                  {result || t("(Empty QR code)", "(رمز QR فارغ)")}
+                </div>
                 <div className="flex gap-2">
                   {isUrl && (
                     <button onClick={handleOpen} className="flex-1 h-10 rounded-xl bg-primary text-primary-foreground font-medium flex items-center justify-center gap-2">

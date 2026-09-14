@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
+import { openNativeAppSettings } from "@/lib/nativeAthan";
 
 interface Props {
   open: boolean;
@@ -28,9 +29,10 @@ interface ScanPage {
 
 // ---------- image helpers ----------
 function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((res) => {
+  return new Promise((res, rej) => {
     const img = new Image();
     img.onload = () => res(img);
+    img.onerror = () => rej(new Error("image load failed"));
     img.src = src;
   });
 }
@@ -400,7 +402,7 @@ export function DocumentScannerDialog({ open, onOpenChange }: Props) {
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error(t("Camera not supported", "الكاميرا غير مدعومة"));
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" }, width: { ideal: 3840 }, height: { ideal: 2160 }, aspectRatio: { ideal: 3/4 } },
+        video: { facingMode: { ideal: "environment" }, width: { ideal: 2160 }, height: { ideal: 3840 }, aspectRatio: { ideal: 3/4 } },
         audio: false,
       });
       if (genRef.current !== myGen) {
@@ -445,10 +447,30 @@ export function DocumentScannerDialog({ open, onOpenChange }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  // Defensive re-attach: if start() resolved before the "camera" view's
+  // <video> element had (re-)mounted — e.g. reopening the dialog right after
+  // it was left on the gallery/review view, where no <video> exists — the
+  // live stream would otherwise never reach the screen (camera light stays
+  // on, preview stays black). Whenever the camera view becomes active with a
+  // stream already acquired but not yet attached, bind it here.
+  useEffect(() => {
+    if (view === "camera" && streamRef.current && videoRef.current && !videoRef.current.srcObject) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch(() => {});
+    }
+  }, [view]);
+
   // -------- realtime detection loop --------
   useEffect(() => {
     if (view !== "camera" || permission !== "granted") return;
     let running = true;
+    // Canvas 2D color parsing doesn't participate in the CSS cascade, so
+    // `hsl(var(--accent))` silently fails to parse and leaves the previous
+    // (default black) color in place. Resolve the actual triplet once so the
+    // detection outline is visibly accent-colored instead of invisible black.
+    const accentTriplet = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "0 0% 100%";
+    const accentStroke = `hsl(${accentTriplet})`;
+    const accentFill = `hsl(${accentTriplet} / 0.15)`;
     const tick = () => {
       if (!running) return;
       const video = videoRef.current;
@@ -462,14 +484,14 @@ export function DocumentScannerDialog({ open, onOpenChange }: Props) {
         const quad = detectDocumentQuad(video);
         if (quad) {
           // draw quad
-          ctx.strokeStyle = "hsl(var(--accent))";
+          ctx.strokeStyle = accentStroke;
           ctx.lineWidth = 3;
           ctx.beginPath();
           ctx.moveTo(quad[0].x * cv.width, quad[0].y * cv.height);
           for (let i = 1; i < 4; i++) ctx.lineTo(quad[i].x * cv.width, quad[i].y * cv.height);
           ctx.closePath();
           ctx.stroke();
-          ctx.fillStyle = "hsl(var(--accent) / 0.15)";
+          ctx.fillStyle = accentFill;
           ctx.fill();
           setDetected(true);
 
@@ -521,7 +543,10 @@ export function DocumentScannerDialog({ open, onOpenChange }: Props) {
   const manualCapture = () => {
     if (busy) return;
     const raw = grabFrame();
-    if (!raw) return;
+    if (!raw) {
+      toast.error(t("Camera not ready. Try again.", "الكاميرا غير جاهزة. حاول مرة أخرى."));
+      return;
+    }
     const q = lastQuadRef.current ?? ([
       { x: 0.06, y: 0.10 }, { x: 0.94, y: 0.10 }, { x: 0.94, y: 0.90 }, { x: 0.06, y: 0.90 },
     ] as Quad);
@@ -567,6 +592,8 @@ export function DocumentScannerDialog({ open, onOpenChange }: Props) {
       stableCountRef.current = 0;
       lastQuadRef.current = null;
       setDetected(false);
+    } catch {
+      toast.error(t("Failed to process the captured page. Try again.", "تعذّرت معالجة الصفحة الملتقطة. حاول مرة أخرى."));
     } finally {
       setTimeout(() => setBusy(false), 800);
     }
@@ -631,6 +658,8 @@ export function DocumentScannerDialog({ open, onOpenChange }: Props) {
       setPages((p) => [...p, page]);
       setRawCapture(null);
       setView("gallery");
+    } catch {
+      toast.error(t("Failed to process the cropped image. Try again.", "تعذّرت معالجة الصورة المقصوصة. حاول مرة أخرى."));
     } finally { setReviewBusy(false); }
   };
 
@@ -645,15 +674,23 @@ export function DocumentScannerDialog({ open, onOpenChange }: Props) {
   const updateActiveFilter = async (id: string, filter: Filter) => {
     const page = pages.find((p) => p.id === id);
     if (!page) return;
-    const dataUrl = await applyFilter(page.croppedDataUrl, filter, page.rotation);
-    setPages((arr) => arr.map((p) => p.id === id ? { ...p, filter, dataUrl } : p));
+    try {
+      const dataUrl = await applyFilter(page.croppedDataUrl, filter, page.rotation);
+      setPages((arr) => arr.map((p) => p.id === id ? { ...p, filter, dataUrl } : p));
+    } catch {
+      toast.error(t("Failed to apply the filter. Try again.", "تعذّر تطبيق الفلتر. حاول مرة أخرى."));
+    }
   };
   const rotatePage = async (id: string) => {
     const page = pages.find((p) => p.id === id);
     if (!page) return;
     const rotation = (page.rotation + 90) % 360;
-    const dataUrl = await applyFilter(page.croppedDataUrl, page.filter, rotation);
-    setPages((arr) => arr.map((p) => p.id === id ? { ...p, rotation, dataUrl } : p));
+    try {
+      const dataUrl = await applyFilter(page.croppedDataUrl, page.filter, rotation);
+      setPages((arr) => arr.map((p) => p.id === id ? { ...p, rotation, dataUrl } : p));
+    } catch {
+      toast.error(t("Failed to rotate the page. Try again.", "تعذّر تدوير الصفحة. حاول مرة أخرى."));
+    }
   };
   const removePage = (id: string) => setPages((arr) => arr.filter((p) => p.id !== id));
 
@@ -798,9 +835,15 @@ export function DocumentScannerDialog({ open, onOpenChange }: Props) {
                 <div className="absolute inset-4 rounded-xl bg-background/95 backdrop-blur p-4 flex flex-col items-center justify-center text-center gap-3">
                   <Camera className="h-10 w-10 text-accent" />
                   <p className="text-sm text-foreground">{error}</p>
-                  <button onClick={start} className="h-10 px-4 rounded-xl bg-primary text-primary-foreground font-medium">
-                    {t("Allow camera", "السماح بالكاميرا")}
-                  </button>
+                  {permission === "denied" ? (
+                    <button onClick={() => void openNativeAppSettings()} className="h-10 px-4 rounded-xl bg-primary text-primary-foreground font-medium">
+                      {t("Open Settings", "فتح الإعدادات")}
+                    </button>
+                  ) : (
+                    <button onClick={start} className="h-10 px-4 rounded-xl bg-primary text-primary-foreground font-medium">
+                      {t("Allow camera", "السماح بالكاميرا")}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
