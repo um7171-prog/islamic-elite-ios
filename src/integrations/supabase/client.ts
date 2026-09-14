@@ -5,13 +5,33 @@ import type { Database } from './types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+// createClient() throws synchronously when either value is missing/empty.
+// That throw happens at module-import time, before React ever mounts, so an
+// uncaught throw here takes down the ENTIRE app with a blank black screen
+// and no on-screen error (this is what a missing VITE_SUPABASE_URL /
+// VITE_SUPABASE_PUBLISHABLE_KEY in the CI build environment looks like on a
+// real device, with no console to check). Falling back to a well-formed but
+// clearly-invalid URL lets the rest of the app render normally; only
+// Supabase-dependent features fail afterwards (visibly, in the console)
+// instead of the whole app going dark.
+if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+  console.error(
+    "[supabase] VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY missing from the build " +
+    "environment — Supabase-dependent features (auth, push registration, translation, OCR...) will not work.",
+  );
+}
+
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  auth: {
-    storage: localStorage,
-    persistSession: true,
-    autoRefreshToken: true,
-  }
-});
+export const supabase = createClient<Database>(
+  SUPABASE_URL || "https://misconfigured.invalid",
+  SUPABASE_PUBLISHABLE_KEY || "misconfigured",
+  {
+    auth: {
+      storage: localStorage,
+      persistSession: true,
+      autoRefreshToken: true,
+    }
+  },
+);

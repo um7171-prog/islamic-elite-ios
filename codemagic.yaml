@@ -9,6 +9,14 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 60
     environment:
+      # REQUIRED: create a variable group named exactly "supabase" in
+      # Codemagic (Team settings -> Environment variables) containing
+      # VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY (copy the values
+      # from the local .env file). Without this group, "npm run build" below
+      # bakes in an empty Supabase URL, which crashes the whole app with a
+      # blank/black screen on launch (see src/integrations/supabase/client.ts).
+      groups:
+        - supabase
       vars:
         XCODE_PROJECT: "ios/App/App.xcodeproj"
         XCODE_SCHEME: "App"
@@ -77,6 +85,10 @@ workflows:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.techsnds.islamicelite
+      # REQUIRED: see the same "supabase" group note in ios-build-unsigned
+      # above — this workflow also runs "npm run build" and needs it too.
+      groups:
+        - supabase
       vars:
         XCODE_PROJECT: "ios/App/App.xcodeproj"
         XCODE_SCHEME: "App"
