@@ -176,9 +176,12 @@ export function AthanSettingsCard({ settings, onChange, onReschedule }: Props) {
     // Update + persist immediately so the switch always reflects the tap on iOS.
     update({ perPrayerEnabled: { ...settings.perPrayerEnabled, [key]: on } });
     if (on && native) {
-      // Read-only refresh of the banner state — never pops the system dialog
-      // on its own; the user taps "Enable now" for that.
-      void ensureNativePermission(false)
+      // Turning a prayer ON is a direct, deliberate user action — allowed to
+      // prompt. checkOrRequestNotificationPermission only actually shows
+      // Apple's dialog when the status is genuinely still undecided; if it's
+      // already granted or denied, allowPrompt=true is a no-op read, so this
+      // can never re-trigger a denied permission or double-prompt a granted one.
+      void ensureNativePermission(true)
         .then((p) => setPermStatus(p.denied ? "denied" : p.granted ? "granted" : "prompt"))
         .catch(() => {});
     }

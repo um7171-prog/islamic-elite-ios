@@ -483,8 +483,9 @@ export async function getNativeStatus(): Promise<NativeStatus> {
   };
   if (!isNativeApp()) return base;
   try {
+    // Read-only — status display must never itself trigger the system dialog.
+    const { status } = await checkOrRequestNotificationPermission(false);
     const LN = await plugin();
-    const perm = await LN.checkPermissions();
     const pending = await LN.getPending();
     const items: PendingItem[] = pending.notifications.map((n) => {
       const raw = (n.schedule as any)?.at;
@@ -494,8 +495,8 @@ export async function getNativeStatus(): Promise<NativeStatus> {
     return {
       ...base,
       supported: true,
-      granted: perm.display === "granted",
-      permission: perm.display,
+      granted: status === "granted",
+      permission: status,
       pending: pending.notifications.length,
       next: items.find((i) => i.at)?.at ?? null,
       items,
@@ -515,7 +516,9 @@ export type TestResult = "ok" | "not-native" | "denied" | "missing-sound" | "err
 export async function sendNativeTestNotification(lang: "en" | "ar"): Promise<TestResult> {
   if (!isNativeApp()) return "not-native";
   if (!PRE_REMINDER_SOUND_BUNDLED) return "missing-sound";
-  const perm = await ensureNativePermission();
+  // Explicit developer-triggered test action (a button tap on the hidden
+  // diagnostics page) — allowed to prompt, same as any other direct user action.
+  const perm = await ensureNativePermission(true);
   if (!perm.granted) return "denied";
   try {
     const LN = await plugin();
@@ -551,7 +554,8 @@ export async function sendNativePreReminderTest(
 ): Promise<PreReminderTestResult> {
   if (!isNativeApp()) return "not-native";
   if (!PRE_REMINDER_SOUND_BUNDLED) return "missing-sound";
-  const perm = await ensureNativePermission();
+  // Explicit developer-triggered test action — allowed to prompt.
+  const perm = await ensureNativePermission(true);
   if (!perm.granted) return "denied";
   const LN = await plugin();
   await LN.schedule({
@@ -655,16 +659,19 @@ export async function runNativeNotificationTest(opts?: {
 
   try {
     const LN = await plugin();
-    let perm = await LN.checkPermissions();
-    log(`checkPermissions → ${perm.display}`);
-    if (perm.display === "prompt" || perm.display === "prompt-with-rationale") {
-      perm = await LN.requestPermissions();
-      log(`requestPermissions → ${perm.display}`);
+    // Routed through the same unified gate as every other permission check in
+    // the app — this diagnostic tool is an explicit developer button tap, so
+    // it's one of the few call sites allowed to actually prompt.
+    let { status } = await checkOrRequestNotificationPermission(false);
+    log(`checkPermissions → ${status}`);
+    if (status === "prompt") {
+      ({ status } = await checkOrRequestNotificationPermission(true));
+      log(`requestPermissions → ${status}`);
     }
-    report.permission = perm.display;
-    report.granted = perm.display === "granted";
+    report.permission = status;
+    report.granted = status === "granted";
     if (!report.granted) {
-      report.error = `الإذن غير ممنوح (${perm.display})`;
+      report.error = `الإذن غير ممنوح (${status})`;
       return report;
     }
 
