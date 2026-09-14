@@ -1,4 +1,68 @@
 workflows:
+  # Fully unsigned build — no Apple Developer account, certificates,
+  # provisioning profiles, App Store Connect integration, or keychain
+  # access required. Produces a plain IPA (Payload/App.app zipped) meant
+  # to be signed externally afterwards. This is the workflow that should
+  # be selected/run in Codemagic for unsigned builds.
+  ios-build-unsigned:
+    name: iOS build (unsigned IPA — no Apple credentials required)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      vars:
+        XCODE_PROJECT: "ios/App/App.xcodeproj"
+        XCODE_SCHEME: "App"
+        BUNDLE_ID: "com.techsnds.islamicelite"
+      node: 22
+      xcode: latest
+    scripts:
+      - name: Install dependencies
+        script: npm ci
+      - name: Build web bundle
+        script: npm run build
+      - name: Sync Capacitor iOS
+        script: npx cap sync ios
+      - name: Set version and build number
+        script: |
+          cd ios/App
+          agvtool new-marketing-version "1.0.0"
+          agvtool new-version -all "$BUILD_NUMBER"
+          cd ../..
+      - name: Resolve Swift packages
+        script: |
+          xcodebuild -project "$CM_BUILD_DIR/$XCODE_PROJECT" -scheme "$XCODE_SCHEME" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            -resolvePackageDependencies
+      - name: Build app (no code signing)
+        script: |
+          xcodebuild -project "$CM_BUILD_DIR/$XCODE_PROJECT" -scheme "$XCODE_SCHEME" \
+            -configuration Release -sdk iphoneos \
+            -derivedDataPath "$CM_BUILD_DIR/build/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            clean build
+      - name: Package unsigned IPA
+        script: |
+          set -e
+          APP_PATH="$CM_BUILD_DIR/build/DerivedData/Build/Products/Release-iphoneos/App.app"
+          OUT_DIR="$CM_BUILD_DIR/build/ios/ipa"
+          rm -rf "$CM_BUILD_DIR/build/Payload" "$OUT_DIR"
+          mkdir -p "$CM_BUILD_DIR/build/Payload" "$OUT_DIR"
+          cp -R "$APP_PATH" "$CM_BUILD_DIR/build/Payload/"
+          cd "$CM_BUILD_DIR/build"
+          zip -qry "$OUT_DIR/IslamicElite-unsigned.ipa" Payload
+          ls -lh "$OUT_DIR"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      email:
+        recipients:
+          - um7171@gmail.com
+
+  # Signed release workflow — requires an "App Store Connect" integration
+  # configured in Codemagic (Team settings -> Integrations) plus
+  # certificates/provisioning profiles fetched via that integration. Do
+  # NOT select this workflow for an unsigned/manual-signing build.
   ios-release-signed:
     name: iOS release (signed IPA via App Store Connect)
     instance_type: mac_mini_m2
@@ -61,57 +125,3 @@ workflows:
       app_store_connect:
         auth: integration
         submit_to_testflight: false
-
-  ios-build-unsigned:
-    name: iOS build (unsigned IPA for manual signing)
-    instance_type: mac_mini_m2
-    max_build_duration: 60
-    environment:
-      vars:
-        XCODE_PROJECT: "ios/App/App.xcodeproj"
-        XCODE_SCHEME: "App"
-        BUNDLE_ID: "com.techsnds.islamicelite"
-      node: 22
-      xcode: latest
-    scripts:
-      - name: Install dependencies
-        script: npm ci
-      - name: Build web bundle
-        script: npm run build
-      - name: Sync Capacitor iOS
-        script: npx cap sync ios
-      - name: Set version and build number
-        script: |
-          cd ios/App
-          agvtool new-marketing-version "1.0.0"
-          agvtool new-version -all "$BUILD_NUMBER"
-          cd ../..
-      - name: Resolve Swift packages
-        script: |
-          xcodebuild -project "$CM_BUILD_DIR/$XCODE_PROJECT" -scheme "$XCODE_SCHEME" \
-            -resolvePackageDependencies
-      - name: Build app (no code signing)
-        script: |
-          xcodebuild -project "$CM_BUILD_DIR/$XCODE_PROJECT" -scheme "$XCODE_SCHEME" \
-            -configuration Release -sdk iphoneos \
-            -derivedDataPath "$CM_BUILD_DIR/build/DerivedData" \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
-            clean build
-      - name: Package unsigned IPA
-        script: |
-          set -e
-          APP_PATH="$CM_BUILD_DIR/build/DerivedData/Build/Products/Release-iphoneos/App.app"
-          OUT_DIR="$CM_BUILD_DIR/build/ios/ipa"
-          rm -rf "$CM_BUILD_DIR/build/Payload" "$OUT_DIR"
-          mkdir -p "$CM_BUILD_DIR/build/Payload" "$OUT_DIR"
-          cp -R "$APP_PATH" "$CM_BUILD_DIR/build/Payload/"
-          cd "$CM_BUILD_DIR/build"
-          zip -qry "$OUT_DIR/IslamicElite-unsigned.ipa" Payload
-          ls -lh "$OUT_DIR"
-    artifacts:
-      - build/ios/ipa/*.ipa
-      - /tmp/xcodebuild_logs/*.log
-    publishing:
-      email:
-        recipients:
-          - um7171@gmail.com
