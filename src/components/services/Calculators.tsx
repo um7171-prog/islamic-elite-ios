@@ -114,7 +114,11 @@ export function ZakatCalculator() {
   const goldValue = num(gold) * num(goldPrice);
   const base = num(cash) + goldValue + num(trade) - num(debts);
   const nisab = 85 * num(goldPrice);
-  const due = base >= nisab ? base * 0.025 : 0;
+  // A zero/blank gold price would make nisab 0, which would wrongly mark
+  // any non-negative wealth as "Zakat is due" — never treat that as a
+  // reachable nisab.
+  const nisabKnown = nisab > 0;
+  const due = nisabKnown && base >= nisab ? base * 0.025 : 0;
 
   return (
     <div className="space-y-4">
@@ -122,7 +126,7 @@ export function ZakatCalculator() {
         <NumberField label={t("Cash & savings", "النقد والمدخرات")} value={cash} onChange={setCash} suffix="SAR" />
         <NumberField label={t("Trade goods", "عروض التجارة")} value={trade} onChange={setTrade} suffix="SAR" />
         <NumberField label={t("Gold (grams, 24k)", "الذهب (غرام ٢٤)")} value={gold} onChange={setGold} suffix="g" />
-        <NumberField label={t("Gold price / gram", "سعر غرام الذهب")} value={goldPrice} onChange={setGoldPrice} suffix="SAR" />
+        <NumberField label={t("Gold price / gram", "سعر غرام الذهب")} value={goldPrice} onChange={setGoldPrice} suffix="SAR" min={1} />
         <NumberField label={t("Debts due", "الديون المستحقة")} value={debts} onChange={setDebts} suffix="SAR" />
       </div>
       <ResultCard
@@ -131,7 +135,7 @@ export function ZakatCalculator() {
         rows={[
           { label: t("Zakatable wealth", "وعاء الزكاة"), value: money(base) },
           { label: t("Nisab (85g gold)", "النصاب (٨٥غ ذهب)"), value: money(nisab) },
-          { label: t("Status", "الحالة"), value: base >= nisab ? t("Zakat is due", "بلغ النصاب") : t("Below nisab", "أقل من النصاب"), strong: true },
+          { label: t("Status", "الحالة"), value: !nisabKnown ? t("Enter a gold price to compute nisab", "أدخل سعر الذهب لحساب النصاب") : base >= nisab ? t("Zakat is due", "بلغ النصاب") : t("Below nisab", "أقل من النصاب"), strong: true },
         ]}
       />
     </div>

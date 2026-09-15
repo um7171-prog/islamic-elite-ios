@@ -23,7 +23,7 @@ export function OcrTool() {
   const [copied, setCopied] = useState(false);
 
   const run = async (file?: File | null) => {
-    if (!file) return;
+    if (!file || busy) return;
     if (!ensureExternalAIConsent(lang === "ar" ? "ar" : "en")) {
       if (inputRef.current) inputRef.current.value = "";
       return;

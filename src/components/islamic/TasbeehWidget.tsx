@@ -5,17 +5,20 @@ import { useLocale } from "@/contexts/LocaleContext";
 export function TasbeehWidget() {
   const { t, dir } = useLocale();
   const [count, setCount] = useState<number>(() => Number(localStorage.getItem("tasbeeh") || 0));
-  const [phraseIdx, setPhraseIdx] = useState(0);
+  const [phraseIdx, setPhraseIdx] = useState<number>(() => Number(localStorage.getItem("tasbeeh.phrase") || 0));
 
   const phrases = [
     { ar: "سُبْحَانَ ٱللَّٰه", en: "SubhanAllah", target: 33 },
     { ar: "ٱلْحَمْدُ لِلَّٰه", en: "Alhamdulillah", target: 33 },
     { ar: "ٱللَّٰهُ أَكْبَر",   en: "Allahu Akbar", target: 34 },
   ];
-  const phrase = phrases[phraseIdx];
+  const phrase = phrases[phraseIdx] ?? phrases[0];
   const progress = Math.min(1, count / phrase.target);
 
   useEffect(() => { localStorage.setItem("tasbeeh", String(count)); }, [count]);
+  // Persist the active phrase too — otherwise reopening the widget always
+  // shows phrase 1 while the count keeps counting toward a different phrase.
+  useEffect(() => { localStorage.setItem("tasbeeh.phrase", String(phraseIdx)); }, [phraseIdx]);
 
   const tap = () => {
     setCount(c => {

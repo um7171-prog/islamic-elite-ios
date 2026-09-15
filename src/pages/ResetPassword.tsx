@@ -120,7 +120,7 @@ export default function ResetPassword() {
           <>
             <div className="space-y-3">
               <div className="relative">
-                <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40 pointer-events-none" />
+                <Lock className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40 pointer-events-none" />
                 <Input
                   type={show ? "text" : "password"}
                   autoComplete="new-password"
@@ -128,12 +128,12 @@ export default function ResetPassword() {
                   value={pass}
                   onChange={(e) => { setPass(e.target.value); setError(null); }}
                   dir="ltr"
-                  className="pr-10 pl-10 h-11"
+                  className="ps-10 pe-10 h-11"
                 />
                 <button
                   type="button"
                   onClick={() => setShow((s) => !s)}
-                  className="absolute start-2 top-1/2 -translate-y-1/2 h-11 w-11 grid place-items-center rounded-md text-foreground/50 hover:text-foreground hover:bg-foreground/5 transition"
+                  className="absolute end-2 top-1/2 -translate-y-1/2 h-11 w-11 grid place-items-center rounded-md text-foreground/50 hover:text-foreground hover:bg-foreground/5 transition"
                   aria-label={show ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
                   tabIndex={-1}
                 >
@@ -142,7 +142,7 @@ export default function ResetPassword() {
               </div>
 
               <div className="relative">
-                <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40 pointer-events-none" />
+                <Lock className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40 pointer-events-none" />
                 <Input
                   type={show ? "text" : "password"}
                   autoComplete="new-password"
@@ -151,7 +151,7 @@ export default function ResetPassword() {
                   onChange={(e) => { setConfirm(e.target.value); setError(null); }}
                   onKeyDown={(e) => { if (e.key === "Enter" && !loading) submit(); }}
                   dir="ltr"
-                  className="pr-10 h-11"
+                  className="ps-10 h-11"
                 />
               </div>
             </div>

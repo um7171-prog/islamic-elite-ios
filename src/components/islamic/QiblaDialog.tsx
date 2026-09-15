@@ -109,12 +109,20 @@ export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChang
 
   // Auto-start only when the platform grants motion access without a prompt
   // (Android / desktop). iOS always waits for the "Enable compass" button.
+  // Depends on the specific primitive fields actually read here (not the
+  // whole `compass` object, which useQiblaCompass returns as a brand-new
+  // object every render) so this doesn't re-run on every re-render while
+  // the dialog stays open.
   useEffect(() => {
     if (!open) return;
     if (compass.needsPermission) return;
     if (compass.status !== "idle") return;
     void compass.start().catch(() => undefined);
-  }, [open, compass]);
+    // Deliberately narrower than the whole `compass` object (a new object
+    // literal every render) — every field this effect actually reads is
+    // already listed above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, compass.needsPermission, compass.status, compass.start]);
 
   // Alignment feedback derived from the hook's heading — pure, cannot throw.
   useEffect(() => {
@@ -511,10 +519,15 @@ export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChang
 
           {/* ===== BOTTOM ROW ===== */}
           <div className="mt-6 flex items-center justify-between gap-2">
-            {/* μT badge */}
+            {/* Accuracy badge — reflects the real accuracy tier computed by
+                AccuracyEstimator from actual heading samples. This used to
+                show a fixed "35/44/52 μT" number with no magnetometer ever
+                read anywhere in this app — a fabricated measurement. */}
             <div className="h-14 w-14 rounded-full bg-[hsl(var(--qibla-card-bg))] shadow flex flex-col items-center justify-center text-[hsl(var(--qibla-coord-fg))]">
-              <span className="text-[13px] font-bold leading-none">{accuracy === "high" ? 35 : accuracy === "medium" ? 44 : 52}</span>
-              <span className="text-[10px] text-[hsl(var(--qibla-muted-fg))] mt-0.5">μT</span>
+              <span className="text-[13px] font-bold leading-none">
+                {accuracy === "high" ? "●●●" : accuracy === "medium" ? "●●" : accuracy === "low" ? "●" : "—"}
+              </span>
+              <span className="text-[9px] text-[hsl(var(--qibla-muted-fg))] mt-0.5">{t("Accuracy", "الدقة")}</span>
             </div>
 
             {/* Distance card */}

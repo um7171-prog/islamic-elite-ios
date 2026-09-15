@@ -186,7 +186,7 @@ export function TranslatorDialog({ open: openProp, onOpenChange, hideTrigger }: 
             </select>
           </div>
 
-          <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+          <div className="flex-1 overflow-y-auto space-y-3 pe-1">
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}

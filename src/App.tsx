@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { ScrollToTop } from "@/components/ScrollToTop";
@@ -10,20 +11,17 @@ import { LocaleProvider } from "@/contexts/LocaleContext";
 import { CityProvider } from "@/contexts/CityContext";
 import { PrayerCalcProvider } from "@/contexts/PrayerCalcContext";
 import Index from "./pages/Index.tsx";
-import Admin from "./pages/Admin.tsx";
 import ResetPassword from "./pages/ResetPassword.tsx";
 import Settings from "./pages/Settings.tsx";
 import NotificationDiagnostics from "./pages/NotificationDiagnostics.tsx";
 import { NativeNotificationRouter } from "./components/NativeNotificationRouter";
 import { NativeAthanScheduler } from "./components/NativeAthanScheduler";
 import { NotificationPermissionPrompt } from "./components/islamic/NotificationPermissionPrompt";
-import Mushaf from "./pages/Mushaf.tsx";
-import AI from "./pages/AI.tsx";
+// FileConverterPage is intentionally kept as a static (non-lazy) import —
+// the file/document conversion tool must not be touched in any way,
+// including how its chunk loads.
 import FileConverterPage from "./pages/FileConverterPage.tsx";
 import { isIOSNativeApp } from "@/lib/platform";
-import BackgroundRemoverPage from "./pages/ai/BackgroundRemover.tsx";
-import ImageEnhancerPage from "./pages/ai/ImageEnhancer.tsx";
-import OcrPage from "./pages/ai/Ocr.tsx";
 import Privacy from "./pages/Privacy.tsx";
 import Terms from "./pages/Terms.tsx";
 import Contact from "./pages/Contact.tsx";
@@ -32,13 +30,31 @@ import Cookies from "./pages/Cookies.tsx";
 import Disclaimer from "./pages/Disclaimer.tsx";
 import Faq from "./pages/Faq.tsx";
 import SitemapPage from "./pages/SitemapPage.tsx";
-import SaudiJobs from "./pages/SaudiJobs.tsx";
-import SaudiJobDetails from "./pages/SaudiJobDetails.tsx";
-import GovernmentJobs from "./pages/GovernmentJobs.tsx";
-
 import NotFound from "./pages/NotFound.tsx";
 
+// Heavy, less-frequently-visited routes — code-split so a user who only
+// checks prayer times doesn't download/parse the Mushaf, AI/OCR (onnxruntime
+// WASM), Admin dashboard, or job-board bundles on first load.
+const Admin = lazy(() => import("./pages/Admin.tsx"));
+const Mushaf = lazy(() => import("./pages/Mushaf.tsx"));
+const AI = lazy(() => import("./pages/AI.tsx"));
+const BackgroundRemoverPage = lazy(() => import("./pages/ai/BackgroundRemover.tsx"));
+const ImageEnhancerPage = lazy(() => import("./pages/ai/ImageEnhancer.tsx"));
+const OcrPage = lazy(() => import("./pages/ai/Ocr.tsx"));
+const SaudiJobs = lazy(() => import("./pages/SaudiJobs.tsx"));
+const SaudiJobDetails = lazy(() => import("./pages/SaudiJobDetails.tsx"));
+const GovernmentJobs = lazy(() => import("./pages/GovernmentJobs.tsx"));
+
 const queryClient = new QueryClient();
+
+/** Minimal, theme-safe placeholder while a lazy route chunk loads. */
+function RouteFallback() {
+  return (
+    <div className="flex items-center justify-center py-24 text-foreground/50 text-sm">
+      …
+    </div>
+  );
+}
 
 // Tool routes render Index and auto-open the matching dialog based on URL.
 const TOOL_PATHS = [
@@ -71,6 +87,7 @@ const AppShell = () => {
         data-app-scroll-container
         className={`app-scroll${allowPinch ? " allow-pinch" : ""}`}
       >
+        <Suspense fallback={<RouteFallback />}>
         <Routes>
           <Route path="/" element={<Index />} />
           {TOOL_PATHS.filter((p) => !(iosNative && p === "/media")).map((p) => (
@@ -105,6 +122,7 @@ const AppShell = () => {
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </Suspense>
       </main>
     </div>
   );

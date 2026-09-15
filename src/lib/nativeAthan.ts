@@ -143,8 +143,13 @@ export async function nativePermissionGranted(): Promise<boolean> {
 
 /**
  * Dedicated id range owned by the prayer scheduler:
- *   id = 10000 + day*1000 + slot*10 + kind   (day < 12, slot < 30, kind 1..3)
- * → all ids fall strictly inside 10000..99999.
+ *   id = 10000 + day*1000 + slot*10 + kind   (kind 1..3)
+ * `executeNativeAthanReschedule` hard-caps the schedule horizon at 3 days
+ * (`Math.min(input.days ?? 3, 3)`) and slot stays within 0-23, which keeps
+ * every real id within ATHAN_ID_MIN..ATHAN_ID_MAX (10000..19999) — well
+ * clear of the `events` range (20000-29999) in nativeNotify.ts. The formula
+ * itself is not range-safe for arbitrary day/slot values; if that 3-day cap
+ * is ever loosened, this bound must be re-verified.
  * kind 1 = athan, kind 2 = pre-prayer istighfar reminder, kind 3 = night alert.
  * Test notifications use 99xxxx (outside the range) and any other feature's
  * notifications (< 10000 or > 99999) are never cancelled by this module.

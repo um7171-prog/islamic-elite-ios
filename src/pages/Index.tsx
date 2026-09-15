@@ -143,7 +143,7 @@ function Dashboard() {
           onClick={(e) => { e.preventDefault(); navigate("/"); }}
           aria-label={t("Elite Islamic — Home", "النخبة الإسلامية — الرئيسية")}
           title={t("Elite Islamic", "النخبة الإسلامية")}
-          className="glass rounded-2xl pl-3 pr-2 py-1.5 flex items-center gap-2.5 shrink-0 transition hover:scale-[1.02]"
+          className="glass rounded-2xl ps-3 pe-2 py-1.5 flex items-center gap-2.5 shrink-0 transition hover:scale-[1.02]"
           style={{ touchAction: "manipulation" }}
         >
           <img

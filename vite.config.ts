@@ -15,6 +15,13 @@ const CAF_NAMES = [
   "athan_madinah.caf",
   "athan_fajr.caf",
   "athan_ibn_majid.caf",
+  // Calendar-event and Athkar reminder sounds (src/lib/reminderSounds.ts) —
+  // previously not verified here, so a renamed/removed file would have
+  // silently fallen back to no sound with no build-time warning.
+  "notif_bell.caf",
+  "notif_chime.caf",
+  "notif_alert.caf",
+  "notif_calm.caf",
 ];
 
 function bundledCafs(): string[] {

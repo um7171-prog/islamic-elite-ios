@@ -1058,7 +1058,11 @@ export function DocumentScannerDialog({ open, onOpenChange }: Props) {
         {view === "gallery" && (
           <div className="space-y-3">
             <div className="px-4 text-xs text-muted-foreground text-center">
-              {pages.length > 0 && t(`Page ${1} of ${pages.length}`, `صفحة 1 من ${pages.length}`)}
+              {pages.length > 0 &&
+                t(
+                  pages.length === 1 ? "1 page scanned" : `${pages.length} pages scanned`,
+                  pages.length === 1 ? "تم مسح صفحة واحدة" : `تم مسح ${pages.length} صفحات`,
+                )}
             </div>
             <div className="px-4 max-h-[55vh] overflow-y-auto space-y-3">
               {pages.map((p, i) => (

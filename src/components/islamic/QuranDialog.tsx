@@ -169,8 +169,22 @@ export function QuranDialog({ open, onOpenChange }: { open: boolean; onOpenChang
     if (!active) return;
     const url = `https://quran.com/${active.number}`;
     const title = `${active.name} — ${active.englishName}`;
-    if (navigator.share) { try { await navigator.share({ title, url }); } catch {} }
-    else { try { await navigator.clipboard.writeText(url); } catch {} }
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, url });
+      } catch (e) {
+        if ((e as Error)?.name !== "AbortError") {
+          toast({ title: "تعذّرت المشاركة" });
+        }
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(url);
+        toast({ title: "تم نسخ رابط السورة" });
+      } catch {
+        toast({ title: "تعذّر نسخ الرابط" });
+      }
+    }
   };
 
   const filtered = useMemo(() => {

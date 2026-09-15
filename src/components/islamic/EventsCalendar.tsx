@@ -22,9 +22,11 @@ import {
   REMINDER_CHOICES,
   REPEAT_CHOICES,
   Repeat,
+  eventDateTime,
   loadEvents,
   occursOn,
   pad2,
+  parseYmd,
   relativeLabel,
   saveEvents,
   upcoming,
@@ -80,7 +82,11 @@ export function EventsCalendar() {
     if (!id) return;
     const ev = events.find((e) => e.id === id);
     if (ev) {
-      const d = new Date(ev.date);
+      // `ev.date` is a bare "yyyy-mm-dd" string — `new Date(str)` parses that
+      // as UTC midnight, while every date shown elsewhere in this component
+      // is local time. For any user west of UTC that can open the calendar
+      // one day before the actual event. parseYmd() builds it in local time.
+      const d = parseYmd(ev.date);
       setSelected(d);
       setMonth(d);
     }
@@ -116,11 +122,24 @@ export function EventsCalendar() {
       toast({ title: t("Title required", "العنوان مطلوب"), variant: "destructive" });
       return;
     }
+    const dateStr = ymd(draft.date);
+    const time = draft.time || "09:00";
+    // A one-time event in the past is accepted silently today, then silently
+    // never scheduled (nextOccurrence() drops it) — the user is never told
+    // why no reminder ever arrives. Block it here with a clear message.
+    if (draft.repeat === "none" && eventDateTime(dateStr, time) <= new Date()) {
+      toast({
+        title: t("This time has already passed", "هذا الوقت قد فات بالفعل"),
+        description: t("Choose a future date and time.", "اختر تاريخًا ووقتًا في المستقبل."),
+        variant: "destructive",
+      });
+      return;
+    }
     const ev: CalEvent = {
       id: crypto.randomUUID(),
       title: draft.title.trim(),
-      date: ymd(draft.date),
-      time: draft.time || "09:00",
+      date: dateStr,
+      time,
       notes: draft.notes.trim() || undefined,
       repeat: draft.repeat,
       remindMinutesBefore: draft.remindMinutesBefore,

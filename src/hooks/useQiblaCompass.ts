@@ -165,9 +165,13 @@ export function useQiblaCompass(active: boolean) {
     }
     attach();
 
-    // If no sensor frame arrives, tell the user instead of spinning forever.
+    // If no sensor frame ever arrives (e.g. a Wi-Fi-only iPad with no
+    // magnetometer, or a browser that silently drops the API), tell the user
+    // instead of spinning on "Move device to activate compass" forever.
+    // Previously this re-set "running" to "running" — a no-op that never
+    // actually surfaced the existing "unsupported" message panel.
     window.setTimeout(() => {
-      if (!gotDataRef.current && listenerRef.current) setStatus((s) => (s === "running" ? "running" : s));
+      if (!gotDataRef.current && listenerRef.current) setStatus("unsupported");
     }, 4000);
   }, [attach]);
 

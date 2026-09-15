@@ -6,9 +6,15 @@ import { useAthanScheduler } from "@/hooks/useAthanScheduler";
 import { loadAthanSettings, saveAthanSettings, type AthanSettings } from "@/lib/athanSettings";
 import { getPrayerTimes } from "@/lib/prayer";
 import { isNativeApp } from "@/lib/nativeNotify";
+import { checkOrRequestNotificationPermission } from "@/lib/nativeAthan";
 import { loadEvents, saveEvents, syncEventNotifications } from "@/lib/events";
 import { loadAthkarSettings, saveAthkarSettings, syncAthkarReminders, type AthkarDayTimes } from "@/lib/athkarReminders";
 import { registerNativeNotificationCoordinator } from "@/lib/nativeNotificationCoordinator";
+
+// Must match NOTIFICATION_PERMISSION_ANSWERED_EVENT in NotificationPermissionPrompt.tsx.
+// Kept as a literal (not imported) to avoid a circular import — that module
+// imports useNativeAthanScheduler from this one.
+const PERMISSION_ANSWERED_EVENT = "athan:notification-permission-answered";
 
 interface SchedulerContextValue {
   settings: AthanSettings;
@@ -98,6 +104,17 @@ export function NativeAthanScheduler({ children }: { children: ReactNode }) {
     let disposed = false;
 
     const perform = async () => {
+      // CRITICAL: this runs automatically on every launch/foreground with no
+      // user action. Never let it reach the native scheduler while
+      // permission is still undecided — scheduleNativeGroup()'s iOS path
+      // calls the custom plugin's ensurePermission(), which auto-prompts
+      // Apple's real system dialog the instant status is "notDetermined".
+      // That bypassed the "only two call sites may ever prompt" rule the
+      // first-launch dialog and Settings button rely on. Read-only check;
+      // skip entirely until permission is actually granted (the listener
+      // below re-runs this the moment the user grants it).
+      const { granted } = await checkOrRequestNotificationPermission(false);
+      if (!granted || disposed) return;
       const days: AthkarDayTimes[] = [];
       for (let i = 0; i < 3; i++) {
         const d = new Date();
@@ -131,6 +148,12 @@ export function NativeAthanScheduler({ children }: { children: ReactNode }) {
 
     const unregister = registerNativeNotificationCoordinator(requestRun);
     const startup = window.setTimeout(requestRun, 900);
+    // Re-run the moment the user answers the first-launch dialog (or taps
+    // "Enable notifications now" in Settings) so events/athkar are scheduled
+    // right away when permission is freshly granted, instead of waiting for
+    // the next foreground/city-change to notice.
+    const onPermissionAnswered = () => requestRun();
+    window.addEventListener(PERMISSION_ANSWERED_EVENT, onPermissionAnswered);
 
     let remove: (() => void) | undefined;
     let listenerCancelled = false;
@@ -151,6 +174,7 @@ export function NativeAthanScheduler({ children }: { children: ReactNode }) {
       disposed = true;
       listenerCancelled = true;
       window.clearTimeout(startup);
+      window.removeEventListener(PERMISSION_ANSWERED_EVENT, onPermissionAnswered);
       unregister();
       remove?.();
     };

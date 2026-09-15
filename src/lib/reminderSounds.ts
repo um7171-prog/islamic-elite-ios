@@ -65,9 +65,21 @@ export function getReminderSound(id: ReminderSoundId | undefined): ReminderSound
   return REMINDER_SOUNDS.find((s) => s.id === id) ?? REMINDER_SOUNDS[0];
 }
 
-/** iOS notification `sound` value ("default" when no bundled file). */
+/**
+ * Build-time verified list of .caf files actually inside the iOS App Bundle
+ * (see vite.config.ts's CAF_NAMES / bundledCafs()) — the same safety net
+ * athanSettings.ts already applies to prayer/pre-reminder sounds. Without
+ * this, a renamed/removed reminder sound file would silently fail to play
+ * (iOS delivers a *silent* notification when it can't find the named sound)
+ * with no build-time warning.
+ */
+const BUNDLED_REMINDER_SOUNDS: string[] =
+  typeof __BUNDLED_CAFS__ !== "undefined" ? __BUNDLED_CAFS__ : [];
+
+/** iOS notification `sound` value ("default" when no bundled/verified file). */
 export function reminderSoundFile(id: ReminderSoundId | undefined): string {
-  return getReminderSound(id).file ?? "default";
+  const file = getReminderSound(id).file;
+  return file && BUNDLED_REMINDER_SOUNDS.includes(file) ? file : "default";
 }
 
 let previewEl: HTMLAudioElement | null = null;

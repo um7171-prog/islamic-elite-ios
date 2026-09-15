@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -60,11 +60,41 @@ const POST_PRAYER: Athkar[] = [
   { ar: AYAT_KURSI, en: "Ayat al-Kursi (once)", count: 1 },
 ];
 
-function List({ items }: { items: Athkar[] }) {
-  const [counts, setCounts] = useState<number[]>(() => items.map(() => 0));
+// The app advertises "progress saved" for Athkar, but tallies were only ever
+// in-memory React state — closing the dialog (a Radix Dialog, unmounted on
+// close) silently lost all progress. Persist per list, keyed by today's date
+// so tomorrow's Athkar start fresh rather than carrying over yesterday's tally.
+function todayKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function List({ items, storageKey }: { items: Athkar[]; storageKey: string }) {
+  const fullKey = `athkar.counts.${storageKey}.${todayKey()}`;
+  const [counts, setCounts] = useState<number[]>(() => {
+    try {
+      const raw = localStorage.getItem(fullKey);
+      const arr = raw ? JSON.parse(raw) : null;
+      if (Array.isArray(arr) && arr.length === items.length && arr.every((n) => typeof n === "number")) {
+        return arr;
+      }
+    } catch {
+      /* ignore malformed/unavailable storage */
+    }
+    return items.map(() => 0);
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(fullKey, JSON.stringify(counts));
+    } catch {
+      /* storage unavailable */
+    }
+  }, [counts, fullKey]);
+
   const tap = (i: number) => setCounts(c => c.map((v, idx) => idx === i ? Math.min(v + 1, items[i].count) : v));
   return (
-    <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+    <div className="space-y-3 max-h-[60vh] overflow-y-auto pe-1">
       {items.map((it, i) => {
         const done = counts[i] >= it.count;
         return (
@@ -95,10 +125,10 @@ export function AthkarDialog({ open, onOpenChange }: { open: boolean; onOpenChan
             <TabsTrigger value="sleep">{t("Sleep", "النوم")}</TabsTrigger>
             <TabsTrigger value="post-prayer">{t("Post-Prayer", "بعد الصلاة")}</TabsTrigger>
           </TabsList>
-          <TabsContent value="morning" className="pt-3"><List items={MORNING} /></TabsContent>
-          <TabsContent value="evening" className="pt-3"><List items={EVENING} /></TabsContent>
-          <TabsContent value="sleep" className="pt-3"><List items={SLEEP} /></TabsContent>
-          <TabsContent value="post-prayer" className="pt-3"><List items={POST_PRAYER} /></TabsContent>
+          <TabsContent value="morning" className="pt-3"><List items={MORNING} storageKey="morning" /></TabsContent>
+          <TabsContent value="evening" className="pt-3"><List items={EVENING} storageKey="evening" /></TabsContent>
+          <TabsContent value="sleep" className="pt-3"><List items={SLEEP} storageKey="sleep" /></TabsContent>
+          <TabsContent value="post-prayer" className="pt-3"><List items={POST_PRAYER} storageKey="post-prayer" /></TabsContent>
         </Tabs>
       </DialogContent>
     </Dialog>

@@ -46,14 +46,14 @@ export function CitySelector({ compact = false }: { compact?: boolean }) {
           <DialogTitle>{t("Search any city", "ابحث عن أي مدينة")}</DialogTitle>
         </DialogHeader>
         <div className="relative mt-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/45" />
+          <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/45" />
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t("City, governorate, or country", "مدينة أو محافظة أو دولة")}
-            className="pl-9"
+            className="ps-9"
           />
-          {loading && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-accent" />}
+          {loading && <Loader2 className="absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-accent" />}
         </div>
         <div className="max-h-[60vh] overflow-y-auto -mx-2 mt-2">
           {results.map((c) => {

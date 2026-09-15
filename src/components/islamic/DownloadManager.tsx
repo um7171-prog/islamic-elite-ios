@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLocale } from "@/contexts/LocaleContext";
 import { toast } from "@/hooks/use-toast";
 import { trackDownload } from "@/lib/analytics";
+import { isIOSNativeApp } from "@/lib/platform";
 
 function extractFirstUrl(value: string) {
   const match = value.trim().match(/https?:\/\/[^\s<>"']+/i);
@@ -341,6 +342,23 @@ export function DownloadManager() {
   const downloadSaved = async (f: SavedFile) => {
     const blob = await get<Blob>(STORE_PREFIX + f.id);
     if (!blob) return;
+    // A plain <a download> click is a silent no-op inside a Capacitor iOS
+    // WKWebView — there's no OS download manager to catch it (the same bug
+    // already fixed for shareSaved/saveToGallery in this file). Route
+    // through the real Share Sheet on iOS native first.
+    if (isIOSNativeApp()) {
+      try {
+        const file = new File([blob], f.name, { type: f.mime });
+        const data: ShareData = { files: [file], title: f.name };
+        const shareNavigator = navigator as ShareNavigator;
+        if (shareNavigator.canShare?.(data) && shareNavigator.share) {
+          await shareNavigator.share(data);
+          return;
+        }
+      } catch (e: unknown) {
+        if (isAbortError(e)) return; // user cancelled the share sheet
+      }
+    }
     const u = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = u; a.download = f.name; a.click();
@@ -452,7 +470,7 @@ export function DownloadManager() {
               <TabsTrigger value="files">{t("History", "السجل")} ({files.length})</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="new" className="space-y-3 pt-3 overflow-y-auto pr-1">
+            <TabsContent value="new" className="space-y-3 pt-3 overflow-y-auto pe-1">
               <div className="rounded-2xl border border-accent/20 bg-accent/5 p-3 space-y-2.5">
                 <Input
                   value={url}
@@ -542,7 +560,7 @@ export function DownloadManager() {
               )}
             </TabsContent>
 
-            <TabsContent value="files" className="space-y-2 pt-3 overflow-y-auto pr-1">
+            <TabsContent value="files" className="space-y-2 pt-3 overflow-y-auto pe-1">
               {files.length === 0 ? (
                 <div className="text-center text-xs text-foreground/50 py-8">
                   {t("No files yet.", "لا توجد ملفات بعد.")}
