@@ -83,12 +83,9 @@ request specified:
    `PrayerStrip.tsx`, `DateHeader.tsx`) already has most of these elements
    functionally; this phase is about restyling them to the new visual
    language, not adding missing features.
-2. **Services grid page** — a unified, elegant icon grid. Needs an audit
-   of every existing service first (Quran, Athkar, Qibla, prayer times,
-   Islamic occasions, calendar, Ramadan, 99 Names, Islamic education,
-   Islamic wallpapers, and anything else currently in
-   `EliteTools.tsx`/`ServicesHub.tsx`) to confirm what's live vs. broken
-   before touching layout — **not started**.
+2. **Services grid page** — a unified, elegant icon grid. The full audit of
+   every existing service is now done (see "Services inventory" below).
+   Layout work has not started yet — see the open decision that blocks it.
 3. **Athkar page** restyle (tabs, cards, counter, share, audio, RTL/LTR).
 4. **Qibla page** restyle (large compass, bearing display, sensor-accuracy
    messaging) — the underlying sensor/accuracy logic was already audited
@@ -115,13 +112,73 @@ request specified:
    a rushed conversion, per the instruction to stop and record rather than
    force an unsafe change.
 
+## Services inventory (full audit, done)
+
+Every service currently reachable in the app was found and checked for real
+(not placeholder) logic. **Nothing is broken** — every existing service
+works. The problems are entirely about *inconsistent placement*, not dead
+code:
+
+- **Home page's "Tools" tab currently stacks three unrelated UI blocks**:
+  `QuickServices` (10-item icon grid), `ServicesHub` (18-item searchable
+  card grid with categories/favorites), and `EliteTools` (a small 2-card
+  section). This is exactly the fragmentation the unified grid is meant to
+  fix.
+- **Duplicated Quran experience**: `QuranDialog.tsx` (surah list, per-ayah
+  text, reciter audio, bookmarks — fully built) is only reachable by typing
+  the `/quran` URL directly; the visible "Quran" icon instead navigates to
+  the separate Mushaf page-image reader (`/mushaf`). Two non-integrated
+  "read Quran" experiences exist side by side.
+- **File Converter not shown where it's coded**: `EliteTools.tsx` exports a
+  full 16-conversion `FileConverter`, but `EliteTools()` itself never
+  renders it — it's only reachable via the dedicated `/convert` route. Not
+  a bug (the route works fine), just inconsistent with its own file.
+- **Government Jobs and the 3 AI tools** (Background Remover, Image
+  Enhancer, OCR) are fully working but live only in the side menu, not in
+  any services grid.
+- **Dead code found**: `AppointmentsPanel.tsx` (533 lines, a complete
+  appointments/calendar feature) is not imported anywhere in the app —
+  superseded by `EventsCalendar.tsx`, which is the one users actually see.
+  Reporting this, not deleting it, per instructions.
+- **"Academic calendar" is labeled/treated as education-adjacent** in
+  `ServicesHub` but it is Saudi school-term/holiday dates, not Islamic
+  teaching content.
+
+### The four explicitly-requested features — do not exist
+
+A full-repo search found **no implementation anywhere** (not hidden, not
+broken — genuinely unwritten) for:
+
+1. **99 Names of Allah (أسماء الله الحسنى)**
+2. **Islamic education / learning content** (fiqh, hadith, seerah, etc. —
+   the "academic calendar" above is unrelated school dates)
+3. **Islamic wallpapers/backgrounds**
+4. **A dedicated Ramadan feature/mode** — Ramadan today is only one entry
+   in an occasions countdown list, plus an Isha-notification-delay toggle
+   in Athan settings; there is no fasting tracker, Suhoor/Iftar timer, or
+   Ramadan-specific screen.
+
+**This is the kind of decision point the instructions say to stop at rather
+than guess through.** The request describes these as services "موجودة فعليًا
+في المشروع" (that actually exist in the project) to include in the grid —
+but they don't exist. Building any of them for real (all 99 names with
+authentic meanings, actual Islamic educational content, a wallpaper gallery with
+properly licensed images, a full Ramadan mode) is new feature development,
+not a redesign of an existing feature, and each has its own content-sourcing
+and scope questions I should not guess at (what text/translations for the
+Names, what educational content and from which source, whose images for
+wallpapers and under what license). Flagging for your decision before the
+Services grid is built, rather than either silently dropping them from the
+grid or inventing placeholder content.
+
 ## Issues found, not yet fixed (recorded, not guessed at)
 
 - 3 component files still contain a handful of hardcoded hex colors outside
   the central token system (minor, to be swept during the page-by-page
   restyle rather than as a separate blind pass).
-- No service was found to be deleted or broken during this phase — that
-  audit happens in Phase 2 (Services grid) as planned.
+- Quran duplication, File Converter placement, Government Jobs/AI tools
+  grid placement, and the dead `AppointmentsPanel.tsx` (all above) are
+  product decisions for the Services grid design, not bugs to silently fix.
 
 ## Next phase
 
