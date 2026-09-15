@@ -8,6 +8,12 @@ import { checkOrRequestNotificationPermission } from "@/lib/nativeAthan";
 import { isIOSNativeApp } from "@/lib/platform";
 import { useNativeAthanScheduler } from "@/components/NativeAthanScheduler";
 
+// Every line here is prefixed so it can be found instantly in Xcode's
+// console / Console.app while diagnosing "the dialog never appeared on a
+// real iPhone" reports — a plain component-existence test cannot prove
+// this flow ran on device, only real device logs can.
+const flog = (...args: unknown[]) => console.info("[notif-prompt]", ...args);
+
 // Shown at most once per install — separate from the older, unused
 // firstLaunchPermissions.ts/OnboardingPermissions flow (which also touches
 // location and was never mounted). This dialog owns notifications only.
@@ -65,20 +71,31 @@ export function NotificationPermissionPrompt() {
 
   // Automatic first-launch trigger — runs once, only if never answered.
   useEffect(() => {
+    flog("mount — startedRef.current =", startedRef.current);
     if (startedRef.current) return;
     startedRef.current = true;
-    if (!isIOSNativeApp() || readFlag()) return;
+    const ios = isIOSNativeApp();
+    const flag = readFlag();
+    flog("first-launch check — isIOSNativeApp =", ios, "storedFlag =", flag);
+    if (!ios || flag) {
+      flog(!ios ? "skip: not native iOS" : `skip: already answered (${flag})`);
+      return;
+    }
 
     let cancelled = false;
+    flog(`scheduling auto-show in ${SHOW_DELAY_MS}ms`);
     const timer = window.setTimeout(async () => {
       // Read-only — only decides whether to SHOW the dialog, never prompts.
       const { status } = await checkOrRequestNotificationPermission(false);
+      flog("read-only permission check →", status);
       if (cancelled) return;
       if (status === "prompt") {
+        flog("showing first-launch dialog");
         setOpen(true);
       } else {
         // Already decided by some other historical path (e.g. an existing
         // install updating to this version) — nothing to ask, don't show it.
+        flog("permission already decided — not showing dialog, marking flag accepted");
         writeFlag("accepted");
       }
     }, SHOW_DELAY_MS);
@@ -105,22 +122,26 @@ export function NotificationPermissionPrompt() {
   }, []);
 
   const handleEnable = async () => {
+    flog("user tapped 'Enable notifications' — requesting real Apple permission");
     setRequesting(true);
     try {
       const { granted, status } = await checkOrRequestNotificationPermission(true);
+      flog("Apple permission result →", status, "granted =", granted);
       writeFlag("accepted");
       setOpen(false);
       window.dispatchEvent(new CustomEvent(NOTIFICATION_PERMISSION_ANSWERED_EVENT));
       if (granted) {
-        // Reschedule only now that permission actually just changed —
-        // not on every render/open.
-        await reschedule();
+        flog("scheduling prayer notifications now that permission is granted");
+        const count = await reschedule();
+        flog("reschedule() finished — scheduled count =", count);
         toast.success(
           t(
             "Notifications enabled — you'll get prayer time alerts.",
             "تم تفعيل الإشعارات، ستصلك تنبيهات مواقيت الصلاة في وقتها.",
           ),
         );
+      } else {
+        flog("permission not granted (status =", status, ") — nothing scheduled");
       }
       // status === "denied": the user dismissed Apple's own dialog with
       // "Don't Allow". The AthanSettingsCard banner already guides them to
@@ -133,6 +154,7 @@ export function NotificationPermissionPrompt() {
   };
 
   const handleLater = () => {
+    flog("user tapped 'Later' — deferring, no Apple prompt shown");
     writeFlag("deferred");
     setOpen(false);
     window.dispatchEvent(new CustomEvent(NOTIFICATION_PERMISSION_ANSWERED_EVENT));
@@ -148,12 +170,15 @@ export function NotificationPermissionPrompt() {
             <Bell className="h-6 w-6" />
           </div>
           <DialogTitle className="text-center text-base">
-            {t(
-              "Enable notifications to get prayer time and Athan alerts on time.",
-              "فعّل الإشعارات لتصلك تنبيهات مواقيت الصلاة والأذان في وقتها.",
-            )}
+            {t("Enable Islamic Elite notifications", "فعّل إشعارات النخبة الإسلامية")}
           </DialogTitle>
         </DialogHeader>
+        <ul className="text-start text-sm text-foreground/80 space-y-1.5 pt-1 pb-1 list-disc ps-5">
+          <li>{t("Prayer time notifications.", "إشعارات أوقات الصلوات.")}</li>
+          <li>{t("Athan alert.", "تنبيه الأذان.")}</li>
+          <li>{t("Reminder before prayer.", "التذكير قبل الصلاة.")}</li>
+          <li>{t("Important in-app alerts.", "التنبيهات المهمة داخل التطبيق.")}</li>
+        </ul>
         <div className="flex flex-col gap-2 pt-2">
           <Button onClick={() => void handleEnable()} disabled={requesting}>
             {requesting ? t("Requesting…", "جارٍ الطلب…") : t("Enable notifications", "تفعيل الإشعارات")}

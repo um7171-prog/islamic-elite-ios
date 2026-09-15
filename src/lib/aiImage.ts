@@ -1,4 +1,5 @@
 /** Shared client-side image AI helpers: high-quality matting, enhancement, export. */
+import { isIOSNativeApp } from "@/lib/platform";
 
 export type Progress = (p: number, label?: string) => void;
 
@@ -132,8 +133,27 @@ export async function exportImage(blob: Blob, format: "png" | "jpg"): Promise<Bl
   return canvasToBlob(c, "image/jpeg", 0.95);
 }
 
-/** Reliable download that works on iOS Safari and Android Chrome. */
-export function downloadBlob(blob: Blob, filename: string) {
+/**
+ * Reliable download that works in a real browser (iOS Safari, Android
+ * Chrome). Inside a Capacitor iOS WKWebView `<a download>` is a silent
+ * no-op — there is no OS download manager to catch it — so on iOS native
+ * this opens the real Share Sheet instead, the only reliable way to get a
+ * produced file out of the app onto Files/Photos/Mail.
+ */
+export async function downloadBlob(blob: Blob, filename: string): Promise<void> {
+  if (isIOSNativeApp()) {
+    try {
+      const file = new File([blob], filename, { type: blob.type });
+      const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean; share?: (d: { files: File[] }) => Promise<void> };
+      if (nav.canShare?.({ files: [file] })) {
+        await nav.share!({ files: [file] });
+        return;
+      }
+    } catch (e) {
+      if ((e as Error)?.name === "AbortError") return; // user cancelled the share sheet
+      console.info("[aiImage] native share failed, falling back to <a download>", e);
+    }
+  }
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;

@@ -8,6 +8,7 @@ import {
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import { openNativeAppSettings } from "@/lib/nativeAthan";
+import { isIOSNativeApp } from "@/lib/platform";
 
 interface Props {
   open: boolean;
@@ -768,25 +769,37 @@ export function DocumentScannerDialog({ open, onOpenChange }: Props) {
     return pdf.output("blob");
   };
 
-  // Returns true only once the PDF blob was actually built and the browser
-  // download was handed off without throwing — as much certainty as a plain
-  // <a download> click can give (there is no callback for "the OS finished
-  // writing the file"). The wording below reflects that: "downloaded", not
-  // an unconditional "saved".
+  // A plain <a download> click is a silent no-op inside a Capacitor iOS
+  // WKWebView — there is no OS download manager to catch it, so the previous
+  // version of this function showed "PDF downloaded" on iOS even though
+  // nothing actually reached Files/Photos. On iOS native this now opens the
+  // real Share Sheet instead (the only reliable way off the WKWebView), and
+  // only claims "downloaded" on web where the <a download> path is real.
   const savePdf = async (): Promise<boolean> => {
     if (!pages.length) return false;
     try {
       const blob = await buildPdf();
+      const filename = `scan-${Date.now()}.pdf`;
+      if (isIOSNativeApp()) {
+        const file = new File([blob], filename, { type: "application/pdf" });
+        const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
+        if (nav.canShare?.({ files: [file] })) {
+          await navigator.share({ files: [file], title: t("Scanned document", "مستند ممسوح") });
+          toast.success(t("Choose where to save the PDF", "اختر مكان حفظ PDF"));
+          return true;
+        }
+      }
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url; a.download = `scan-${Date.now()}.pdf`;
+      a.href = url; a.download = filename;
       document.body.appendChild(a);
       a.click();
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       toast.success(t("PDF downloaded", "تم تنزيل PDF"));
       return true;
-    } catch {
+    } catch (e) {
+      if ((e as Error)?.name === "AbortError") return false; // user cancelled the share sheet
       toast.error(t("Failed to create the PDF. Please try again.", "تعذّر إنشاء ملف PDF. حاول مرة أخرى."));
       return false;
     }

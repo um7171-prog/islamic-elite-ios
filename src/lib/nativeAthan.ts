@@ -88,18 +88,26 @@ export type NotifPermissionStatus = "granted" | "denied" | "prompt";
 export async function checkOrRequestNotificationPermission(
   allowPrompt = false,
 ): Promise<{ status: NotifPermissionStatus; granted: boolean }> {
-  if (!isNativeApp()) return { status: "prompt", granted: false };
+  if (!isNativeApp()) {
+    console.info("[athan:perm] not native — skipping permission check (web build)");
+    return { status: "prompt", granted: false };
+  }
   try {
     const LN = await plugin();
     const read = (display: string): NotifPermissionStatus =>
       display === "granted" ? "granted" : display === "denied" ? "denied" : "prompt";
-    let status = read((await LN.checkPermissions()).display);
+    const checkResult = await LN.checkPermissions();
+    let status = read(checkResult.display);
+    console.info(`[athan:perm] checkPermissions() → display="${checkResult.display}" → ${status}`);
     if (status === "prompt" && allowPrompt) {
-      status = read((await LN.requestPermissions()).display);
+      console.info("[athan:perm] status is undecided and allowPrompt=true — calling requestPermissions() (Apple's real dialog)");
+      const requestResult = await LN.requestPermissions();
+      status = read(requestResult.display);
+      console.info(`[athan:perm] requestPermissions() → display="${requestResult.display}" → ${status}`);
     }
     return { status, granted: status === "granted" };
   } catch (e) {
-    console.info("[athan] permission check error", e);
+    console.info("[athan:perm] permission check error", e);
     return { status: "prompt", granted: false };
   }
 }
@@ -221,7 +229,11 @@ export interface RescheduleResult {
  * clear first and use deterministic ids.
  */
 async function executeNativeAthanReschedule(input: RescheduleInput): Promise<RescheduleResult> {
-  if (!isNativeApp()) return { scheduled: 0, next: null, reason: "not-native" };
+  console.info("[athan:schedule] reschedule requested — lat/lng valid?", Number.isFinite(input.lat) && Number.isFinite(input.lng));
+  if (!isNativeApp()) {
+    console.info("[athan:schedule] not native — nothing to schedule (web build)");
+    return { scheduled: 0, next: null, reason: "not-native" };
+  }
   const { lat, lng, madhab, settings, lang, calc } = input;
   // Never schedule prayers before coordinates + settings are ready.
   if (
@@ -230,6 +242,7 @@ async function executeNativeAthanReschedule(input: RescheduleInput): Promise<Res
     (lat === 0 && lng === 0) ||
     !settings
   ) {
+    console.info("[athan:schedule] aborting — coordinates or settings not ready yet");
     return { scheduled: 0, next: null, reason: "empty" };
   }
   const LN = await plugin();

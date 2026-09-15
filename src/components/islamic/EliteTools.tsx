@@ -23,12 +23,38 @@ function safeName(name: string) {
 type Result = { name: string; blob: Blob };
 let captureSink: Result[] | null = null;
 function setCapture(sink: Result[] | null) { captureSink = sink; }
-function downloadBlob(blob: Blob, filename: string) {
-  if (captureSink) { captureSink.push({ name: filename, blob }); return; }
+
+/**
+ * A plain `<a download>` click is silently a no-op inside a Capacitor iOS
+ * WKWebView — there is no OS download manager to catch it, so the user sees
+ * "conversion done" but nothing ever reaches Files/Photos/Mail. The only
+ * reliable way to get a produced file OUT of the app on iOS is the native
+ * Share Sheet (`navigator.share` with a `File`, which WKWebView on iOS 15+
+ * supports). On web this stays the ordinary `<a download>` link.
+ */
+async function saveOrShareBlob(blob: Blob, filename: string): Promise<void> {
+  if (isIOSNativeApp()) {
+    try {
+      const file = new File([blob], filename, { type: blob.type });
+      const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean; share?: (d: { files: File[] }) => Promise<void> };
+      if (nav.canShare?.({ files: [file] })) {
+        await nav.share!({ files: [file] });
+        return;
+      }
+    } catch (e) {
+      if ((e as Error)?.name === "AbortError") return; // user cancelled the share sheet
+      console.info("[convert] native share failed, falling back to <a download>", e);
+    }
+  }
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url; a.download = filename; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  if (captureSink) { captureSink.push({ name: filename, blob }); return; }
+  void saveOrShareBlob(blob, filename);
 }
 async function fileToImage(file: File | Blob): Promise<HTMLImageElement> {
   const url = URL.createObjectURL(file);
@@ -302,13 +328,13 @@ function ConversionDialog({ conv, onClose }: { conv: Conversion | null; onClose:
     }
   };
 
-  const downloadOne = (r: Result) => {
-    const url = URL.createObjectURL(r.blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = r.name; a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  const downloadOne = (r: Result) => { void saveOrShareBlob(r.blob, r.name); };
+  const downloadAll = () => {
+    // On iOS native, one share sheet for every file at once (matches
+    // shareAll's behaviour) instead of popping the sheet once per file.
+    if (isIOSNativeApp() && results.length > 1) { void shareAll(); return; }
+    results.forEach((r) => void saveOrShareBlob(r.blob, r.name));
   };
-  const downloadAll = () => results.forEach(downloadOne);
 
   const shareOne = async (r: Result) => {
     try {

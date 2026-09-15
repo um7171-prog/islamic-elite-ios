@@ -76,7 +76,7 @@ export function ImageToolStudio({ hint, fileBase, transparent, formats = ["png",
     setSaving(true);
     try {
       const out = await exportImage(resultRef.current, format);
-      downloadBlob(out, `${fileBase}-${Date.now()}.${format}`);
+      await downloadBlob(out, `${fileBase}-${Date.now()}.${format}`);
     } catch (e) {
       setError((e as Error).message || t("Save failed", "تعذر الحفظ"));
     } finally {

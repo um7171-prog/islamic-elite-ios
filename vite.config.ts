@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import fs from "fs";
+import { execSync } from "child_process";
 import { componentTagger } from "lovable-tagger";
 
 // Build-time verification that a notification sound is really part of the iOS
@@ -36,6 +37,20 @@ const BUILD_STAMP = new Date().toISOString();
 const APP_VERSION = "1.0.0";
 const APP_BUILD = process.env.BUILD_NUMBER || process.env.CM_BUILD_ID || "0";
 
+// Exact commit + branch baked into this build, so an installed IPA's actual
+// source can always be verified (Settings -> Advanced) instead of guessing
+// whether a real device is running a stale build from before the latest push.
+function gitInfo(): { commit: string; branch: string } {
+  try {
+    const commit = execSync("git rev-parse --short HEAD", { cwd: __dirname }).toString().trim();
+    const branch = execSync("git rev-parse --abbrev-ref HEAD", { cwd: __dirname }).toString().trim();
+    return { commit, branch };
+  } catch {
+    return { commit: "unknown", branch: "unknown" };
+  }
+}
+const GIT_INFO = gitInfo();
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   define: {
@@ -44,6 +59,8 @@ export default defineConfig(({ mode }) => ({
     __BUILD_STAMP__: JSON.stringify(BUILD_STAMP),
     __APP_VERSION__: JSON.stringify(APP_VERSION),
     __APP_BUILD__: JSON.stringify(String(APP_BUILD)),
+    __GIT_COMMIT__: JSON.stringify(GIT_INFO.commit),
+    __GIT_BRANCH__: JSON.stringify(GIT_INFO.branch),
   },
   server: {
     host: "::",

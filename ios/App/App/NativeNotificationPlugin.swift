@@ -42,6 +42,7 @@ public class NativeNotificationPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func ensurePermission(_ call: CAPPluginCall) {
         center.getNotificationSettings { settings in
+            print("[notify:native] ensurePermission — authorizationStatus=\(settings.authorizationStatus.rawValue)")
             switch settings.authorizationStatus {
             case .authorized:
                 call.resolve(["granted": true, "status": "authorized"])
@@ -50,11 +51,14 @@ public class NativeNotificationPlugin: CAPPlugin, CAPBridgedPlugin {
             case .ephemeral:
                 call.resolve(["granted": false, "status": "ephemeral"])
             case .notDetermined:
+                print("[notify:native] status notDetermined — calling requestAuthorization (this is the ONLY place this custom plugin ever prompts)")
                 self.center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
                     if let error = error {
+                        print("[notify:native] requestAuthorization ERROR: \(error.localizedDescription)")
                         call.reject("Notification permission error: \(error.localizedDescription)")
                         return
                     }
+                    print("[notify:native] requestAuthorization result — granted=\(granted)")
                     call.resolve(["granted": granted, "status": granted ? "authorized" : "denied"])
                 }
             default:

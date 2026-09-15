@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -30,6 +30,7 @@ import { SEO } from "@/components/SEO";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { isNativeApp, runNotificationDeliveryTest } from "@/lib/nativeNotify";
 import { getAnnouncementPushEnabled, setAnnouncementPushEnabled } from "@/lib/pushDevice";
+import { getAppVersion, type AppVersionInfo } from "@/lib/appVersion";
 
 const MADHABS: { id: MadhabId; en: string; ar: string; note: { en: string; ar: string } }[] = [
   { id: "hanbali", en: "Hanbali", ar: "الحنبلي", note: { en: "Umm Al-Qura default", ar: "أم القرى (الافتراضي)" } },
@@ -95,7 +96,12 @@ export default function Settings() {
   const [notificationTest, setNotificationTest] = useState<"idle" | "running" | "scheduled" | "failed">("idle");
   const [notificationTestMessage, setNotificationTestMessage] = useState("");
   const [announcementPush, setAnnouncementPush] = useState(() => getAnnouncementPushEnabled());
+  const [versionInfo, setVersionInfo] = useState<AppVersionInfo | null>(null);
   const nativeApp = isNativeApp();
+
+  useEffect(() => {
+    void getAppVersion().then(setVersionInfo);
+  }, []);
 
   const runNotificationTest = async () => {
     setNotificationTest("running");
@@ -383,8 +389,7 @@ export default function Settings() {
             it doesn't compete with the settings a regular user actually
             needs; its logic (runNotificationTest) is unchanged, just moved
             out of the main "App Announcements" section it used to share. */}
-        {nativeApp && (
-          <Collapsible className="glass rounded-2xl p-5">
+        <Collapsible className="glass rounded-2xl p-5">
             <CollapsibleTrigger className="flex w-full items-center gap-3 text-start [&[data-state=open]>svg]:rotate-180">
               <div className="h-10 w-10 rounded-xl grid place-items-center bg-foreground/10 text-foreground/60 shrink-0">
                 <Wrench className="h-5 w-5" />
@@ -396,45 +401,57 @@ export default function Settings() {
               <ChevronDown className="h-4 w-4 text-foreground/50 transition-transform shrink-0" />
             </CollapsibleTrigger>
             <CollapsibleContent className="space-y-3 pt-4">
-              <button
-                type="button"
-                onClick={runNotificationTest}
-                disabled={notificationTest === "running"}
-                className="flex w-full items-center justify-between rounded-xl border border-foreground/10 p-3 transition hover:bg-foreground/5 active:scale-[0.99] disabled:opacity-60"
-              >
-                <div className="text-start">
-                  <div className="text-sm font-medium">
-                    {notificationTest === "running"
-                      ? t("Scheduling…", "جارٍ الجدولة…")
-                      : t("Test after 12 seconds", "اختبار بعد 12 ثانية")}
-                  </div>
-                  <div className="text-[11px] text-foreground/60">
-                    {t("Schedules one isolated test without touching prayer reminders", "يجدول إشعار اختبار مستقل بدون لمس تنبيهات الصلاة")}
-                  </div>
-                </div>
-                <Bell className="h-5 w-5 text-accent" />
-              </button>
-              {notificationTestMessage && (
-                <div
-                  className={`rounded-xl border p-3 text-xs leading-relaxed ${
-                    notificationTest === "scheduled"
-                      ? "border-emerald-500/30 bg-emerald-500/10"
-                      : "border-destructive/30 bg-destructive/10"
-                  }`}
-                >
-                  {notificationTestMessage}
+              {/* Lets a real-device tester verify the installed IPA actually came
+                  from the expected commit/branch, instead of guessing whether a
+                  Codemagic build predates the latest push. */}
+              {versionInfo && (
+                <div className="rounded-xl border border-foreground/10 p-3 text-[11px] leading-relaxed font-mono" dir="ltr">
+                  <div>version {versionInfo.version} · build {versionInfo.build}</div>
+                  <div>commit {versionInfo.commit} · branch {versionInfo.branch}</div>
                 </div>
               )}
-              <Link
-                to="/notification-diagnostics"
-                className="flex items-center justify-between rounded-xl border border-foreground/10 p-3 text-sm hover:bg-foreground/5 transition"
-              >
-                <span>{t("Notification Diagnostics", "تشخيص الإشعارات")}</span>
-                <ArrowLeft className={`h-4 w-4 text-foreground/40 ${dir === "rtl" ? "" : "rotate-180"}`} />
-              </Link>
+              {nativeApp && (
+                <>
+                  <button
+                    type="button"
+                    onClick={runNotificationTest}
+                    disabled={notificationTest === "running"}
+                    className="flex w-full items-center justify-between rounded-xl border border-foreground/10 p-3 transition hover:bg-foreground/5 active:scale-[0.99] disabled:opacity-60"
+                  >
+                    <div className="text-start">
+                      <div className="text-sm font-medium">
+                        {notificationTest === "running"
+                          ? t("Scheduling…", "جارٍ الجدولة…")
+                          : t("Test after 12 seconds", "اختبار بعد 12 ثانية")}
+                      </div>
+                      <div className="text-[11px] text-foreground/60">
+                        {t("Schedules one isolated test without touching prayer reminders", "يجدول إشعار اختبار مستقل بدون لمس تنبيهات الصلاة")}
+                      </div>
+                    </div>
+                    <Bell className="h-5 w-5 text-accent" />
+                  </button>
+                  {notificationTestMessage && (
+                    <div
+                      className={`rounded-xl border p-3 text-xs leading-relaxed ${
+                        notificationTest === "scheduled"
+                          ? "border-emerald-500/30 bg-emerald-500/10"
+                          : "border-destructive/30 bg-destructive/10"
+                      }`}
+                    >
+                      {notificationTestMessage}
+                    </div>
+                  )}
+                  <Link
+                    to="/notification-diagnostics"
+                    className="flex items-center justify-between rounded-xl border border-foreground/10 p-3 text-sm hover:bg-foreground/5 transition"
+                  >
+                    <span>{t("Notification Diagnostics", "تشخيص الإشعارات")}</span>
+                    <ArrowLeft className={`h-4 w-4 text-foreground/40 ${dir === "rtl" ? "" : "rotate-180"}`} />
+                  </Link>
+                </>
+              )}
             </CollapsibleContent>
           </Collapsible>
-        )}
       </div>
     </div>
   );
