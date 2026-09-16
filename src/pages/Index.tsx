@@ -11,9 +11,7 @@ import { useTheme, type ThemeMode } from "@/contexts/ThemeContext";
 import { useLocation, useNavigate } from "react-router-dom";
 import { HeroPrayerCard } from "@/components/islamic/HeroPrayerCard";
 import { PrayerStrip } from "@/components/islamic/PrayerStrip";
-import { QuickServices } from "@/components/islamic/QuickServices";
 import { DateHeader } from "@/components/islamic/DateHeader";
-import { EliteTools } from "@/components/islamic/EliteTools";
 import { LanguageToggle } from "@/components/islamic/LanguageToggle";
 import { AnnouncementsBell } from "@/components/islamic/AnnouncementsBell";
 import { InstallPrompt } from "@/components/islamic/InstallPrompt";
@@ -271,11 +269,15 @@ function Dashboard() {
 
       {tab === "tools" && (
         <>
-          <section className="mb-4 mt-2">
+          {/* Unified Services grid — replaces the old three-block stack
+              (QuickServices + ServicesHub + EliteTools) with one consistent,
+              searchable, category-filterable grid covering every
+              confirmed-working service (see REDESIGN_PROGRESS.md Phase 3). */}
+          <section className="mb-6 mt-2">
             <h2 className="font-display text-xs uppercase tracking-[0.2em] text-foreground/60 mb-3 px-1">
-              {t("My Tools", "أدواتي")}
+              {t("Services", "الخدمات")}
             </h2>
-            <QuickServices
+            <ServicesHub
               athanSettings={athanSettings}
               onAthanChange={setAthanSettings}
               scheduledCount={scheduledCount}
@@ -284,22 +286,12 @@ function Dashboard() {
             />
           </section>
 
+          {/* Kept as its own rich embedded widget rather than a grid tile —
+              it's a live calendar view, not a single launchable tool, so a
+              tile that just reopened this same page would be circular. */}
           <section className="mb-6">
             <EventsCalendar />
           </section>
-
-          <section className="mb-6">
-            <h2 className="font-display text-xs uppercase tracking-[0.2em] text-foreground/60 mb-3 px-1">
-              {t("Daily Services Center", "مركز الخدمات اليومية")}
-            </h2>
-            <ServicesHub />
-          </section>
-
-
-          <section className="mb-6">
-            <EliteTools />
-          </section>
-
 
           {/* Internal linking (SEO): every tool discoverable via its own crawlable URL. */}
           <nav aria-label={t("All tools", "كل الأدوات")} className="mb-6">
@@ -316,6 +308,8 @@ function Dashboard() {
                 { to: "/qr-scanner", label: t("QR Scanner", "ماسح QR") },
                 { to: "/document-scanner", label: t("Document Scanner", "ماسح المستندات") },
                 { to: "/convert", label: t("File Converter", "تحويل الملفات") },
+                { to: "/calendar", label: t("Calendar", "التقويم") },
+                { to: "/asma-al-husna", label: t("99 Names of Allah", "أسماء الله الحسنى") },
               ].map((l) => (
                 <li key={l.to}>
                   <a href={l.to} onClick={(e) => { e.preventDefault(); navigate(l.to); }} className="px-2 py-1 rounded-md glass hover:text-accent">

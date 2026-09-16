@@ -243,19 +243,114 @@ query and the stored name before comparing, added `stripTashkeel()` in
   tools grid placement remain product decisions for the Services grid
   design, not bugs to silently fix.
 
+## Phase 3 — Unified Services Grid (done, on this branch only, not pushed)
+
+Replaced the three-block stack on the Home "Tools" tab (QuickServices +
+ServicesHub + EliteTools) with **one** unified, searchable, category-
+filterable grid, by extending the existing `ServicesHub.tsx` (which already
+had solid search/favorites/recents/category machinery for its 18 calculator
+tools) rather than writing a second, parallel grid component from scratch.
+
+**Design decisions made along the way, and why:**
+- Reused every existing dialog component as-is (`AthkarDialog`, `QiblaDialog`,
+  `TranslatorDialog`, `WeatherDialog`, `NotificationsDialog`,
+  `QRScannerDialog`, `DocumentScannerDialog`, `AsmaAlHusnaDialog`,
+  `TasbeehWidget`) — zero duplicated dialog logic. A tile's tap behavior is
+  one of three kinds: `"inline"` (opens ServicesHub's own shared dialog with
+  calculator/counter content, unchanged from before), `"dialog"` (opens one
+  of the self-contained dialogs above), or `"route"` (navigates to a real
+  page).
+- **Quran stayed exactly as it was**, per your explicit answer to the Phase 2
+  question: the tile navigates to the Mushaf reader (`/mushaf`); the direct
+  `/quran` URL still opens `QuranDialog` (via `initialOpen`, not the tile).
+- **"Prayer Times"** tile navigates to `/` (home) — there is no separate
+  prayer-times page; the home screen already is that experience.
+- **"Calendar"** tile navigates to `/calendar`, which shows the Tools tab
+  including the still-embedded `EventsCalendar` widget (kept as its own
+  section below the grid, not a tile, since it's a live calendar view, not a
+  single launchable tool — a tile that just reopened the same page would be
+  circular).
+- **"Islamic occasions"** tile is what surfaces Ramadan (alongside Eid,
+  Arafah, Ashura, Hijri new year) — there is still no separate "Ramadan
+  mode" page, and none was fabricated, per instruction #12 of this phase.
+- **No tile added for Islamic education or Islamic wallpapers** — neither
+  exists yet (confirmed in Phase 2), and instruction #12 explicitly says not
+  to start that content before checking back with you. A test
+  (`servicesGrid.test.tsx`) asserts no such tile is ever silently added.
+- Saudi Jobs and Government Jobs (previously in QuickServices/SideMenu only)
+  are now in the unified grid too, under the new "Tools" category, since
+  they're confirmed-working existing features the request said to carry
+  forward ("any other confirmed tools from the project audit").
+- Translations: this app has no separate per-language JSON files — its real,
+  working translation system is the inline `t(english, arabic)` call used at
+  every single UI string site (device-language detection, persisted choice,
+  and full RTL/LTR flip all already work through it, confirmed in Phase 1).
+  Every new string this phase introduces goes through that same mechanism,
+  with matching Arabic/English pairs — "the required language files" for
+  this codebase's actual architecture.
+
+**Files changed:**
+- `src/components/services/ServicesHub.tsx` — extended with 16 new tool
+  entries (Quran, Athkar, Qibla, Prayer Times, Calendar, 99 Names, Tasbeeh,
+  Translate, Weather, Notifications, QR Scanner, Document Scanner, File
+  Converter, Saudi Jobs, Government Jobs) alongside the 18 pre-existing
+  calculator/counter tools, two new category chips ("Worship"/العبادات,
+  "Tools"/أدوات), and the three self-contained dialogs plus route navigation
+  needed to open them.
+- `src/pages/Index.tsx` — removed the `QuickServices` and `EliteTools`
+  render calls and their now-unneeded imports; the Tools tab now renders
+  `<ServicesHub .../>` once, followed by the still-separate `EventsCalendar`
+  section; added the two new routes to the SEO internal-link list.
+- Deleted `src/components/islamic/QuickServices.tsx` — confirmed zero
+  remaining references anywhere in the app before deleting.
+- `EliteTools.tsx` was **not edited or deleted** — it still exports
+  `FileConverter`, used by the protected `FileConverterPage.tsx`. Only its
+  render call in `Index.tsx` was removed; the file itself is untouched.
+- Added `src/test/servicesGrid.test.tsx` — 14 new tests.
+
+**Verified, not just claimed:**
+- Real headless-browser screenshots at iPhone width (390px) confirmed: the
+  grid renders with the new visual identity (gold-ringed circular icons,
+  white cards on the light-gray background), category filtering works,
+  tapping Qibla opens the real, unmodified `QiblaDialog`, search/favorites
+  persist, and English mode correctly flips the whole grid to LTR — no
+  visual regressions, no console errors.
+- **No horizontal overflow**, checked programmatically in the same browser
+  session (`document.documentElement.scrollWidth === clientWidth`, both
+  390px, in Arabic and English) — jsdom-based unit tests cannot verify real
+  CSS layout, so this specific requirement was verified in an actual browser
+  engine, not asserted in vitest.
+- `npx tsc --noEmit`: clean.
+- `npm run test`: **50/50 passing** (11 files) — the 14 new tests cover:
+  every explicitly-requested confirmed-working service actually renders; no
+  tile exists for the two not-yet-built features; every route-kind tile
+  navigates to its real, correct path (checked against every path actually
+  registered in `App.tsx`, so a typo'd route would fail the test, not just
+  look fine visually); the Quran dual-behavior is preserved exactly; Arabic
+  ⇄ English toggling changes every visible label and flips `dir`; and every
+  "dialog"-kind tile id has a corresponding rendered dialog.
+- `npm run lint`: 129 problems — the exact pre-existing baseline, no new
+  issues.
+- `npm run build` (**substituted for the requested `npx expo export
+  --platform web`** — this project has no Expo dependency anywhere; it's a
+  Vite project, and `vite build` via `npm run build` is its real, actual web
+  export command): succeeds.
+- `npx cap sync`: succeeds (`Package.swift` reverted per the known
+  Windows-only quirk, unrelated to this change).
+
+**Committed locally only, on `islamic-elite-redesign-2026` — not pushed to
+remote**, per this phase's explicit instruction.
+
 ## Next phase
 
-Three things remain open, in rough priority order:
+Two things remain open, both explicitly held for your decision per
+instruction #12 of this phase — no placeholder/fabricated content was
+created for either:
 
 1. **Islamic education content and Islamic wallpapers** — both need your
    input before real work can start: what educational content and from
    which source for the former; whose images and under what license for
-   the latter. Will not fabricate placeholder content for either.
+   the latter.
 2. **A dedicated Ramadan mode** — needs a scope decision (fasting
    tracker? Suhoor/Iftar timers? a Ramadan-specific home screen?) before
    implementation.
-3. **The unified Services grid page itself** — now that the inventory is
-   complete and the 99 Names tile exists, the next step is designing and
-   building the single unified grid that replaces the current 3-block
-   stack (QuickServices + ServicesHub + EliteTools) on the Home "Tools"
-   tab, incorporating every confirmed-working service found in the audit.
