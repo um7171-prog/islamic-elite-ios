@@ -62,7 +62,7 @@ export default function FileConverterPage() {
         <FileConverter />
       </section>
 
-      <BottomNav active="convert" onChange={handleTabChange} />
+      <BottomNav active="tools" onChange={handleTabChange} />
     </div>
   );
 }

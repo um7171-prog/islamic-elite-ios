@@ -68,6 +68,13 @@
     --elite-gold-start: 45 67% 48%;     /* #D4B038 */
     --elite-gold-end:   45 75% 63%;     /* #E6C158 */
     --gradient-elite-gold: linear-gradient(135deg, hsl(var(--elite-gold-start)), hsl(var(--elite-gold-end)));
+    /* Deep Islamic green — the reference design's hero/header identity color,
+     * used for the prayer countdown card, splash screen, and other large
+     * brand blocks. Distinct from --primary (the brighter interactive
+     * green used for buttons/active states) — same hue family, darker. */
+    --elite-deep-green-a: 160 45% 14%;
+    --elite-deep-green-b: 165 42% 21%;
+    --gradient-hero: linear-gradient(135deg, hsl(var(--elite-deep-green-a)), hsl(var(--elite-deep-green-b)));
 
     /* Shadows */
     --shadow-glass: 0 8px 32px 0 hsl(165 60% 4% / 0.45);

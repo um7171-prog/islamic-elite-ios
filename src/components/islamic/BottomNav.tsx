@@ -1,9 +1,12 @@
-import { Home, LayoutGrid, Download, Repeat } from "lucide-react";
+import { Home, LayoutGrid, Heart, Settings as SettingsIcon } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
 import { resetAppScroll } from "@/components/ScrollToTop";
-import { isIOSNativeApp } from "@/lib/platform";
 
-export type TabKey = "home" | "convert" | "tools" | "media";
+// Matches the reference design's 4-tab bar: Home / Services / Favorites /
+// Settings. File Converter and the Media downloader are no longer their own
+// bottom-tab destinations — both are reachable as tiles inside the unified
+// Services grid (see ServicesHub.tsx), so nothing was removed, only moved.
+export type TabKey = "home" | "tools" | "favorites" | "settings";
 
 interface Props {
   /** "other" keeps every tab inactive (used by pages outside the main tabs). */
@@ -13,18 +16,12 @@ interface Props {
 
 export function BottomNav({ active, onChange }: Props) {
   const { t, dir } = useLocale();
-  const iosNative = isIOSNativeApp();
   const items: { key: TabKey; en: string; ar: string; Icon: React.ElementType }[] = [
     { key: "home", en: "Home", ar: "الرئيسية", Icon: Home },
-    // File conversion works fully offline/client-side, unlike the URL
-    // downloader in the Media tab, so it stays visible on iOS too.
-    { key: "convert", en: "Convert", ar: "تحويل", Icon: Repeat },
-    { key: "tools", en: "My Tools", ar: "أدواتي", Icon: LayoutGrid },
-    ...(!iosNative ? [
-      { key: "media" as TabKey, en: "Media", ar: "الوسائط", Icon: Download },
-    ] : []),
+    { key: "tools", en: "Services", ar: "الخدمات", Icon: LayoutGrid },
+    { key: "favorites", en: "Favorites", ar: "المفضلة", Icon: Heart },
+    { key: "settings", en: "Settings", ar: "الإعدادات", Icon: SettingsIcon },
   ];
-
 
   return (
     <nav

@@ -341,16 +341,114 @@ tools) rather than writing a second, parallel grid component from scratch.
 **Committed locally only, on `islamic-elite-redesign-2026` — not pushed to
 remote**, per this phase's explicit instruction.
 
+## Phase 4 — real reference images applied: structure, Home, bottom nav
+
+You shared the actual reference mockups for the first time this phase
+(deep Islamic green + gold/cream identity, rounded cards, a 4-tab bottom
+bar: Home / Services / Favorites / Settings). Previous phases were built
+from your text description alone since no images were visible earlier in
+the conversation — this phase re-aligns the work already done against the
+real images, starting with the structural pieces you asked to do first.
+
+**Bottom navigation — restructured to match the reference's 4 tabs:**
+- `BottomNav.tsx`: `TabKey` is now `"home" | "tools" | "favorites" |
+  "settings"` (was `"home" | "convert" | "tools" | "media"`). Labels
+  relabeled to match the reference: "الخدمات/Services" (same underlying tab
+  as before, just renamed from "أدواتي/My Tools"), a new "المفضلة/Favorites"
+  tab, and a new "الإعدادات/Settings" tab.
+- **Nothing was deleted** — File Converter and the Media downloader are no
+  longer bottom-nav *destinations*, but both are fully reachable: File
+  Converter was already a Services-grid tile (Phase 3); Media Downloader is
+  now a new tile too (`ServicesHub.tsx`, id `"media"`, hidden on iOS native
+  exactly like the old Media tab was). The `/convert` and `/media` pages
+  themselves are completely unchanged.
+- **Favorites** navigates to a new `/favorites` route that renders the same
+  Services grid pre-filtered to the "fav" category (`ServicesHub`'s new
+  `initialCategory` prop) — reusing the existing favorites
+  add/remove/persist logic from Phase 3 rather than building a second
+  favorites system.
+- **Settings** navigates to the existing `/settings` page (already had its
+  own gear-icon entry point in the header; now also reachable from the
+  bottom bar, matching the reference).
+- A real bug was caught and fixed during testing, not just claimed working:
+  the Favorites tab initially highlighted "Services" instead of "Favorites"
+  in the bottom bar (both shared the same internal `tab` state). Fixed by
+  computing the bar's active item from the actual URL
+  (`location.pathname === "/favorites"`) independently of which content
+  section renders.
+- `FileConverterPage.tsx`: one line changed (`BottomNav active="convert"` →
+  `active="tools"`, since "convert" is no longer a bottom-nav tab) — the
+  `<FileConverter />` render itself is untouched; `EliteTools.tsx` (which
+  owns the actual conversion logic) has zero diff for this entire phase.
+
+**Home page — hero card now matches the reference's consistent deep green,
+not a time-of-day-shifting gradient:**
+- Added `--gradient-hero` / `--elite-deep-green-a/b` tokens to `index.css` —
+  a deep forest/emerald green sampled from the reference images, distinct
+  from `--primary` (the brighter interactive green already used for
+  buttons/active states, left unchanged).
+- `HeroPrayerCard.tsx`: previously picked one of 5 different gradients
+  (fajr/dhuhr/asr/maghrib/isha) depending on the current prayer — every
+  reference screenshot instead shows one consistent dark green card
+  regardless of time of day, so `gradientFor()` was removed in favor of the
+  single `--gradient-hero`. This is a **visual-only** change: the
+  underlying current/next-prayer calculation, the countdown logic, and the
+  elapsed-time display are all untouched — confirmed the per-prayer
+  gradient data (`PrayerEntry.gradient` in `prayer.ts`) was never consumed
+  anywhere else in the app before changing this, so nothing else was
+  affected. Text inside the card is now hardcoded to light shades
+  (`text-white`, was `text-foreground`) since the card's background no
+  longer follows the app's light/dark theme — it's always this same deep
+  green, and `text-foreground` would otherwise turn dark brown and become
+  unreadable there in light mode (a real bug I checked for specifically,
+  not just an assumption).
+
+**Verified, not just claimed:**
+- Real headless-browser screenshots at iPhone width confirmed: the hero
+  card is now solid deep green with gold countdown numbers and white
+  labels (matches the reference); the bottom nav shows exactly
+  Home/Services/Favorites/Settings; tapping Favorites navigates to
+  `/favorites` and shows the correctly-filtered (empty, in a fresh browser)
+  grid; tapping Settings performs a real navigation to `/settings`; the
+  `/convert` page still renders and functions identically, with only its
+  bottom nav's highlighted tab changed. Zero console/page errors in any of
+  these checks.
+- `npx tsc --noEmit`: clean.
+- `npm run test`: **50/50 passing** (11 files, same suite as Phase 3 — no
+  test needed new assertions since this phase didn't add new services,
+  only restructured navigation and one component's visuals; the existing
+  `servicesGrid.test.tsx` continuing to pass confirms the Services grid
+  itself, its dialogs, and its routing were not broken by the nav changes).
+- `npm run lint`: 129 problems — exact pre-existing baseline, zero new.
+- `npm run build`: succeeds.
+- `npx cap sync`: succeeds (`Package.swift` reverted per the known
+  Windows-only quirk).
+
+**Known limitation, not hidden:** Settings (and other standalone pages
+like the AI tools, job boards, etc.) don't render `BottomNav` at all today,
+so the bar disappears once you navigate there — the reference shows a
+persistent bar on every screen. Fixing this properly means giving those
+pages their own `BottomNav` instance (with "other"/appropriate active
+state) rather than a quick patch, so it's deferred to a later phase rather
+than rushed alongside this one's structural changes.
+
 ## Next phase
 
-Two things remain open, both explicitly held for your decision per
-instruction #12 of this phase — no placeholder/fabricated content was
-created for either:
+Several things remain open:
 
-1. **Islamic education content and Islamic wallpapers** — both need your
-   input before real work can start: what educational content and from
-   which source for the former; whose images and under what license for
-   the latter.
-2. **A dedicated Ramadan mode** — needs a scope decision (fasting
+1. **The remaining reference-matched page restyles** — per your new
+   request's explicit page list: Splash screen, Services page (apply the
+   reference's rounded-icon-grid + category-chip look — the underlying
+   grid/search/favorites logic already exists from Phase 3, this is a
+   visual pass), Quran, Athkar, Qibla, Prayer Times, Hijri/Gregorian
+   Calendar, Appointments-with-notifications, File Converter (**visual
+   framing only, e.g. header/back-button style — the converter UI itself
+   stays untouched**), Calculators, Settings, Notifications.
+2. **Persistent bottom nav on every page** (see limitation above).
+3. **Islamic education content and Islamic wallpapers** — both still need
+   your input before real work can start: what educational content and
+   from which source for the former; whose images and under what license
+   for the latter. Still not fabricated.
+4. **A dedicated Ramadan mode** — still needs a scope decision (fasting
    tracker? Suhoor/Iftar timers? a Ramadan-specific home screen?) before
    implementation.

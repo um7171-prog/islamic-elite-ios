@@ -59,6 +59,7 @@ function RouteFallback() {
 // Tool routes render Index and auto-open the matching dialog based on URL.
 const TOOL_PATHS = [
   "/tools",
+  "/favorites",
   "/media",
   "/calendar",
   "/athkar",

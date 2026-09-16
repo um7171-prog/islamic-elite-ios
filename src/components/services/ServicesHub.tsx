@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Baby, BadgeDollarSign, Bell, Bookmark, BookOpen, Briefcase, CalendarDays, CalendarHeart, CalendarRange,
-  Clock4, Cloud, Coins, Compass, Flag, GraduationCap, Heart, Landmark, Languages, Moon,
+  Clock4, Cloud, Coins, Compass, Download, Flag, GraduationCap, Heart, Landmark, Languages, Moon,
   PiggyBank, Repeat, Ruler, Scale, ScanLine, ScanText, Search, Sparkles, Star, Sun, Timer, X,
 } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -31,6 +31,7 @@ import { QRScannerDialog } from "@/components/islamic/QRScannerDialog";
 import { DocumentScannerDialog } from "@/components/islamic/DocumentScannerDialog";
 import { AsmaAlHusnaDialog } from "@/components/islamic/AsmaAlHusnaDialog";
 import { TasbeehWidget } from "@/components/islamic/TasbeehWidget";
+import { isIOSNativeApp } from "@/lib/platform";
 import type { AthanSettings } from "@/lib/athanSettings";
 
 type CategoryKey = "religious" | "utility" | "calc" | "counters" | "school" | "islamic" | "national";
@@ -96,6 +97,9 @@ const TOOLS: Tool[] = [
   { id: "convert", en: "File Converter", ar: "تحويل الملفات", descEn: "Images, PDF & more", descAr: "صور وPDF وأكثر", category: "utility", Icon: Repeat, gradient: EMERALD, keywords: "تحويل ملفات pdf convert", action: { kind: "route", to: "/convert" } },
   { id: "jobs", en: "Saudi Jobs", ar: "وظائف السعودية", descEn: "Latest job openings", descAr: "أحدث الوظائف الشاغرة", category: "utility", Icon: Briefcase, gradient: EMERALD, keywords: "وظائف عمل jobs", action: { kind: "route", to: "/saudi-jobs" } },
   { id: "gov-jobs", en: "Government Jobs", ar: "الوظائف الحكومية", descEn: "Public sector openings", descAr: "وظائف القطاع الحكومي", category: "utility", Icon: Landmark, gradient: EMERALD, keywords: "وظائف حكومية government jobs", action: { kind: "route", to: "/government-jobs" } },
+  // Not shown on iOS native (filtered out below) — matches the pre-existing
+  // rule that hid this same feature from the old bottom-nav Media tab there.
+  { id: "media", en: "Media Downloader", ar: "تنزيل الوسائط", descEn: "Download & manage saved files", descAr: "تنزيل وإدارة الملفات المحفوظة", category: "utility", Icon: Download, gradient: BLUE, keywords: "تنزيل وسائط فيديو media download", action: { kind: "route", to: "/media" } },
 
   // 🧮 Calculators
   { id: "age", en: "Age calculator", ar: "حاسبة العمر", descEn: "Gregorian & Hijri", descAr: "ميلادي وهجري", category: "calc", Icon: Baby, gradient: GOLD, keywords: "عمر age birthday ميلاد", action: { kind: "inline", render: () => <AgeCalculator /> } },
@@ -173,13 +177,16 @@ interface Props {
    * navigates to the Mushaf reader, but the direct /quran URL still opens
    * QuranDialog — kept exactly as it already worked, unchanged. */
   initialOpen?: string | null;
+  /** Pre-selects a category chip — used by the bottom nav's Favorites tab
+   * (/favorites) to land directly on the "fav" filter. */
+  initialCategory?: "fav" | null;
 }
 
-export function ServicesHub({ athanSettings, onAthanChange, scheduledCount, onReschedule, initialOpen = null }: Props) {
+export function ServicesHub({ athanSettings, onAthanChange, scheduledCount, onReschedule, initialOpen = null, initialCategory = null }: Props) {
   const { t, lang, dir } = useLocale();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
-  const [cat, setCat] = useState<CategoryKey | "all" | "fav">("all");
+  const [cat, setCat] = useState<CategoryKey | "all" | "fav">(initialCategory ?? "all");
   const [openId, setOpenId] = useState<string | null>(null);
   const [openDialog, setOpenDialog] = useState<string | null>(initialOpen);
   const [favorites, setFavorites] = useState<string[]>(() => readList(FAV_KEY));
@@ -189,6 +196,10 @@ export function ServicesHub({ athanSettings, onAthanChange, scheduledCount, onRe
   useEffect(() => {
     if (initialOpen) setOpenDialog(initialOpen);
   }, [initialOpen]);
+
+  useEffect(() => {
+    if (initialCategory) setCat(initialCategory);
+  }, [initialCategory]);
 
   useEffect(() => { localStorage.setItem(FAV_KEY, JSON.stringify(favorites)); }, [favorites]);
   useEffect(() => { localStorage.setItem(RECENT_KEY, JSON.stringify(recents)); }, [recents]);
@@ -207,7 +218,9 @@ export function ServicesHub({ athanSettings, onAthanChange, scheduledCount, onRe
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const iosNative = isIOSNativeApp();
     return TOOLS.filter((tool) => {
+      if (tool.id === "media" && iosNative) return false;
       if (cat === "fav" && !favorites.includes(tool.id)) return false;
       if (cat !== "all" && cat !== "fav" && tool.category !== cat) return false;
       if (!q) return true;

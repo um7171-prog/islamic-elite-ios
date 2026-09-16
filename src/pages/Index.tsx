@@ -28,10 +28,17 @@ import { useNativeAthanScheduler } from "@/components/NativeAthanScheduler";
 import { trackVisit } from "@/lib/analytics";
 import { isIOSNativeApp } from "@/lib/platform";
 
+/** Index.tsx keeps one internal tab ("media") that isn't a bottom-nav
+ * destination anymore — the Media downloader is now also reachable as a
+ * tile inside the unified Services grid, but the /media URL and its page
+ * content still work exactly as before. */
+type DashboardTab = TabKey | "media";
+
 // Map URL path → (tab, tool dialog key). Each tool has its own SEO-friendly URL.
-const PATH_MAP: Record<string, { tab: TabKey; tool: string | null; title: string; description: string }> = {
+const PATH_MAP: Record<string, { tab: DashboardTab; tool: string | null; category?: "fav"; title: string; description: string }> = {
   "/":                 { tab: "home",  tool: null,        title: "النخبة الإسلامية - مواقيت الصلاة والقرآن وأدوات إسلامية ذكية", description: "النخبة الإسلامية منصة إسلامية ذكية تجمع مواقيت الصلاة والقبلة، القرآن الكريم والأذكار، تحويل الملفات، QR Code، الترجمة، الطقس، والتقويم الهجري في مكان واحد." },
   "/tools":            { tab: "tools", tool: null,        title: "أدواتي الإسلامية — القرآن، الأذكار، القبلة",          description: "مجموعة أدوات متكاملة: القرآن الكريم، الأذكار، القبلة، التسبيح، الترجمة، والطقس." },
+  "/favorites":        { tab: "tools", tool: null, category: "fav", title: "المفضلة — خدماتك وأدواتك المفضلة",        description: "الوصول السريع للخدمات والأدوات التي أضفتها إلى المفضلة." },
   "/calendar":         { tab: "tools", tool: null,        title: "التقويم والمواعيد — تقويم هجري وميلادي مع تذكيرات", description: "تقويم هجري وميلادي شهري مع إضافة المواعيد، التكرار اليومي والأسبوعي والشهري والسنوي، وتنبيهات محلية." },
   "/media":            { tab: "media", tool: null,        title: "الوسائط — تنزيل الملفات وإدارة الوسائط المحفوظة",      description: "تنزيل ذكي للملفات من رابط مباشر وإدارة الوسائط المحفوظة. للتحويل بين صيغ الملفات، زر صفحة تحويل الملفات." },
   "/athkar":           { tab: "tools", tool: "athkar",    title: "الأذكار — أذكار الصباح والمساء",                       description: "أذكار الصباح والمساء وأذكار النوم من الكتاب والسنة." },
@@ -61,13 +68,15 @@ function Dashboard() {
         description: "النخبة الإسلامية: مواقيت الصلاة والأذان والقبلة والقرآن والأذكار والتقويم والحاسبات والطقس وأدوات الملفات والذكاء الاصطناعي.",
       }
     : routeInfo;
-  const [tab, setTab] = useState<TabKey>(routeInfo.tab);
+  const [tab, setTab] = useState<DashboardTab>(routeInfo.tab);
   const [initialTool, setInitialTool] = useState<string | null>(routeInfo.tool);
+  const [initialCategory, setInitialCategory] = useState<"fav" | null>(routeInfo.category ?? null);
 
   useEffect(() => {
     const info = PATH_MAP[location.pathname] ?? PATH_MAP["/"];
     setTab(info.tab);
     setInitialTool(info.tool);
+    setInitialCategory(info.category ?? null);
   }, [location.pathname]);
 
   const cycleMode = () => {
@@ -90,14 +99,9 @@ function Dashboard() {
   } = useNativeAthanScheduler();
 
   const handleTabChange = (next: TabKey) => {
-    if (next === "convert") {
+    if (next === "settings") {
       // Its own dedicated page, not one of Index's internal tabs.
-      navigate("/convert");
-      return;
-    }
-    if (iosNative && next === "media") {
-      setTab("tools");
-      navigate("/tools");
+      navigate("/settings");
       return;
     }
     setTab(next);
@@ -283,6 +287,7 @@ function Dashboard() {
               scheduledCount={scheduledCount}
               onReschedule={rescheduleNative}
               initialOpen={initialTool}
+              initialCategory={initialCategory}
             />
           </section>
 
@@ -333,7 +338,14 @@ function Dashboard() {
 
       <InstallPrompt />
 
-      <BottomNav active={tab} onChange={handleTabChange} />
+      {/* Favorites reuses the "tools" tab's content (the Services grid,
+          pre-filtered to the fav category) rather than a separate page, but
+          the bottom nav should still highlight "Favorites" specifically
+          while on that URL, not "Services". */}
+      <BottomNav
+        active={tab === "media" ? "other" : location.pathname === "/favorites" ? "favorites" : tab}
+        onChange={handleTabChange}
+      />
     </div>
   );
 }
