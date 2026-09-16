@@ -171,17 +171,91 @@ wallpapers and under what license). Flagging for your decision before the
 Services grid is built, rather than either silently dropping them from the
 grid or inventing placeholder content.
 
+## Phase 2 — decisions on the audit findings, and a first new feature (done)
+
+You were asked two direct questions about the audit findings above, and
+answered:
+
+1. **The 4 missing features (99 Names, Islamic education, Islamic
+   wallpapers, Ramadan mode): start building one or more now.** Built the
+   most self-contained and lowest-risk of the four first — **99 Names of
+   Allah** — since it needed no external content sourcing/licensing
+   decisions (education content and wallpaper images both raise sourcing
+   questions that still need your input; a Ramadan mode is a larger,
+   multi-part feature). Islamic education content, Islamic wallpapers, and
+   a Ramadan mode remain **not started** — see "Next phase."
+2. **Dead code / duplication**: delete `AppointmentsPanel.tsx` only; leave
+   the Quran duplication (`QuranDialog.tsx` vs. the Mushaf reader) exactly
+   as it is for now. Done — see below.
+
+**Files changed:**
+- Deleted `src/components/islamic/AppointmentsPanel.tsx` (confirmed zero
+  imports anywhere in the app before deleting).
+- Added `src/lib/asmaAlHusna.ts` — the 99 Names of Allah as structured data
+  (Arabic name, transliteration, English meaning gloss using the standard,
+  widely-published renderings — not a machine translation), plus a
+  `stripTashkeel()` helper.
+- Added `src/components/islamic/AsmaAlHusnaDialog.tsx` — a searchable list
+  dialog matching the app's existing dialog visual language (uses the
+  redesigned color tokens: gold gradient number badges, card list, RTL/LTR
+  aware).
+- Wired it in as a new tile in `QuickServices.tsx` (the home Tools grid),
+  a route (`/asma-al-husna`) in `App.tsx` + `Index.tsx`'s `PATH_MAP` for a
+  proper SEO-friendly URL matching every other tool, and a side-menu entry
+  in `SideMenu.tsx`.
+
+**A real bug was found and fixed during testing, not just claimed working:**
+searching "نور" initially returned "no results" even though "النُّور" (An-Nur)
+is in the list — the stored names are fully vocalized with Arabic
+diacritics (tashkeel), and the diacritic characters sitting between letters
+broke a plain substring match. Fixed by stripping tashkeel from both the
+query and the stored name before comparing, added `stripTashkeel()` in
+`asmaAlHusna.ts`, and added a regression test for it.
+
+**Verified, not just claimed:**
+- Screenshot-tested in a real headless browser at iPhone width: the tile
+  opens, the full list renders, search works in Arabic (after the fix) and
+  in English, and English mode correctly flips the dialog to LTR with
+  "transliteration — meaning" on one line while Arabic mode keeps the
+  meaning as a separate end-aligned column.
+- No console errors traced to the new feature (two unrelated pre-existing
+  CORS warnings from an IP-geolocation analytics call were observed and are
+  not part of this change).
+- `npx tsc --noEmit`: clean.
+- `npm run test`: **36/36 passing** (10 files) — 4 new tests: diacritic
+  stripping, a real fully-vocalized name matching a plain query, and a
+  data-integrity check that all 99 entries are present, sequentially
+  numbered 1–99 with no gaps or duplicates, and none has an empty field.
+- `npm run lint`: 129 problems — back to the exact pre-existing baseline
+  (moving the search helper into the data file rather than the component
+  file avoided introducing a new `react-refresh/only-export-components`
+  warning).
+- `npm run build`: succeeds.
+- `npx cap sync ios`: succeeds (`Package.swift` reverted per the known
+  Windows-only quirk).
+
 ## Issues found, not yet fixed (recorded, not guessed at)
 
 - 3 component files still contain a handful of hardcoded hex colors outside
   the central token system (minor, to be swept during the page-by-page
   restyle rather than as a separate blind pass).
-- Quran duplication, File Converter placement, Government Jobs/AI tools
-  grid placement, and the dead `AppointmentsPanel.tsx` (all above) are
-  product decisions for the Services grid design, not bugs to silently fix.
+- Quran duplication, File Converter placement, and Government Jobs/AI
+  tools grid placement remain product decisions for the Services grid
+  design, not bugs to silently fix.
 
 ## Next phase
 
-Phase 2: audit every existing service tile (what's live, what's broken)
-before building the unified Services grid, per the request's explicit
-"don't delete anything, report broken services' status" instruction.
+Three things remain open, in rough priority order:
+
+1. **Islamic education content and Islamic wallpapers** — both need your
+   input before real work can start: what educational content and from
+   which source for the former; whose images and under what license for
+   the latter. Will not fabricate placeholder content for either.
+2. **A dedicated Ramadan mode** — needs a scope decision (fasting
+   tracker? Suhoor/Iftar timers? a Ramadan-specific home screen?) before
+   implementation.
+3. **The unified Services grid page itself** — now that the inventory is
+   complete and the 99 Names tile exists, the next step is designing and
+   building the single unified grid that replaces the current 3-block
+   stack (QuickServices + ServicesHub + EliteTools) on the Home "Tools"
+   tab, incorporating every confirmed-working service found in the audit.

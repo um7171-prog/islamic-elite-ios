@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BookOpen, Heart, Compass, BookMarked, CloudSun, Bell, Radar, Languages, ScanLine, ScanText, Briefcase } from "lucide-react";
+import { BookOpen, Heart, Compass, BookMarked, CloudSun, Bell, Radar, Languages, ScanLine, ScanText, Briefcase, Sparkles } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
 import { AthkarDialog } from "./AthkarDialog";
 import { QiblaDialog } from "./QiblaDialog";
@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { TasbeehWidget } from "./TasbeehWidget";
 import { QRScannerDialog } from "./QRScannerDialog";
 import { DocumentScannerDialog } from "./DocumentScannerDialog";
+import { AsmaAlHusnaDialog } from "./AsmaAlHusnaDialog";
 import type { AthanSettings } from "@/lib/athanSettings";
 
 interface Service { key: string; en: string; ar: string; Icon: React.ElementType; gradient: string; }
@@ -27,6 +28,7 @@ const SERVICES: Service[] = [
   { key: "alerts",  en: "Alerts",  ar: "الإشعارات", Icon: Bell,    gradient: "linear-gradient(135deg, hsl(0 70% 50%), hsl(15 80% 60%))" },
   { key: "scanner", en: "QR", ar: "QR", Icon: ScanLine, gradient: "linear-gradient(135deg, hsl(220 70% 45%), hsl(260 70% 55%))" },
   { key: "docscan", en: "Docs", ar: "مستندات", Icon: ScanText, gradient: "linear-gradient(135deg, hsl(180 65% 40%), hsl(200 70% 55%))" },
+  { key: "asmaAlHusna", en: "99 Names", ar: "أسماء الله الحسنى", Icon: Sparkles, gradient: "var(--gradient-elite-gold)" },
 ];
 
 interface Props {
@@ -79,6 +81,7 @@ export function QuickServices({ athanSettings, onAthanChange, scheduledCount, on
       <WeatherDialog open={open === "weather"} onOpenChange={(v) => !v && setOpen(null)} />
       <QRScannerDialog open={open === "scanner"} onOpenChange={(v) => !v && setOpen(null)} />
       <DocumentScannerDialog open={open === "docscan"} onOpenChange={(v) => !v && setOpen(null)} />
+      <AsmaAlHusnaDialog open={open === "asmaAlHusna"} onOpenChange={(v) => !v && setOpen(null)} />
       <NotificationsDialog
         open={open === "alerts"}
         onOpenChange={(v) => !v && setOpen(null)}

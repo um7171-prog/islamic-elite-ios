@@ -70,6 +70,7 @@ const TOOL_PATHS = [
   "/notifications",
   "/qr-scanner",
   "/document-scanner",
+  "/asma-al-husna",
 ];
 
 

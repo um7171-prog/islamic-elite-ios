@@ -45,6 +45,7 @@ const PATH_MAP: Record<string, { tab: TabKey; tool: string | null; title: string
   "/notifications":    { tab: "tools", tool: "alerts",    title: "إعدادات الإشعارات والأذان",                            description: "تحكم في تنبيهات الأذان لكل صلاة وإعدادات الإشعارات." },
   "/qr-scanner":       { tab: "tools", tool: "scanner",   title: "ماسح رموز QR — قارئ الباركود",                         description: "ماسح ضوئي سريع لرموز QR والباركود مع فتح الروابط داخل التطبيق." },
   "/document-scanner": { tab: "tools", tool: "docscan",   title: "ماسح المستندات — PDF احترافي",                         description: "امسح المستندات ضوئياً مع كشف الحواف التلقائي والتحويل إلى PDF عالي الجودة." },
+  "/asma-al-husna":    { tab: "tools", tool: "asmaAlHusna", title: "أسماء الله الحسنى",                                  description: "أسماء الله الحسنى التسعة والتسعون مع اللفظ بالإنجليزية والمعنى." },
 };
 
 function Dashboard() {
