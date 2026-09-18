@@ -432,19 +432,63 @@ pages their own `BottomNav` instance (with "other"/appropriate active
 state) rather than a quick patch, so it's deferred to a later phase rather
 than rushed alongside this one's structural changes.
 
+## Phase 5 — Services page visual polish
+
+Scope for this phase was intentionally narrow, per your instructions:
+Services page only, no other phase, no additional agents.
+
+The grid/search/category-chip/favorites system already existed from Phase 3
+— this phase confirmed it, then made it look more like the reference's
+clean, elevated card style rather than rebuilding it.
+
+**File changed:** `src/components/services/ServicesHub.tsx` only (18 lines).
+
+- Cards: replaced the permanent 2px gold border with a subtle neutral
+  border + soft shadow (`shadow-sm`, `hover:shadow-md`) — closer to the
+  reference's clean white elevated cards; the gold accent is now carried by
+  the icon badge ring (kept) instead of outlining every card at all times.
+- More breathing room: grid gap `2.5/3` → `3/4`, card padding `3/3.5` →
+  `3.5/4`, icon badge `11×11` → `12×12`, title/description text sizes and
+  spacing nudged up slightly for readability.
+- Friendlier empty state: the "no services match" message now has a search
+  icon above it instead of being bare text.
+- Search, category chips (Worship/Tools/Calculators/…), favorites, recents,
+  and every existing tool/dialog/route are all untouched — this was a
+  styling-only pass, confirmed by the diff (18 lines in one file, no logic
+  changed).
+
+**Verified, not just claimed — actually clicked through, not just visually
+inspected:**
+- Real headless-browser test at 375px width (iPhone SE, the narrowest
+  common target) in **both** Arabic (RTL) and English (LTR): zero
+  horizontal overflow in either language (`scrollWidth === clientWidth`),
+  zero console/page errors.
+- **File Converter and Media Downloader cards specifically confirmed**:
+  both found in the grid (count 1 each, no duplicates), and each was
+  actually clicked — File Converter navigated to `/convert` and rendered
+  the real, unchanged converter tool; Media Downloader navigated to
+  `/media`. Screenshots taken of both confirm nothing broke.
+- `npx tsc --noEmit`: clean.
+- `npm run test`: **50/50 passing** (11 files, unchanged suite — continuing
+  to pass confirms this visual-only change didn't affect the grid's
+  behavior, routing, or dialogs).
+- `npm run lint`: 129 problems — exact pre-existing baseline, zero new.
+- `npm run build`: succeeds.
+
+Committed locally only on `islamic-elite-redesign-2026` — not pushed. main
+was not touched. No other phase was started, and no subagents were used
+for this phase.
+
 ## Next phase
 
 Several things remain open:
 
-1. **The remaining reference-matched page restyles** — per your new
-   request's explicit page list: Splash screen, Services page (apply the
-   reference's rounded-icon-grid + category-chip look — the underlying
-   grid/search/favorites logic already exists from Phase 3, this is a
-   visual pass), Quran, Athkar, Qibla, Prayer Times, Hijri/Gregorian
-   Calendar, Appointments-with-notifications, File Converter (**visual
-   framing only, e.g. header/back-button style — the converter UI itself
-   stays untouched**), Calculators, Settings, Notifications.
-2. **Persistent bottom nav on every page** (see limitation above).
+1. **The remaining reference-matched page restyles**: Splash screen,
+   Quran, Athkar, Qibla, Prayer Times, Hijri/Gregorian Calendar,
+   Appointments-with-notifications, File Converter (**visual framing
+   only, e.g. header/back-button style — the converter UI itself stays
+   untouched**), Calculators, Settings, Notifications.
+2. **Persistent bottom nav on every page** (see Phase 4 limitation above).
 3. **Islamic education content and Islamic wallpapers** — both still need
    your input before real work can start: what educational content and
    from which source for the former; whose images and under what license

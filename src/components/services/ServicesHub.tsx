@@ -295,24 +295,23 @@ export function ServicesHub({ athanSettings, onAthanChange, scheduledCount, onRe
         </section>
       )}
 
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 min-w-0">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 min-w-0">
         {filtered.map((tool) => (
           <div key={tool.id} className="relative min-w-0">
             <button
               onClick={() => onTap(tool)}
-              className="w-full h-full min-w-0 text-start rounded-2xl border-2 bg-card/70 p-3 sm:p-3.5 transition hover:border-primary/50 active:scale-[0.98]"
-              style={{ borderColor: "hsl(var(--elite-gold-start) / 0.35)" }}
+              className="w-full h-full min-w-0 text-start rounded-2xl border border-foreground/10 bg-card p-3.5 sm:p-4 shadow-sm transition hover:border-primary/40 hover:shadow-md active:scale-[0.98]"
             >
               <span
-                className="h-11 w-11 rounded-full grid place-items-center text-accent-foreground mb-2.5 border-2"
+                className="h-12 w-12 rounded-full grid place-items-center text-accent-foreground mb-3 border-2"
                 style={{ background: tool.gradient, borderColor: "hsl(var(--elite-gold-start))", boxShadow: "var(--shadow-glow-gold)" }}
               >
                 <tool.Icon className="h-5 w-5" />
               </span>
-              <p className="text-[12.5px] font-bold leading-tight pe-6 break-words">{lang === "ar" ? tool.ar : tool.en}</p>
-              <p className="text-[10.5px] text-foreground/55 mt-1 leading-snug break-words">{lang === "ar" ? tool.descAr : tool.descEn}</p>
+              <p className="text-[13px] font-bold leading-tight pe-6 break-words">{lang === "ar" ? tool.ar : tool.en}</p>
+              <p className="text-[11px] text-foreground/55 mt-1.5 leading-snug break-words">{lang === "ar" ? tool.descAr : tool.descEn}</p>
               {days[tool.id] !== undefined && (
-                <span className="mt-2 inline-flex max-w-full items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
+                <span className="mt-2.5 inline-flex max-w-full items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
                   <span>⏳</span>
                   <span className="truncate">
                     {days[tool.id] === 0
@@ -334,7 +333,10 @@ export function ServicesHub({ athanSettings, onAthanChange, scheduledCount, onRe
       </div>
 
       {filtered.length === 0 && (
-        <p className="text-center text-xs text-foreground/50 py-8">{t("No services match your search", "لا توجد خدمات مطابقة للبحث")}</p>
+        <div className="flex flex-col items-center gap-2 py-10 text-foreground/50">
+          <Search className="h-8 w-8 opacity-40" />
+          <p className="text-center text-xs">{t("No services match your search", "لا توجد خدمات مطابقة للبحث")}</p>
+        </div>
       )}
 
       {/* Shared wrapper dialog for "inline" tools (calculators/counters). */}
