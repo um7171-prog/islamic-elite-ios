@@ -6,6 +6,7 @@ import { MushafTopBar, MushafBottomBar } from "./MushafBars";
 import { MushafIndexSheet } from "./MushafIndexSheet";
 import { MushafExtrasSheet, type ExtrasMode } from "./MushafExtrasSheet";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useLocale } from "@/contexts/LocaleContext";
 import {
   TOTAL_PAGES, clampPage, getPageInfo, preloadWindow, loadPosition, savePosition,
   loadBookmarks, toggleBookmark, removeBookmark, toArabicDigits, type MushafBookmark,
@@ -17,6 +18,7 @@ const SWIPE_PX = 55;
 export function MushafReader() {
   const navigate = useNavigate();
   const { theme } = useTheme();
+  const { t } = useLocale();
   const night = theme === "night";
 
   const [page, setPage] = useState(() => loadPosition().page);
@@ -161,7 +163,7 @@ export function MushafReader() {
       });
     } catch {
       setPlaying(false);
-      toast.error("تعذّر تشغيل التلاوة، تحقّق من الاتصال");
+      toast.error(t("Couldn't play the recitation — check your connection", "تعذّر تشغيل التلاوة، تحقّق من الاتصال"));
     }
   }, [reciterId, page]);
 
@@ -188,20 +190,21 @@ export function MushafReader() {
   /* ---------- actions ---------- */
   const onBookmark = () => {
     setBookmarks(toggleBookmark(page));
-    toast.success(bookmarked ? "أُزيلت من المفضلة" : `حُفظت صفحة ${toArabicDigits(page)}`);
+    toast.success(bookmarked ? t("Removed from favorites", "أُزيلت من المفضلة") : t(`Page ${page} saved`, `حُفظت صفحة ${toArabicDigits(page)}`));
   };
 
   const shareUrl = `${window.location.origin}/mushaf?page=${page}`;
   const onShare = async () => {
-    const data = { title: `المصحف — ${info.mainSurah.ar}`, text: `صفحة ${toArabicDigits(page)} · ${info.mainSurah.ar}`, url: shareUrl };
+    const surahName = t(info.mainSurah.en, info.mainSurah.ar);
+    const data = { title: t(`Mushaf — ${surahName}`, `المصحف — ${surahName}`), text: t(`Page ${page} · ${surahName}`, `صفحة ${toArabicDigits(page)} · ${surahName}`), url: shareUrl };
     try {
       if (navigator.share) await navigator.share(data);
-      else { await navigator.clipboard.writeText(shareUrl); toast.success("تم نسخ الرابط"); }
+      else { await navigator.clipboard.writeText(shareUrl); toast.success(t("Link copied", "تم نسخ الرابط")); }
     } catch { /* dismissed */ }
   };
   const onCopy = async () => {
-    try { await navigator.clipboard.writeText(shareUrl); toast.success("تم نسخ رابط الصفحة"); }
-    catch { toast.error("تعذّر النسخ"); }
+    try { await navigator.clipboard.writeText(shareUrl); toast.success(t("Page link copied", "تم نسخ رابط الصفحة")); }
+    catch { toast.error(t("Couldn't copy", "تعذّر النسخ")); }
   };
 
   /* ---------- deep link ?page= / ?surah= ---------- */
