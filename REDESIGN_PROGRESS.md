@@ -901,6 +901,105 @@ Committed locally only on `islamic-elite-redesign-2026` — not pushed.
 main was not touched. Home/Services/Quran/Athkar (Phases 5-8) were not
 modified. No subagents were used. Phase 10 was not started.
 
+## Cleanup & merge pass — dedupe + Home/Qibla trims (done)
+
+Not a redesign phase — a cleanup request to remove duplication and a
+couple of unwanted elements, then merge things into the right single
+place. Four independent changes, all on top of Phase 9:
+
+1. **Qibla — old "Enable compass" button removed for good.** It was a
+   separate button whose only job was giving iOS the user-gesture
+   context `DeviceOrientationEvent.requestPermission()` requires.
+   Moved that into the Compass tab's own tap handler (already a real
+   click, always visible in the header) instead, so the button could
+   be deleted without losing the ability to grant compass access.
+   Verified live in three states (granted location, denied location,
+   and after tapping the Compass tab) that no trace of the old button
+   or its label remains anywhere on the page.
+2. **Notifications — deduplicated.** The Services grid's "Notifications"
+   tile opened `NotificationsDialog`, which did nothing but re-render
+   the exact same `AthanSettingsCard` Settings already shows directly —
+   a genuine duplicate. Removed the tile and deleted the now-fully-unused
+   `NotificationsDialog.tsx`. The `/notifications` URL (still linked
+   from an SEO nav list and the sitemap) now redirects to `/settings`
+   instead of silently dead-ending. Settings' own Athan Notifications
+   section is untouched and confirmed still fully functional.
+3. **Home — "Saudi Jobs" promo card removed.** It was a separate
+   section below the QuickShortcuts grid, not part of the grid itself
+   (QuickShortcuts never had a Saudi Jobs tile, so nothing needed
+   rebalancing there — confirmed the grid still shows all 8 of its
+   original tiles). The feature itself is untouched: still a full tile
+   in Services (`id: "jobs"`) and its own `/saudi-jobs` route.
+4. **Settings — reorganized, not rebuilt.** Added three small uppercase
+   group labels (General / Prayer & Reminders / Support) above the
+   existing sections, matching the same style already used for
+   "Quick Access" on Home — a purely visual grouping pass. No reference
+   image was provided for this cleanup request (consistent with every
+   earlier phase in this file), so no new settings were invented; all
+   existing settings (language, theme, city, madhab, Athan
+   notifications, Athkar reminders, contact channels, advanced
+   diagnostics) were confirmed still present and working, unchanged.
+
+**Important verification finding, disclosed here for accuracy:** the
+bare `npx tsc --noEmit` command used to verify every phase up to this
+one has been checking **zero files** this whole time — this project's
+root `tsconfig.json` is a solution-style file (`"files": []` with
+`references` to `tsconfig.app.json`/`tsconfig.node.json`), which only
+actually type-checks anything under `tsc --build`. Discovered while
+debugging why an excess-prop TypeScript error didn't show up after
+trimming `ServicesHub`'s props. The correct command is
+`npx tsc --noEmit -p tsconfig.app.json`; re-running it against the
+pre-redesign baseline commit (`89bf4ed`) confirmed 3 errors that are
+**pre-existing and unrelated to any redesign work** (byte-identical
+files: `nativeAthanSchedulerPermissionGate.test.tsx`,
+`nativeStatus.test.ts`, `useQiblaCompass.test.ts`) — left alone as out
+of scope for this cleanup phase. This phase's own two real errors
+(excess `athanSettings`/etc. props left over in `Index.tsx` and
+`servicesGrid.test.tsx` after trimming `ServicesHub`'s API) were found
+and fixed using the correct command.
+
+**Verified, not just claimed (real browser via Playwright, 375px):**
+- Qibla: granted-location and denied-location states both confirmed,
+  via full-text DOM scan of `.qibla-fullscreen`, to contain no trace of
+  "Enable compass" / "تفعيل البوصلة" in either language; tapping the
+  Compass tab does not crash the dialog; the compass still renders with
+  correct distance/bearing when location is granted.
+- Services: DOM-level check (not just visual) that zero `<button>`
+  elements in the grid contain "الإشعارات" text, while confirming
+  Athkar/Qibla/Weather/Saudi-Jobs tiles are all still present; opened
+  the Athkar tile for real and confirmed its dialog actually opens;
+  visited `/notifications` directly and confirmed it lands on
+  `/settings` with the Settings heading visible.
+- Settings: confirmed all pre-existing sections and their real controls
+  (language toggle, theme switch, city selector, madhab picker, Athan
+  card, Athkar reminders, contact links, advanced diagnostics) are
+  still present and rendered in both languages; confirmed the 3 new
+  group labels render (case-insensitive check needed in English since
+  they're visually uppercased via CSS `text-transform`, same as Home's
+  existing label style); no fake/non-functional buttons were added.
+- Home: confirmed via DOM text search that "Saudi Jobs"/"وظائف السعودية"
+  and its "Browse jobs" button are both gone in Arabic and English;
+  confirmed QuickShortcuts still renders all 8 of its tiles; screenshot
+  confirms the page now ends cleanly right after the shortcuts grid
+  with no gap or leftover spacing.
+- 375px width: `scrollWidth === clientWidth` (375 === 375) on Qibla,
+  Home, and Settings, in both languages.
+- Arabic RTL / English LTR: `document.documentElement.dir` correct on
+  every page tested; screenshots confirm no visual breakage in either
+  direction.
+- No console errors or `pageerror`s caused by any of these changes.
+- `npx tsc --noEmit -p tsconfig.app.json`: only the 3 pre-existing,
+  unrelated errors described above remain.
+- `npm run test`: **50/50 passing** (11 files — `servicesGrid.test.tsx`
+  updated to match the trimmed `ServicesHub` API and the removed
+  "alerts" dialog id, still 14/14 passing).
+- `npm run build`: succeeds (the sitemap prebuild step regenerated
+  `public/sitemap.xml` without `/notifications`, as expected).
+
+Committed locally only on `islamic-elite-redesign-2026` — not pushed.
+main was not touched. Quran/Athkar were not modified. No subagents were
+used. Phase 10 was not started.
+
 ## Next phase
 
 Several things remain open:
