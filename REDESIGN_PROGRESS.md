@@ -1102,6 +1102,115 @@ Committed locally only on `islamic-elite-redesign-2026` — not pushed.
 main was not touched. File Converter was not modified. IPA/native build
 was not started. No subagents were used. Phase 11 was not started.
 
+## Phase 11 — Calendar, appointments & reminders (done)
+
+**Investigated before touching anything**, per the explicit instruction
+not to assume file names match feature names. Searched the whole repo
+for Calendar/Appointments/reminder/notification-scheduling code and
+read it fully:
+- `src/components/islamic/EventsCalendar.tsx` (461 lines) — the entire
+  UI: month calendar with Hijri digits under each Gregorian day,
+  selected-day event list (with delete), an "Upcoming" list, and the
+  add-event dialog (title, date, time, repeat, reminder-before-minutes,
+  reminder sound with preview).
+- `src/lib/events.ts` — the data model (`CalEvent`), persisted in
+  `localStorage` under `elite.calendar.events.v1`, plus
+  `syncEventNotifications()` which builds native notification
+  payloads in a dedicated, collision-free id range (20000-29999,
+  separate from prayer's 10000-19999).
+- `src/lib/nativeNotificationCoordinator.ts` + `NativeAthanScheduler.tsx`
+  — a pub/sub coordinator that serializes rebuilding event **and**
+  Athkar notifications together through the one shared native pipeline,
+  triggered whenever `EventsCalendar` saves. This is already exactly
+  the "one source for notifications" the phase asked to preserve.
+- Confirmed via a repo-wide search that there is **no separate
+  "Appointments" page/dialog anywhere** — `EventsCalendar.tsx` titles
+  itself "Calendar & Events" / "التقويم والمواعيد" and already is the
+  one unified feature for both. The old `AppointmentsPanel.tsx` was
+  already deleted in an earlier phase (Phase 2) and nothing recreated
+  it.
+- Also confirmed only one usage site of `EventsCalendar` exists
+  (`Index.tsx`, the "tools" tab, reached via `/calendar`) — no second
+  calendar implementation anywhere in the app.
+
+**Given all of that was already correct and unduplicated, the only
+real, verified gap found:** the shadcn `Calendar` (a `react-day-picker`
+wrapper) was never given a `locale`, so it always rendered its month
+caption and weekday headers in English ("September 2026", "Sa Fr Th We
+Tu Mo Su") even inside the Arabic UI. Fixed with a single `locale`
+prop (`date-fns/locale`'s `ar`/`enUS`, `date-fns` already a direct
+dependency) — translates display text only; the Hijri conversion
+(`hijri-converter`), event storage, reminder scheduling, and month/day
+navigation logic were already correct and were not touched.
+
+**Verified, not just claimed (real browser via Playwright, 375px):**
+- Calendar: opened `/calendar` for real; confirmed both Gregorian and
+  Hijri dates render clearly together (small Gregorian number + large
+  gold Hijri number per day cell, plus a combined date bar below the
+  grid). Clicked the real next/previous-month buttons and confirmed via
+  screenshots the caption actually changed "سبتمبر 2026" →
+  "أكتوبر 2026" → back → "أغسطس 2026" (one month net back from a
+  next+prev+prev sequence) — real navigation, not just a checked DOM
+  attribute.
+- Appointments — add flow tested for real: opened the add dialog,
+  filled a title, tomorrow's date, a time, and a "10 min before"
+  reminder, saved it. Confirmed via `localStorage.getItem
+  ('elite.calendar.events.v1')` (not just the UI) that a real record was
+  written with the exact fields entered. Confirmed the app auto-selects
+  the new event's day and the event appears immediately in that day's
+  list with the correct time and reminder tag.
+- Persistence — did a real `page.reload()` (fresh page load, not an SPA
+  navigation) and confirmed the exact same `localStorage` record was
+  still present afterward, and the UI still showed it once that day was
+  selected again. This is genuine `localStorage` persistence, not
+  in-memory React state.
+- Delete — clicked the event's own trash icon and confirmed via
+  `localStorage` (not just the UI list) that the record was actually
+  removed (`[]` afterward), so no test data was left behind. No edit
+  function exists in this component (add + delete only) — not invented,
+  since the add/delete flow is already complete without it.
+- Reminder/notification scheduling — **honestly could not be verified
+  end-to-end**, and is reported as such rather than claimed: this is a
+  web browser test environment, and `scheduleNativeGroup()` in
+  `lib/nativeNotify.ts` checks `isNativeApp()` first and returns
+  `{ reason: "not-native" }` immediately on web, by design, before ever
+  touching a native plugin — there is no iOS runtime available here to
+  actually schedule or observe a real local notification. What **was**
+  verified: the reminder-minutes choice is saved correctly into the
+  event record (confirmed in the `localStorage` dump above,
+  `"remindMinutesBefore":10`), and the full save → coordinator →
+  rebuild code path runs end-to-end with zero console/page errors on
+  web, meaning the appointment-reminder wiring is sound up to the
+  native boundary — but the actual native scheduling itself is
+  unverified here and would need a real device/iOS build to confirm.
+- Arabic RTL / English LTR: confirmed both the calendar grid and the
+  add-event dialog render correctly in each direction/language, with
+  the expected locale-appropriate week-start (Saturday-first in Arabic
+  via the `ar` locale, Sunday-first in English via `enUS` — both
+  correct per their own convention, not a bug).
+- 375px width: `scrollWidth === clientWidth` (375 === 375) on the
+  calendar page and with the add-event dialog open, in both languages.
+- No console errors or `pageerror`s in any test, across the full
+  add → persist → reload → delete cycle.
+- One cosmetic, non-app-controllable observation: the native
+  `<input type="date">`/`<input type="time">` widgets displayed
+  Arabic-Indic digits even in the English-language screenshot — this is
+  the browser's own native form-control rendering (locale-driven by the
+  browser/OS, not by this page's `lang`/CSS), not something the app's
+  code can override, and unrelated to any change made this phase.
+- `npx tsc --noEmit -p tsconfig.app.json`: only the same 3 pre-existing
+  baseline errors remain (not touched, per instruction).
+- `npm run test`: **50/50 passing** (11 files, including the existing
+  `nativeAthanSchedulerPermissionGate.test.tsx` which directly covers
+  the events+Athkar sync gate — untouched and still passing).
+- `npm run build`: succeeds.
+
+Committed locally only on `islamic-elite-redesign-2026` — not pushed.
+main was not touched. File Converter was not modified. NativeAthanScheduler/
+AthanSettingsCard were not modified (no bug was found that originated
+from the appointments system). No subagents were used. Phase 12 was not
+started.
+
 ## Next phase
 
 Several things remain open:
