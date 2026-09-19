@@ -63,7 +63,7 @@ export function MushafExtrasSheet({ mode, onClose, info, reciterId, onReciterCha
         style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-border/30 gap-2">
-          <h2 className="text-sm font-bold text-foreground truncate">{title} · {t(`Page ${info.page}`, `صفحة ${toArabicDigits(info.page)}`)}</h2>
+          <h2 className="text-h3 text-foreground truncate">{title} · {t(`Page ${info.page}`, `صفحة ${toArabicDigits(info.page)}`)}</h2>
           <button onClick={onClose} aria-label={t("Close", "إغلاق")} className="h-8 w-8 shrink-0 grid place-items-center rounded-full bg-foreground/10">
             <X className="h-4 w-4" />
           </button>
@@ -73,7 +73,7 @@ export function MushafExtrasSheet({ mode, onClose, info, reciterId, onReciterCha
           {mode === "settings" ? (
             <div className="space-y-5">
               <div>
-                <p className="text-xs font-semibold text-foreground/60 mb-2">{t("Display mode", "وضع العرض")}</p>
+                <p className="text-label text-foreground/60 mb-2">{t("Display mode", "وضع العرض")}</p>
                 <div className="grid grid-cols-3 gap-2">
                   {([
                     ["system", t("Auto", "تلقائي")],
@@ -83,7 +83,7 @@ export function MushafExtrasSheet({ mode, onClose, info, reciterId, onReciterCha
                     <button
                       key={k}
                       onClick={() => setMode(k)}
-                      className={cn("rounded-xl py-2 text-xs font-semibold transition border",
+                      className={cn("rounded-xl py-2 text-label transition border",
                         themeMode === k ? "bg-accent text-accent-foreground border-accent" : "bg-foreground/8 text-foreground/80 border-border/30")}
                     >
                       {label}
@@ -92,13 +92,13 @@ export function MushafExtrasSheet({ mode, onClose, info, reciterId, onReciterCha
                 </div>
               </div>
               <div>
-                <p className="text-xs font-semibold text-foreground/60 mb-2">{t("Reciter", "القارئ")}</p>
+                <p className="text-label text-foreground/60 mb-2">{t("Reciter", "القارئ")}</p>
                 <ul className="space-y-1">
                   {sortByFavorites(RECITERS, favs).map((r) => (
                     <li key={r.id} className="flex items-center gap-2">
                       <button
                         onClick={() => onReciterChange(r.id)}
-                        className={cn("flex-1 text-right rounded-xl px-3 py-2 text-sm transition border",
+                        className={cn("flex-1 text-right rounded-xl px-3 py-2 text-body transition border",
                           reciterId === r.id ? "bg-accent/20 text-accent font-bold border-accent/40" : "bg-foreground/6 text-foreground/85 border-border/20")}
                       >
                         <span className="font-arabic">{r.name}</span>
@@ -112,14 +112,14 @@ export function MushafExtrasSheet({ mode, onClose, info, reciterId, onReciterCha
               </div>
             </div>
           ) : loading ? (
-            <p className="py-10 text-center text-sm text-foreground/50">{t("Loading…", "جارٍ التحميل…")}</p>
+            <p className="py-10 text-center text-body-sm text-foreground/50">{t("Loading…", "جارٍ التحميل…")}</p>
           ) : lines.length === 0 ? (
-            <p className="py-10 text-center text-sm text-foreground/50">{t("Couldn't load the content", "تعذّر تحميل المحتوى")}</p>
+            <p className="py-10 text-center text-body-sm text-foreground/50">{t("Couldn't load the content", "تعذّر تحميل المحتوى")}</p>
           ) : (
             <ul className="space-y-3 pb-6">
               {lines.map((l, i) => (
-                <li key={i} className="text-[13px] leading-relaxed text-foreground/85" dir={mode === "translation" ? "ltr" : "rtl"}>
-                  <span className="inline-grid place-items-center h-5 min-w-5 px-1 rounded-md bg-accent/15 text-accent text-[10px] font-bold align-middle mx-1">
+                <li key={i} className="text-body-sm leading-relaxed text-foreground/85" dir={mode === "translation" ? "ltr" : "rtl"}>
+                  <span className="inline-grid place-items-center h-5 min-w-5 px-1 rounded-md bg-accent/15 text-accent text-caption font-bold align-middle mx-1">
                     {toArabicDigits(l.num)}
                   </span>
                   {l.text}
