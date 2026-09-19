@@ -67,6 +67,17 @@ function Section({
   );
 }
 
+/** Small uppercase group label, matching the same style already used for
+ * "Quick Access" / "Services" on the Home page — purely a visual grouping
+ * aid for the sections below it, no behavior change. */
+function GroupLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <h2 className="font-display text-xs uppercase tracking-[0.2em] text-foreground/50 px-1 pt-1">
+      {children}
+    </h2>
+  );
+}
+
 function Row({
   label,
   description,
@@ -170,6 +181,7 @@ export default function Settings() {
       </header>
 
       <div className="space-y-4">
+        <GroupLabel>{t("General", "عام")}</GroupLabel>
         {nativeApp && (
           <Section
             icon={BellRing}
@@ -243,6 +255,7 @@ export default function Settings() {
           </Row>
         </Section>
 
+        <GroupLabel>{t("Prayer & Reminders", "الصلاة والتذكيرات")}</GroupLabel>
         {/* Prayer & Times */}
         <Section
           icon={MapPin}
@@ -310,6 +323,7 @@ export default function Settings() {
           <AthkarRemindersCard />
         </Section>
 
+        <GroupLabel>{t("Support", "الدعم")}</GroupLabel>
         {/* Contact Us */}
         <Section
           icon={MessageCircle}

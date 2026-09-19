@@ -137,7 +137,9 @@ export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChang
   }, [open]);
 
   // Auto-start only when the platform grants motion access without a prompt
-  // (Android / desktop). iOS always waits for the "Enable compass" button.
+  // (Android / desktop). iOS always waits for a real user gesture, which it
+  // gets from tapping the Compass tab (see onTabTap below) — there's no
+  // separate "Enable compass" button anymore.
   // Depends on the specific primitive fields actually read here (not the
   // whole `compass` object, which useQiblaCompass returns as a brand-new
   // object every render) so this doesn't re-run on every re-render while
@@ -218,9 +220,18 @@ export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChang
   const onTabTap = (id: "compass" | "map" | "ar" | "sun-moon") => {
     hapticTick();
     if (id === "compass") {
-      // Already the active/only view — but if we're sitting on the "enable
-      // location" screen, tapping the Compass tab re-checks location too.
+      // Already the active/only view — but it's also the one real user
+      // gesture always available to (re)start things that need one:
+      // - if we're sitting on the "enable location" screen, re-check location.
+      // - if the compass sensor still needs its iOS permission prompt (which
+      //   browsers only allow from inside a real click handler), start it
+      //   here instead of a separate "Enable compass" button — removes the
+      //   old standalone button/panel without losing the ability to grant
+      //   compass access at all.
       if (!hasFix && locStatus !== "loading") requestLocation();
+      if (compass.needsPermission && compassStatus !== "running" && compassStatus !== "requesting") {
+        void enableCompass();
+      }
       return;
     }
     const messages: Record<Exclude<typeof id, "compass">, [string, string]> = {
@@ -698,7 +709,9 @@ export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChang
               <p className="text-[12px] text-[hsl(var(--qibla-muted-fg))]">
                 {compassStatus === "requesting"
                   ? t("Requesting compass access…", "جارٍ طلب إذن البوصلة…")
-                  : t("Move device to activate compass", "حرّك الجهاز لتفعيل البوصلة")}
+                  : compass.needsPermission
+                    ? t("Tap Compass above to activate it", "اضغط على البوصلة أعلاه لتفعيلها")
+                    : t("Move device to activate compass", "حرّك الجهاز لتفعيل البوصلة")}
               </p>
             ) : aligned ? (
               <p className="text-[hsl(var(--qibla-status-aligned))] font-bold text-sm">{t("Aligned to Qibla ✓", "اتجاه صحيح نحو القبلة ✓")}</p>
@@ -750,12 +763,6 @@ export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChang
                 </Button>
               </div>
             </div>
-          )}
-
-          {compass.needsPermission && compassStatus !== "running" && (
-            <Button onClick={enableCompass} disabled={compassStatus === "requesting"} className="w-full mt-3 bg-[hsl(var(--qibla-ring-blue))] hover:bg-[hsl(var(--qibla-ring-blue-2))] text-white">
-              {compassStatus === "requesting" ? t("Requesting…", "جارٍ الطلب…") : t("Enable compass", "تفعيل البوصلة")}
-            </Button>
           )}
 
           <button

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Baby, BadgeDollarSign, Bell, Bookmark, BookOpen, Briefcase, CalendarDays, CalendarHeart, CalendarRange,
+  Baby, BadgeDollarSign, Bookmark, BookOpen, Briefcase, CalendarDays, CalendarHeart, CalendarRange,
   Clock4, Cloud, Coins, Compass, Download, Flag, GraduationCap, Heart, Landmark, Languages, Moon,
   PiggyBank, Repeat, Ruler, Scale, ScanLine, ScanText, Search, Sparkles, Star, Sun, Timer, X,
 } from "lucide-react";
@@ -26,13 +26,11 @@ import { QiblaDialog } from "@/components/islamic/QiblaDialog";
 import { QuranDialog } from "@/components/islamic/QuranDialog";
 import { TranslatorDialog } from "@/components/islamic/TranslatorDialog";
 import { WeatherDialog } from "@/components/islamic/WeatherDialog";
-import { NotificationsDialog } from "@/components/islamic/NotificationsDialog";
 import { QRScannerDialog } from "@/components/islamic/QRScannerDialog";
 import { DocumentScannerDialog } from "@/components/islamic/DocumentScannerDialog";
 import { AsmaAlHusnaDialog } from "@/components/islamic/AsmaAlHusnaDialog";
 import { TasbeehWidget } from "@/components/islamic/TasbeehWidget";
 import { isIOSNativeApp } from "@/lib/platform";
-import type { AthanSettings } from "@/lib/athanSettings";
 
 type CategoryKey = "religious" | "utility" | "calc" | "counters" | "school" | "islamic" | "national";
 
@@ -91,7 +89,6 @@ const TOOLS: Tool[] = [
   // 🛠️ Tools — confirmed-working general utilities.
   { id: "translate", en: "Translate", ar: "الترجمة", descEn: "Instant translation", descAr: "ترجمة فورية", category: "utility", Icon: Languages, gradient: BLUE, keywords: "ترجمة translate", action: { kind: "dialog" } },
   { id: "weather", en: "Weather", ar: "الطقس", descEn: "Live weather & radar", descAr: "الطقس المباشر والرادار", category: "utility", Icon: Cloud, gradient: GOLD, keywords: "طقس رادار weather", action: { kind: "dialog" } },
-  { id: "alerts", en: "Notifications", ar: "الإشعارات", descEn: "Athan & reminder settings", descAr: "إعدادات الأذان والتذكيرات", category: "utility", Icon: Bell, gradient: ROSE, keywords: "إشعارات تنبيهات أذان alerts notifications", action: { kind: "dialog" } },
   { id: "scanner", en: "QR Scanner", ar: "ماسح QR", descEn: "Scan codes & barcodes", descAr: "مسح الرموز والباركود", category: "utility", Icon: ScanLine, gradient: BLUE, keywords: "qr رمز باركود scanner", action: { kind: "dialog" } },
   { id: "docscan", en: "Document Scanner", ar: "ماسح المستندات", descEn: "Scan to PDF", descAr: "مسح إلى PDF", category: "utility", Icon: ScanText, gradient: BLUE, keywords: "مسح مستندات pdf scanner docs", action: { kind: "dialog" } },
   { id: "convert", en: "File Converter", ar: "تحويل الملفات", descEn: "Images, PDF & more", descAr: "صور وPDF وأكثر", category: "utility", Icon: Repeat, gradient: EMERALD, keywords: "تحويل ملفات pdf convert", action: { kind: "route", to: "/convert" } },
@@ -167,10 +164,6 @@ function readList(key: string): string[] {
 }
 
 interface Props {
-  athanSettings: AthanSettings;
-  onAthanChange: (s: AthanSettings) => void;
-  scheduledCount: number;
-  onReschedule?: () => void | Promise<unknown>;
   /** Opens a dialog-kind tool immediately — used for direct/SEO URLs like
    * /athkar, /qibla, /quran (see App.tsx TOOL_PATHS + Index.tsx PATH_MAP).
    * "quran" is a deliberate, pre-existing exception: the tile itself
@@ -182,7 +175,7 @@ interface Props {
   initialCategory?: "fav" | null;
 }
 
-export function ServicesHub({ athanSettings, onAthanChange, scheduledCount, onReschedule, initialOpen = null, initialCategory = null }: Props) {
+export function ServicesHub({ initialOpen = null, initialCategory = null }: Props) {
   const { t, lang, dir } = useLocale();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
@@ -372,14 +365,6 @@ export function ServicesHub({ athanSettings, onAthanChange, scheduledCount, onRe
       <QRScannerDialog open={openDialog === "scanner"} onOpenChange={(v) => !v && setOpenDialog(null)} />
       <DocumentScannerDialog open={openDialog === "docscan"} onOpenChange={(v) => !v && setOpenDialog(null)} />
       <AsmaAlHusnaDialog open={openDialog === "asmaAlHusna"} onOpenChange={(v) => !v && setOpenDialog(null)} />
-      <NotificationsDialog
-        open={openDialog === "alerts"}
-        onOpenChange={(v) => !v && setOpenDialog(null)}
-        settings={athanSettings}
-        onSettingsChange={onAthanChange}
-        scheduledCount={scheduledCount}
-        onReschedule={onReschedule}
-      />
       <Dialog open={openDialog === "tasbeeh"} onOpenChange={(v) => !v && setOpenDialog(null)}>
         <DialogContent className="max-w-md p-0 border-0 bg-transparent shadow-none">
           <DialogHeader className="sr-only">

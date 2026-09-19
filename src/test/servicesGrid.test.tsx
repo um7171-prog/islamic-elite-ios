@@ -6,7 +6,6 @@ import { CityProvider } from "@/contexts/CityContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { PrayerCalcProvider } from "@/contexts/PrayerCalcContext";
 import { ServicesHub, SERVICE_TOOLS, DIALOG_TOOL_IDS, ROUTE_TOOL_TARGETS } from "@/components/services/ServicesHub";
-import { loadAthanSettings } from "@/lib/athanSettings";
 
 // Every route path actually registered in src/App.tsx (TOOL_PATHS + the
 // explicit <Route path="..."> list) — kept here as a plain, hand-verified
@@ -35,9 +34,6 @@ function renderGrid(initialOpen: string | null = null) {
           <CityProvider>
             <PrayerCalcProvider>
               <ServicesHub
-                athanSettings={loadAthanSettings()}
-                onAthanChange={() => {}}
-                scheduledCount={0}
                 initialOpen={initialOpen}
               />
             </PrayerCalcProvider>
@@ -176,7 +172,7 @@ describe("Unified Services grid — dialog-kind tools all have a matching dialog
     // its dialog, this at least confirms the id list itself stays a fixed,
     // reviewed set rather than silently growing unnoticed.
     const known = [
-      "athkar", "qibla", "asmaAlHusna", "tasbeeh", "translate", "weather", "alerts", "scanner", "docscan",
+      "athkar", "qibla", "asmaAlHusna", "tasbeeh", "translate", "weather", "scanner", "docscan",
     ];
     expect(new Set(DIALOG_TOOL_IDS)).toEqual(new Set(known));
   });

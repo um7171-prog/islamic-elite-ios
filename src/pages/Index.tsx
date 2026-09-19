@@ -24,8 +24,7 @@ import { ServicesHub } from "@/components/services/ServicesHub";
 import { SideMenu } from "@/components/site/SideMenu";
 
 
-import { Moon, Sun, Monitor, Settings as SettingsIcon, Download, Sparkles, Zap, Briefcase } from "lucide-react";
-import { useNativeAthanScheduler } from "@/components/NativeAthanScheduler";
+import { Moon, Sun, Monitor, Settings as SettingsIcon, Download, Sparkles, Zap } from "lucide-react";
 import { trackVisit } from "@/lib/analytics";
 import { isIOSNativeApp } from "@/lib/platform";
 
@@ -48,7 +47,6 @@ const PATH_MAP: Record<string, { tab: DashboardTab; tool: string | null; categor
   "/tasbeeh":          { tab: "tools", tool: "tasbeeh",   title: "السبحة الرقمية — التسبيح والذكر",                      description: "سبحة رقمية للتسبيح والذكر مع عداد وحفظ للتقدم." },
   "/translate":        { tab: "tools", tool: "translate", title: "الترجمة — مترجم ذكي",                                  description: "ترجمة فورية بين العربية والإنجليزية ولغات أخرى." },
   "/weather":          { tab: "tools", tool: "weather",   title: "الطقس والرادار — مواعيد الصلاة",                        description: "حالة الطقس المباشرة، رادار الأمطار، والسحب ودرجات الحرارة." },
-  "/notifications":    { tab: "tools", tool: "alerts",    title: "إعدادات الإشعارات والأذان",                            description: "تحكم في تنبيهات الأذان لكل صلاة وإعدادات الإشعارات." },
   "/qr-scanner":       { tab: "tools", tool: "scanner",   title: "ماسح رموز QR — قارئ الباركود",                         description: "ماسح ضوئي سريع لرموز QR والباركود مع فتح الروابط داخل التطبيق." },
   "/document-scanner": { tab: "tools", tool: "docscan",   title: "ماسح المستندات — PDF احترافي",                         description: "امسح المستندات ضوئياً مع كشف الحواف التلقائي والتحويل إلى PDF عالي الجودة." },
   "/asma-al-husna":    { tab: "tools", tool: "asmaAlHusna", title: "أسماء الله الحسنى",                                  description: "أسماء الله الحسنى التسعة والتسعون مع اللفظ بالإنجليزية والمعنى." },
@@ -92,12 +90,6 @@ function Dashboard() {
       : t("Day", "نهاري");
 
   useEffect(() => { trackVisit(lang); }, [lang]);
-  const {
-    settings: athanSettings,
-    setSettings: setAthanSettings,
-    scheduledCount,
-    reschedule: rescheduleNative,
-  } = useNativeAthanScheduler();
 
   const handleTabChange = (next: TabKey) => {
     if (next === "settings") {
@@ -244,36 +236,16 @@ function Dashboard() {
             <PrayerStrip />
           </section>
 
+          {/* Saudi Jobs deliberately does not have a Home section/shortcut —
+              removed per the cleanup phase request to keep Home to core
+              worship shortcuts only. The feature itself is untouched and
+              still fully reachable from the Services grid (id: "jobs") and
+              its own /saudi-jobs route. */}
           <section className="mb-6">
             <h2 className="font-display text-xs uppercase tracking-[0.2em] text-foreground/60 mb-3 px-1">
               {t("Quick Access", "اختصارات سريعة")}
             </h2>
             <QuickShortcuts />
-          </section>
-
-          <section className="mb-6">
-            <article className="glass rounded-2xl p-4 border border-border/40 flex items-start gap-3">
-              <span
-                className="h-12 w-12 shrink-0 rounded-xl grid place-items-center text-accent-foreground"
-                style={{ background: "linear-gradient(135deg, hsl(150 60% 30%), hsl(140 65% 42%))", boxShadow: "var(--shadow-glow-gold)" }}
-              >
-                <Briefcase className="h-6 w-6" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <h2 className="font-display text-sm font-bold text-foreground">
-                  {t("Saudi Jobs", "وظائف السعودية")}
-                </h2>
-                <p className="mt-0.5 text-xs text-foreground/70 leading-relaxed">
-                  {t("Latest job opportunities in the Kingdom.", "أحدث فرص العمل داخل المملكة.")}
-                </p>
-                <button
-                  onClick={() => navigate("/saudi-jobs")}
-                  className="mt-3 rounded-xl bg-accent text-accent-foreground px-3.5 py-2 text-xs font-semibold hover:opacity-90 transition"
-                >
-                  {t("Browse jobs", "استعرض الوظائف")}
-                </button>
-              </div>
-            </article>
           </section>
         </>
       )}
@@ -290,10 +262,6 @@ function Dashboard() {
               {t("Services", "الخدمات")}
             </h2>
             <ServicesHub
-              athanSettings={athanSettings}
-              onAthanChange={setAthanSettings}
-              scheduledCount={scheduledCount}
-              onReschedule={rescheduleNative}
               initialOpen={initialTool}
               initialCategory={initialCategory}
             />
@@ -317,7 +285,7 @@ function Dashboard() {
                 { to: "/tasbeeh", label: t("Tasbeeh", "السبحة") },
                 { to: "/translate", label: t("Translate", "الترجمة") },
                 { to: "/weather", label: t("Weather", "الطقس") },
-                { to: "/notifications", label: t("Notifications", "الإشعارات") },
+                { to: "/settings", label: t("Notifications", "الإشعارات") },
                 { to: "/qr-scanner", label: t("QR Scanner", "ماسح QR") },
                 { to: "/document-scanner", label: t("Document Scanner", "ماسح المستندات") },
                 { to: "/convert", label: t("File Converter", "تحويل الملفات") },

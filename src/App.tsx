@@ -68,7 +68,6 @@ const TOOL_PATHS = [
   "/tasbeeh",
   "/translate",
   "/weather",
-  "/notifications",
   "/qr-scanner",
   "/document-scanner",
   "/asma-al-husna",
@@ -96,6 +95,10 @@ const AppShell = () => {
             <Route key={p} path={p} element={<Index />} />
           ))}
           {iosNative && <Route path="/media" element={<Navigate to="/tools" replace />} />}
+          {/* Notification settings live only in Settings now (previously also
+              opened a duplicate dialog from the Services grid) — redirect
+              instead of 404ing this indexed URL. */}
+          <Route path="/notifications" element={<Navigate to="/settings" replace />} />
           <Route path="/mushaf" element={<Mushaf />} />
           <Route path="/convert" element={<FileConverterPage />} />
           <Route path="/ai" element={<AI />} />

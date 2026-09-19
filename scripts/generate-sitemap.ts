@@ -28,7 +28,6 @@ const entries: SitemapEntry[] = [
   { path: "/tasbeeh",           changefreq: "monthly", priority: "0.8" },
   { path: "/translate",         changefreq: "monthly", priority: "0.8" },
   { path: "/weather",           changefreq: "daily",   priority: "0.7" },
-  { path: "/notifications",     changefreq: "monthly", priority: "0.6" },
   { path: "/qr-scanner",        changefreq: "monthly", priority: "0.7" },
   { path: "/document-scanner",  changefreq: "monthly", priority: "0.7" },
   { path: "/about",             changefreq: "yearly",  priority: "0.6" },

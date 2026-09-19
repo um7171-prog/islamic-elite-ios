@@ -76,11 +76,6 @@
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://www.techsnds.com/notifications</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
     <loc>https://www.techsnds.com/qr-scanner</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
