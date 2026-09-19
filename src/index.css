@@ -85,12 +85,16 @@
     /* Motion */
     --ease-premium: cubic-bezier(0.22, 1, 0.36, 1);
 
-    /* === Qibla compass tokens (DARK / night) === */
+    /* === Qibla compass tokens (DARK / night) ===
+       Redesign 2026: recolored from the original blue/orange scheme to the
+       app's emerald-green + gold brand identity (same tokens used by
+       --primary and --elite-gold-*). Structure/markup untouched — colors
+       only, so the compass math and layout stay exactly as they were. */
     --qibla-page-bg: 0 0% 6%;
     --qibla-page-fg: 0 0% 92%;
-    --qibla-header-top: 200 65% 28%;
-    --qibla-header-mid: 210 60% 18%;
-    --qibla-loc-pill: 210 50% 12%;
+    --qibla-header-top: 165 45% 22%;
+    --qibla-header-mid: 165 42% 14%;
+    --qibla-loc-pill: 165 40% 12%;
     --qibla-coord-fg: 0 0% 78%;
     --qibla-card-bg: 0 0% 10%;
     --qibla-card-border: 0 0% 22%;
@@ -98,24 +102,24 @@
     --qibla-muted-fg: 0 0% 60%;
     --qibla-face-bg: 0 0% 12%;
     --qibla-face-shadow: 0 0% 0% / 0.6;
-    --qibla-ring-blue: 200 70% 40%;
-    --qibla-ring-blue-2: 200 70% 32%;
+    --qibla-ring-blue: 158 64% 40%;
+    --qibla-ring-blue-2: 158 60% 32%;
     --qibla-outer-text: 0 0% 35%;
     --qibla-outer-ring: 0 0% 22%;
     --qibla-tick: 0 0% 55%;
-    --qibla-tick-major: 28 80% 55%;
+    --qibla-tick-major: 45 67% 48%;
     --qibla-deg-text: 0 0% 75%;
-    --qibla-rose-major-a: 200 50% 55%;
-    --qibla-rose-major-b: 200 45% 45%;
-    --qibla-rose-minor-a: 200 40% 60%;
-    --qibla-rose-minor-b: 200 35% 50%;
+    --qibla-rose-major-a: 45 70% 62%;
+    --qibla-rose-major-b: 45 60% 50%;
+    --qibla-rose-minor-a: 45 55% 70%;
+    --qibla-rose-minor-b: 45 45% 58%;
     --qibla-cardinal: 0 0% 92%;
     --qibla-cardinal-n: 15 90% 60%;
     --qibla-needle-a: 0 0% 18%;
     --qibla-needle-b: 0 0% 4%;
     --qibla-pivot: 0 0% 14%;
     --qibla-pivot-center: 0 0% 95%;
-    --qibla-pivot-ring: 28 90% 55%;
+    --qibla-pivot-ring: 45 67% 48%;
     --qibla-status-aligned: 158 70% 50%;
     --qibla-ornament: 45 70% 55%;
   }
@@ -137,12 +141,12 @@
     --glass-bg: 0 0% 100% / 0.55;
     --glass-border: 25 25% 25% / 0.10;
 
-    /* === Qibla compass tokens (LIGHT / day) === */
+    /* === Qibla compass tokens (LIGHT / day) === (see dark-mode comment above) */
     --qibla-page-bg: 0 0% 96%;
     --qibla-page-fg: 220 15% 15%;
-    --qibla-header-top: 198 85% 55%;
-    --qibla-header-mid: 210 55% 30%;
-    --qibla-loc-pill: 210 60% 22%;
+    --qibla-header-top: 158 55% 38%;
+    --qibla-header-mid: 165 40% 22%;
+    --qibla-loc-pill: 165 35% 20%;
     --qibla-coord-fg: 220 15% 25%;
     --qibla-card-bg: 0 0% 100%;
     --qibla-card-border: 220 15% 88%;
@@ -150,25 +154,25 @@
     --qibla-muted-fg: 220 10% 45%;
     --qibla-face-bg: 0 0% 100%;
     --qibla-face-shadow: 220 15% 70% / 0.4;
-    --qibla-ring-blue: 198 85% 55%;
-    --qibla-ring-blue-2: 198 85% 48%;
+    --qibla-ring-blue: 158 64% 35%;
+    --qibla-ring-blue-2: 158 60% 28%;
     --qibla-outer-text: 220 10% 70%;
     --qibla-outer-ring: 220 10% 80%;
     --qibla-tick: 220 15% 50%;
-    --qibla-tick-major: 28 80% 50%;
+    --qibla-tick-major: 45 70% 45%;
     --qibla-deg-text: 220 15% 30%;
-    --qibla-rose-major-a: 198 60% 75%;
-    --qibla-rose-major-b: 198 50% 65%;
-    --qibla-rose-minor-a: 198 50% 80%;
-    --qibla-rose-minor-b: 198 40% 70%;
+    --qibla-rose-major-a: 45 70% 72%;
+    --qibla-rose-major-b: 45 55% 60%;
+    --qibla-rose-minor-a: 45 60% 80%;
+    --qibla-rose-minor-b: 45 45% 68%;
     --qibla-cardinal: 220 15% 30%;
     --qibla-cardinal-n: 15 85% 50%;
     --qibla-needle-a: 220 15% 25%;
     --qibla-needle-b: 220 15% 10%;
     --qibla-pivot: 220 15% 20%;
     --qibla-pivot-center: 0 0% 100%;
-    --qibla-pivot-ring: 28 90% 55%;
-    --qibla-status-aligned: 198 85% 45%;
+    --qibla-pivot-ring: 45 70% 45%;
+    --qibla-status-aligned: 158 64% 35%;
     --qibla-ornament: 220 15% 30%;
   }
 }
@@ -369,6 +373,15 @@
     border-radius: 0 !important;
     border: 0 !important;
     padding: 0 !important;
+    /* This dialog is a Radix Portal appended to <body>, outside the app's
+       normal #app-scroll container — so it doesn't inherit #app-scroll's
+       touch-action: pan-y / overflow-x: hidden protection against sideways
+       page panning. Re-applying the same rule here (vertical drag-to-close
+       and overflow-y-auto content still work; only horizontal panning of
+       the page itself is blocked). */
+    overflow-x: hidden !important;
+    touch-action: pan-y !important;
+    overscroll-behavior-x: none !important;
   }
   /* Hide default Radix Close X — we use our own Back/Close button */
   .qibla-hide-default-close > button[aria-label="Close"] { display: none !important; }

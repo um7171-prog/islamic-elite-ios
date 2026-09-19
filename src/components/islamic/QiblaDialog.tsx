@@ -178,12 +178,33 @@ export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChang
   const roseRotation = heading == null ? -qibla : -heading; // so Kaaba (fixed at top) corresponds to qibla
   const delta = heading == null ? null : Math.abs(angleDiff(qibla, heading));
 
-  // Tabs (visual only — first tab active)
+  // Tab taps: the Compass tab is the only view this dialog actually
+  // renders — Map / AR / Sun & Moon have no implementation anywhere in
+  // this project (no map or AR library is installed, and there is no
+  // sun/moon Qibla-finding feature; the unrelated "Desert Mode" moon-phase
+  // panel is a different feature entirely). Rather than silently doing
+  // nothing (the previous behavior — these were plain <div>s with no
+  // onClick at all) or faking a screen for them, each tap gives real
+  // feedback: a haptic tick plus an honest "not available yet" toast.
+  const onTabTap = (id: "compass" | "map" | "ar" | "sun-moon") => {
+    hapticTick();
+    if (id === "compass") return;
+    const messages: Record<Exclude<typeof id, "compass">, [string, string]> = {
+      map: ["Map view isn't available yet.", "عرض الخريطة غير متاح حاليًا."],
+      ar: ["Augmented reality view isn't available yet.", "الواقع المعزز غير متاح حاليًا."],
+      "sun-moon": ["Sun & Moon view isn't available yet.", "عرض الشمس والقمر غير متاح حاليًا."],
+    };
+    const [en, ar] = messages[id];
+    toast(t(en, ar));
+  };
+
+  // Tabs — same icons/order/appearance as the reference design; only the
+  // tap behavior above is new (previously visual-only, no onClick at all).
   const tabs = [
-    { icon: CompassIcon, label: t("Compass", "البوصلة"), active: true },
-    { icon: Map, label: t("Map", "الخارطة") },
-    { icon: Box, label: t("AR", "الواقع المعزز"), lock: true },
-    { icon: SunMoon, label: t("Sun & Moon", "الشمس والقمر") },
+    { id: "compass" as const, icon: CompassIcon, label: t("Compass", "البوصلة"), active: true },
+    { id: "map" as const, icon: Map, label: t("Map", "الخارطة") },
+    { id: "ar" as const, icon: Box, label: t("AR", "الواقع المعزز"), lock: true },
+    { id: "sun-moon" as const, icon: SunMoon, label: t("Sun & Moon", "الشمس والقمر") },
   ];
 
   return (
@@ -233,12 +254,14 @@ export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChang
           {/* Dark blue tabs band */}
           <div className="bg-[hsl(var(--qibla-header-mid))] px-2 pt-3 pb-2">
             <div className="flex items-end justify-around">
-              {tabs.map((tab, i) => {
+              {tabs.map((tab) => {
                 const Icon = tab.icon;
                 return (
-                  <div
-                    key={i}
-                    className={`relative flex-1 flex flex-col items-center gap-1 pb-1 ${
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => onTabTap(tab.id)}
+                    className={`relative flex-1 flex flex-col items-center gap-1 pb-1 active:scale-95 transition-transform ${
                       tab.active ? "text-white" : "text-white/70"
                     }`}
                   >
@@ -254,7 +277,7 @@ export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChang
                     {tab.active && (
                       <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 h-1 w-10 rounded-t-full bg-[hsl(var(--qibla-ring-blue))]" />
                     )}
-                  </div>
+                  </button>
                 );
               })}
             </div>
