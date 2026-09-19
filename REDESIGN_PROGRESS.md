@@ -699,12 +699,105 @@ Committed locally only on `islamic-elite-redesign-2026` — not pushed.
 main was not touched. Home/Services/Quran (Phases 5-7) were not
 modified. No subagents were used. Phase 9 was not started.
 
+## Phase 9 — Qibla page: brand colors, panning fix, tab icons (done)
+
+Explicit instruction this phase: do **not** redesign the Qibla page —
+keep its existing structure/compass/functions and only recolor it, fix
+the horizontal-panning bug, and make the 4 header tabs actually do
+something. Reviewed `QiblaDialog.tsx`, `useQiblaCompass.ts`, and
+`lib/qibla.ts` first; the compass math/hooks were not touched at all.
+
+**Changed (2 files):**
+- `src/index.css` — the `--qibla-*` tokens (both dark and light mode)
+  drove a blue/orange scheme left over from before the brand identity
+  was established in Phases 4-8. Recolored (values only, same variable
+  names, same usage sites): header bands, the compass ring glow, the
+  location pill, the "Enable compass" button, the compass-rose diamonds,
+  the degree ticks, and the pivot ring now use the app's `--primary`
+  emerald green and `--elite-gold-*` gold — the same tokens Home/
+  Services/Mushaf/Athkar already use. Also fixed a real pre-existing
+  inconsistency: light mode's "aligned" status text was still blue
+  (`198 85% 45%`) while dark mode's was already green (`158 70% 50%`) —
+  unified to green. Left neutral surfaces (cards, needle, page
+  background, decorative outer-ring text) unchanged, as instructed.
+- `src/components/islamic/QiblaDialog.tsx`:
+  - **Horizontal panning bug — found the cause**: `QiblaDialog` renders
+    as a Radix Dialog, which portals directly to `<body>`, *outside*
+    the app's `#app-scroll` container. The rest of the app is protected
+    from sideways swipe-panning by `touch-action: pan-y` +
+    `overflow-x: hidden` set on `.app-scroll` (see `index.css`) — but
+    since this dialog's DOM subtree is a sibling of `#app-scroll`, not
+    a descendant, it never inherited that protection. Fixed by adding
+    the identical `touch-action: pan-y`, `overflow-x: hidden`, and
+    `overscroll-behavior-x: none` directly to the `.qibla-fullscreen`
+    class already used only by this dialog.
+  - **Tab icons investigated and fixed**: the 4 header tabs (Compass /
+    Map / AR / Sun & Moon) were plain `<div>`s with no `onClick`
+    whatsoever — literally inert, exactly matching the user's report.
+    Searched the codebase for any existing Map, AR, or Sun/Moon
+    Qibla-finding feature to link to: **none exists** — no map or AR
+    library is installed (`package.json` has neither), and there is no
+    sun/moon-based Qibla method anywhere in the code (the only
+    "moon phase" code in the project is `lib/desert.ts`'s unrelated
+    Desert-Mode weather panel — wrong feature, wrong purpose, not
+    reused). Rather than inventing a fake screen for any of them, each
+    tab is now a real `<button>`: **Compass** gives a haptic tick (it's
+    already the view being shown, so nothing to navigate to); **Map**,
+    **AR**, and **Sun & Moon** each give a haptic tick plus an honest
+    `toast` saying that view isn't available yet. Same 4 icons, same
+    order, same visual appearance as before (including AR's pre-existing
+    small lock badge, which already signaled "not available") — only
+    real tap behavior was added where there was none.
+
+**Verified, not just claimed (real browser via Playwright, 375px):**
+- Opened `/qibla` for real in both languages — screenshots confirm the
+  new green/gold palette renders correctly (header bands, ring, rose,
+  ticks, pivot) with the same layout/structure as before.
+- Tapped **all 4 tabs** for real and read the actual on-screen result
+  (not just checking a handler exists): Compass → no toast (already
+  active); Map → toast "عرض الخريطة غير متاح حاليًا." / "Map view isn't
+  available yet."; AR → "الواقع المعزز غير متاح حاليًا." / "...AR...";
+  Sun & Moon → "عرض الشمس والقمر غير متاح حاليًا." / "...Sun & Moon...".
+  Confirmed the dialog stayed open and undisturbed after every tap.
+- Horizontal panning: confirmed `getComputedStyle(...).touchAction ===
+  "pan-y"` on `.qibla-fullscreen`, then dispatched a real synthetic
+  horizontal touch-drag (touchstart/touchmove ×10/touchend) over the
+  compass area — the dialog's `x` position and `window.scrollX` stayed
+  at `0` before and after, with no overflow
+  (`scrollWidth === clientWidth === 375`).
+- Vertical gestures still work: dispatched the same kind of touch-drag
+  vertically from the grab-handle area — `transform: translateY(80px)`
+  appeared during the drag and correctly settled back to
+  `translateY(0px)` on release without crossing the close threshold,
+  confirming the pre-existing drag-to-close logic is unaffected by the
+  `touch-action: pan-y` change.
+- Compass/location data still computes correctly and unchanged: bearing
+  "219°", distance "689 KM", coordinates all rendered from the same
+  `useQiblaCompass`/`lib/qibla.ts` code, which was never touched.
+- Arabic RTL / English LTR: confirmed via `document.documentElement.dir`
+  /`lang` and screenshots — tab order visually reads
+  Compass→Map→AR→Sun & Moon in natural reading direction in both modes
+  (right-to-left in Arabic, left-to-right in English), matching the
+  reference order.
+- 375px width: `scrollWidth === clientWidth` (375 === 375), verified
+  both before and after the panning-gesture simulation.
+- No console errors or `pageerror`s caused by this change.
+- `npx tsc --noEmit`: clean.
+- `npm run test`: **50/50 passing** (11 files, unchanged suite,
+  including `useQiblaCompass.test.ts` — confirms the compass hook logic
+  is untouched).
+- `npm run build`: succeeds.
+
+Committed locally only on `islamic-elite-redesign-2026` — not pushed.
+main was not touched. Home/Services/Quran/Athkar (Phases 5-8) were not
+modified. No subagents were used. Phase 10 was not started.
+
 ## Next phase
 
 Several things remain open:
 
 1. **The remaining reference-matched page restyles**: Splash screen,
-   Qibla, Prayer Times, Hijri/Gregorian Calendar,
+   Prayer Times, Hijri/Gregorian Calendar,
    Appointments-with-notifications, File Converter (**visual framing
    only, e.g. header/back-button style — the converter UI itself stays
    untouched**), Calculators, Settings, Notifications.
