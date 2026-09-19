@@ -33,6 +33,35 @@ export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChang
   const lat = coords?.lat ?? city.lat;
   const lng = coords?.lng ?? city.lng;
 
+  // Real GPS fix required before the compass is shown — no silent fallback
+  // to the selected city for the primary experience (previously the compass
+  // rendered immediately using `city.lat/lng` while a small dismissible
+  // "using your selected city instead" notice sat under it). `hasFix` gates
+  // between three screens: a brief loading state, the compass, or a clear
+  // "enable location" screen — the location flow only; not touched:
+  // `useUserLocation`/`useQiblaCompass` and the bearing/distance math above.
+  const hasFix = coords != null;
+  const locationPending = !hasFix && (locStatus === "idle" || locStatus === "loading");
+  const showLocationGate = !hasFix && (locStatus === "denied" || locStatus === "unavailable" || locStatus === "error");
+
+  // Auto-recheck when the user comes back to the app/tab — e.g. after
+  // granting location in system Settings and returning. This is what makes
+  // "grant permission -> automatically back in the Qibla view" work without
+  // an extra tap: once `requestLocation()` succeeds, `coords` updates,
+  // `hasFix` becomes true, and the gate below disappears on its own.
+  useEffect(() => {
+    if (!open || hasFix) return;
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && locStatus !== "loading") requestLocation();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, [open, hasFix, locStatus, requestLocation]);
+
   const compass = useQiblaCompass(open);
   const { heading, accuracy, status: compassStatus } = compass;
 
@@ -188,7 +217,12 @@ export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChang
   // feedback: a haptic tick plus an honest "not available yet" toast.
   const onTabTap = (id: "compass" | "map" | "ar" | "sun-moon") => {
     hapticTick();
-    if (id === "compass") return;
+    if (id === "compass") {
+      // Already the active/only view — but if we're sitting on the "enable
+      // location" screen, tapping the Compass tab re-checks location too.
+      if (!hasFix && locStatus !== "loading") requestLocation();
+      return;
+    }
     const messages: Record<Exclude<typeof id, "compass">, [string, string]> = {
       map: ["Map view isn't available yet.", "عرض الخريطة غير متاح حاليًا."],
       ar: ["Augmented reality view isn't available yet.", "الواقع المعزز غير متاح حاليًا."],
@@ -294,6 +328,70 @@ export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChang
 
         {/* ===== BODY ===== */}
         <div className="relative px-4 pt-3 pb-6">
+          {locationPending ? (
+            /* Brief moment while the very first geolocation check is in
+               flight — avoids flashing the compass with a wrong bearing
+               before we know whether a real GPS fix is available. */
+            <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
+              <Loader2 className="h-8 w-8 animate-spin" style={{ color: "hsl(var(--qibla-ring-blue))" }} />
+              <p className="text-[13px] text-[hsl(var(--qibla-muted-fg))]">
+                {t("Getting your location…", "جارٍ تحديد موقعك…")}
+              </p>
+            </div>
+          ) : showLocationGate ? (
+            /* Real "enable location" screen — replaces the old behavior of
+               silently rendering the compass with the selected city's
+               coordinates plus a small dismissible warning underneath. No
+               fake/hardcoded coordinates are used here or anywhere else. */
+            <div className="flex flex-col items-center text-center py-14 px-2">
+              <div
+                className="h-16 w-16 rounded-full flex items-center justify-center mb-4"
+                style={{ background: "hsl(var(--qibla-ring-blue) / 0.15)" }}
+              >
+                <MapPin className="h-8 w-8" style={{ color: "hsl(var(--qibla-ring-blue))" }} />
+              </div>
+              <h2 className="text-base font-bold text-[hsl(var(--qibla-card-fg))] mb-1.5">
+                {t("Location needed", "الموقع مطلوب")}
+              </h2>
+              <p className="text-[13px] text-[hsl(var(--qibla-muted-fg))] max-w-[280px]">
+                {t(
+                  "We need your location to determine the Qibla direction accurately.",
+                  "نحتاج إلى موقعك لتحديد اتجاه القبلة بدقة.",
+                )}
+              </p>
+              {locStatus === "denied" && (
+                <p className="mt-2 text-[12px] text-[hsl(var(--destructive))] max-w-[280px]">
+                  {t(
+                    "Location access was denied. Location is required to find the Qibla direction.",
+                    "تم رفض إذن الموقع. الموقع مطلوب لتحديد اتجاه القبلة.",
+                  )}
+                </p>
+              )}
+              {locStatus === "unavailable" && (
+                <p className="mt-2 text-[12px] text-[hsl(var(--destructive))] max-w-[280px]">
+                  {t(
+                    "Location services seem to be turned off on your device. Please enable them to continue.",
+                    "يبدو أن خدمة الموقع متوقفة في جهازك. الرجاء تفعيلها للمتابعة.",
+                  )}
+                </p>
+              )}
+              {locStatus === "error" && (
+                <p className="mt-2 text-[12px] text-[hsl(var(--destructive))] max-w-[280px]">
+                  {t("Couldn't get your location. Please try again.", "تعذّر تحديد موقعك. حاول مرة أخرى.")}
+                </p>
+              )}
+              <div className="mt-5 w-full max-w-[260px]">
+                <Button
+                  onClick={locStatus === "error" ? requestLocation : openSettings}
+                  className="w-full gap-1.5 bg-[hsl(var(--qibla-ring-blue))] hover:bg-[hsl(var(--qibla-ring-blue-2))] text-white"
+                >
+                  <MapPin className="h-4 w-4" />
+                  {t("Enable Location", "تفعيل الموقع")}
+                </Button>
+              </div>
+            </div>
+          ) : (
+          <>
           {/* Coordinates row */}
           <div className="text-center text-[13px] text-[hsl(var(--qibla-coord-fg))] font-medium">
             Latitude: {toDMS(lat)} Longitude: {toDMS(lng)}
@@ -622,9 +720,10 @@ export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChang
             </p>
           )}
 
-          {/* Compass / location problem panel — never a white screen */}
-          {(compassStatus === "denied" || compassStatus === "unsupported" || compassStatus === "error" ||
-            locStatus === "denied" || locStatus === "unavailable" || locStatus === "error") && (
+          {/* Compass sensor problem panel — never a white screen. Location
+              issues are handled above by the "enable location" screen, so
+              this only ever needs to cover the compass sensor itself. */}
+          {(compassStatus === "denied" || compassStatus === "unsupported" || compassStatus === "error") && (
             <div className="mt-3 rounded-xl border border-[hsl(var(--destructive))]/40 bg-[hsl(var(--destructive))]/10 p-3 text-[12px]">
               <div className="flex items-start gap-2">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[hsl(var(--destructive))]" />
@@ -638,12 +737,6 @@ export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChang
                   {compassStatus === "error" && (
                     <p>{t("The compass could not be started.", "تعذّر تشغيل البوصلة.")}</p>
                   )}
-                  {locStatus === "denied" && (
-                    <p>{t("Location permission denied — using your selected city instead.", "تم رفض إذن الموقع — يتم استخدام المدينة المختارة بدلاً منه.")}</p>
-                  )}
-                  {(locStatus === "unavailable" || locStatus === "error") && (
-                    <p>{t("Location services are unavailable — using your selected city.", "خدمات الموقع غير متاحة — يتم استخدام المدينة المختارة.")}</p>
-                  )}
                 </div>
               </div>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -653,7 +746,7 @@ export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChang
                 </Button>
                 <Button size="sm" variant="outline" className="gap-1.5" onClick={openSettings}>
                   <SettingsIcon className="h-3.5 w-3.5" />
-                  {t("Open location settings", "فتح إعدادات الموقع")}
+                  {t("Open Settings", "فتح الإعدادات")}
                 </Button>
               </div>
             </div>
@@ -672,6 +765,8 @@ export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChang
           >
             {t("Test alignment alert", "اختبار تنبيه القبلة")}
           </button>
+          </>
+          )}
         </div>
       </DialogContent>
     </Dialog>

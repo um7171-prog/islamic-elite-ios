@@ -230,7 +230,13 @@ export function useUserLocation(active: boolean) {
         },
         (err) => {
           if (!mounted.current) return;
-          setStatus(err && err.code === 1 ? "denied" : "error");
+          // code 1 PERMISSION_DENIED, code 2 POSITION_UNAVAILABLE (permission
+          // is granted but the device's location service itself is off / no
+          // fix could be produced — a distinct case from a denied permission
+          // or a plain timeout, so the UI can tell the user what to enable).
+          if (err && err.code === 1) setStatus("denied");
+          else if (err && err.code === 2) setStatus("unavailable");
+          else setStatus("error");
         },
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 },
       );
