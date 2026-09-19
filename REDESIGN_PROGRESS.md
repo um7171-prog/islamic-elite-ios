@@ -534,12 +534,94 @@ Committed locally only on `islamic-elite-redesign-2026` — not pushed. main
 was not touched. Services page (Phase 5) was not modified. No subagents
 were used. Phase 7 was not started.
 
+## Phase 7 — Mushaf (Quran reader) i18n + brand polish (done)
+
+Reviewed `Mushaf.tsx` / `MushafReader.tsx` / `MushafBars.tsx` /
+`MushafIndexSheet.tsx` / `MushafExtrasSheet.tsx` / `MushafPageView.tsx`
+before touching anything. Found the entire Mushaf UI had **zero i18n
+support** — every label, toast, and placeholder was hardcoded Arabic —
+despite the rest of the app supporting `useLocale()`/English since
+Phase 2+. That gap, not a missing visual redesign, was the real blocker
+for this phase's requirement to support English LTR in the interface.
+
+**Changed:**
+- `MushafBars.tsx` (top + bottom toolbars) — all aria-labels, chip
+  labels (Juz/Hizb/surah name), and the 6 bottom-bar action labels now
+  go through `t()`; surah name switches between `info.mainSurah.ar`/`en`
+  based on `lang`. Fixed a real bug found while doing this: the
+  bookmarked/audio-playing icon used the `text-elite-gold` class, which
+  is a `background-clip:text` gradient meant for text nodes — applied to
+  an SVG icon it makes the icon's `currentColor` stroke/fill fully
+  transparent (invisible). Replaced with a direct
+  `style={{ color: "hsl(var(--elite-gold-start))" }}`.
+- `MushafIndexSheet.tsx` — tabs, search placeholders, and all
+  surah/juz/hizb/page/bookmarks list content translated; `s.en` is now
+  actually used (the data already existed, just was never displayed).
+  `b.label` (bookmark display text) stays Arabic-at-creation-time — a
+  pre-existing data-storage choice, out of scope for a UI pass.
+- `MushafExtrasSheet.tsx` — sheet titles, display-mode buttons
+  (Auto/Day/Night), "Reciter" label, loading/error states translated.
+  Reciter proper names (`r.name`) and the translation/tafsir content's
+  own `dir` stay as-is (both already correct).
+- `MushafReader.tsx` — the 4 toast messages (recitation error, bookmark
+  toggle, share link copied, page link copied) translated; the
+  share-sheet `title`/`text` now build from the language-aware surah
+  name instead of always Arabic.
+- `Mushaf.tsx` — found and fixed a real cross-cutting bug: `<SEO lang="ar">`
+  was hardcoded, and `SEO.tsx` sets `<html lang dir>` via
+  `react-helmet-async`, which **silently overrode the whole document
+  back to `dir="rtl"`/`lang="ar"` on every visit to `/mushaf`, even when
+  the user had explicitly chosen English** for the rest of the app.
+  Confirmed via a real browser test (`document.documentElement.dir`
+  stayed `"rtl"` for an English-language session until this fix).
+  Now passes `lang={lang}` from `useLocale()`. The Mushaf reader's own
+  inner `dir="rtl"` (the page-turn direction) is untouched and correct —
+  that is content-driven, not a UI-language concern, per the existing
+  `// RTL reading: page N+1 lives to the LEFT of page N` comment.
+- Minor visual polish only, no new components: added `border` to the
+  index-sheet tab pills, juz/hizb/page-jump grid buttons, the display-mode
+  buttons, and the reciter list rows, plus a border on the top-bar chips —
+  gives clearer card edges consistent with the rest of the app's design
+  system tokens (`border-border/30`, `bg-accent`), without touching
+  layout, gestures, or the toolbar's dark-overlay-on-page look (which was
+  already consistent with the app's "clean iOS" direction).
+- `MushafPageView.tsx` (owns pinch-zoom/pan) — **not touched at all.**
+
+**Verified, not just claimed (real browser via Playwright, 375px):**
+- Navigation: deep-linked to `?page=50`, then used the free-text page
+  search ("100" → Enter) and confirmed via screenshot it actually
+  rendered Quran page 100 content.
+- Zoom: simulated wheel-based zoom (the page uses `wheel={{step:0.2}}`,
+  not just pinch) — confirmed `scale` went from 1 → 5 (max) and back to
+  1, no errors.
+- Search: the index sheet's free-text page/verse search navigated
+  correctly (see Navigation above).
+- Bookmark: toggled on via the top-bar icon, toast confirmed
+  ("Page 1 saved" in English / the Arabic equivalent), and the page
+  appeared correctly in the index sheet's Favorites tab.
+- Arabic RTL / English LTR: confirmed `document.documentElement.dir`
+  and `lang` correctly follow the user's chosen language on `/mushaf`
+  (`ar`→`rtl`/`ar`, `en`→`ltr`/`en`) after the SEO fix above; all
+  toolbar/sheet text renders in the correct language while the physical
+  page-turn direction stays RTL as designed.
+- 375px width: `document.documentElement.scrollWidth === clientWidth`
+  (375 === 375) in every test — no horizontal overflow, in both
+  languages, before and after navigation.
+- No console errors and no `pageerror`s in any test run.
+- `npx tsc --noEmit`: clean.
+- `npm run test`: **50/50 passing** (11 files, unchanged suite).
+- `npm run build`: succeeds.
+
+Committed locally only on `islamic-elite-redesign-2026` — not pushed.
+main was not touched. Home/Services (Phases 5-6) were not modified. No
+subagents were used. Phase 8 was not started.
+
 ## Next phase
 
 Several things remain open:
 
 1. **The remaining reference-matched page restyles**: Splash screen,
-   Quran, Athkar, Qibla, Prayer Times, Hijri/Gregorian Calendar,
+   Athkar, Qibla, Prayer Times, Hijri/Gregorian Calendar,
    Appointments-with-notifications, File Converter (**visual framing
    only, e.g. header/back-button style — the converter UI itself stays
    untouched**), Calculators, Settings, Notifications.
