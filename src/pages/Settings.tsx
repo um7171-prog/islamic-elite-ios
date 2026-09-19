@@ -58,8 +58,8 @@ function Section({
           <Icon className="h-5 w-5" />
         </div>
         <div>
-          <h2 className="font-display text-base font-semibold text-elite-gold">{title}</h2>
-          {subtitle && <p className="text-[11px] text-foreground/60">{subtitle}</p>}
+          <h2 className="font-display text-h3 text-elite-gold">{title}</h2>
+          {subtitle && <p className="text-caption text-foreground/60">{subtitle}</p>}
         </div>
       </div>
       <div className="space-y-3">{children}</div>
@@ -72,7 +72,7 @@ function Section({
  * aid for the sections below it, no behavior change. */
 function GroupLabel({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="font-display text-xs uppercase tracking-[0.2em] text-foreground/50 px-1 pt-1">
+    <h2 className="font-display text-label uppercase tracking-[0.2em] text-foreground/50 px-1 pt-1">
       {children}
     </h2>
   );
@@ -90,8 +90,8 @@ function Row({
   return (
     <div className="flex items-center justify-between gap-3 rounded-xl border border-foreground/10 p-3">
       <div className="min-w-0">
-        <div className="text-sm font-medium">{label}</div>
-        {description && <div className="text-[11px] text-foreground/60 leading-relaxed">{description}</div>}
+        <div className="text-body font-medium">{label}</div>
+        {description && <div className="text-caption text-foreground/60 leading-relaxed">{description}</div>}
       </div>
       <div className="shrink-0">{children}</div>
     </div>
@@ -173,8 +173,8 @@ export default function Settings() {
           <ArrowLeft className={`h-4 w-4 ${dir === "rtl" ? "rotate-180" : ""}`} />
         </Link>
         <div>
-          <h1 className="font-display text-lg font-bold">{t("Settings", "الإعدادات")}</h1>
-          <p className="text-[11px] text-foreground/60">
+          <h1 className="font-display text-h2">{t("Settings", "الإعدادات")}</h1>
+          <p className="text-caption text-foreground/60">
             {t("Changes save automatically", "يتم الحفظ تلقائياً")}
           </p>
         </div>
@@ -194,7 +194,7 @@ export default function Settings() {
                 <button
                   key={l}
                   onClick={() => setLang(l)}
-                  className={`px-3 py-1.5 text-xs font-medium transition ${
+                  className={`px-3 py-1.5 text-body-sm font-medium transition ${
                     lang === l ? "bg-accent text-accent-foreground" : "text-foreground/70 hover:bg-foreground/5"
                   }`}
                 >
@@ -213,7 +213,7 @@ export default function Settings() {
                 <button
                   key={m.id}
                   onClick={() => setMode(m.id)}
-                  className={`px-2.5 py-1.5 text-xs font-medium inline-flex items-center gap-1 transition ${
+                  className={`px-2.5 py-1.5 text-body-sm font-medium inline-flex items-center gap-1 transition ${
                     mode === m.id ? "bg-accent text-accent-foreground" : "text-foreground/70 hover:bg-foreground/5"
                   }`}
                   aria-label={m.label}
@@ -257,10 +257,10 @@ export default function Settings() {
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">{t(m.en, m.ar)}</span>
+                    <span className="text-body font-medium">{t(m.en, m.ar)}</span>
                     {active && <Check className="h-4 w-4 text-accent" />}
                   </div>
-                  <div className="text-[10px] text-foreground/60 mt-0.5">{t(m.note.en, m.note.ar)}</div>
+                  <div className="text-caption text-foreground/60 mt-0.5">{t(m.note.en, m.note.ar)}</div>
                 </button>
               );
             })}
@@ -391,8 +391,8 @@ export default function Settings() {
                       <c.Icon className="h-5 w-5" />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium">{c.label}</div>
-                      <div className="text-[11px] text-foreground/60 truncate" dir="ltr">
+                      <div className="text-body font-medium">{c.label}</div>
+                      <div className="text-caption text-foreground/60 truncate" dir="ltr">
                         {c.value}
                       </div>
                     </div>
@@ -414,8 +414,8 @@ export default function Settings() {
                 <Wrench className="h-5 w-5" />
               </div>
               <div className="flex-1 min-w-0">
-                <h2 className="font-display text-base font-semibold text-foreground/80">{t("Advanced Settings", "إعدادات متقدمة")}</h2>
-                <p className="text-[11px] text-foreground/60">{t("Technical diagnostics — not needed for everyday use", "تشخيص تقني — غير مطلوب للاستخدام اليومي")}</p>
+                <h2 className="font-display text-h3 text-foreground/80">{t("Advanced Settings", "إعدادات متقدمة")}</h2>
+                <p className="text-caption text-foreground/60">{t("Technical diagnostics — not needed for everyday use", "تشخيص تقني — غير مطلوب للاستخدام اليومي")}</p>
               </div>
               <ChevronDown className="h-4 w-4 text-foreground/50 transition-transform shrink-0" />
             </CollapsibleTrigger>
@@ -424,7 +424,7 @@ export default function Settings() {
                   from the expected commit/branch, instead of guessing whether a
                   Codemagic build predates the latest push. */}
               {versionInfo && (
-                <div className="rounded-xl border border-foreground/10 p-3 text-[11px] leading-relaxed font-mono" dir="ltr">
+                <div className="rounded-xl border border-foreground/10 p-3 text-caption leading-relaxed font-mono" dir="ltr">
                   <div>version {versionInfo.version} · build {versionInfo.build}</div>
                   <div>commit {versionInfo.commit} · branch {versionInfo.branch}</div>
                 </div>
@@ -438,12 +438,12 @@ export default function Settings() {
                     className="flex w-full items-center justify-between rounded-xl border border-foreground/10 p-3 transition hover:bg-foreground/5 active:scale-[0.99] disabled:opacity-60"
                   >
                     <div className="text-start">
-                      <div className="text-sm font-medium">
+                      <div className="text-body font-medium">
                         {notificationTest === "running"
                           ? t("Scheduling…", "جارٍ الجدولة…")
                           : t("Test after 12 seconds", "اختبار بعد 12 ثانية")}
                       </div>
-                      <div className="text-[11px] text-foreground/60">
+                      <div className="text-caption text-foreground/60">
                         {t("Schedules one isolated test without touching prayer reminders", "يجدول إشعار اختبار مستقل بدون لمس تنبيهات الصلاة")}
                       </div>
                     </div>
@@ -451,7 +451,7 @@ export default function Settings() {
                   </button>
                   {notificationTestMessage && (
                     <div
-                      className={`rounded-xl border p-3 text-xs leading-relaxed ${
+                      className={`rounded-xl border p-3 text-body-sm leading-relaxed ${
                         notificationTest === "scheduled"
                           ? "border-emerald-500/30 bg-emerald-500/10"
                           : "border-destructive/30 bg-destructive/10"
@@ -462,7 +462,7 @@ export default function Settings() {
                   )}
                   <Link
                     to="/notification-diagnostics"
-                    className="flex items-center justify-between rounded-xl border border-foreground/10 p-3 text-sm hover:bg-foreground/5 transition"
+                    className="flex items-center justify-between rounded-xl border border-foreground/10 p-3 text-body hover:bg-foreground/5 transition"
                   >
                     <span>{t("Notification Diagnostics", "تشخيص الإشعارات")}</span>
                     <ArrowLeft className={`h-4 w-4 text-foreground/40 ${dir === "rtl" ? "" : "rotate-180"}`} />

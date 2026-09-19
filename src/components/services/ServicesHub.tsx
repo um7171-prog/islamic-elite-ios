@@ -257,7 +257,7 @@ export function ServicesHub({ initialOpen = null, initialCategory = null }: Prop
             key={c.key}
             onClick={() => setCat(c.key)}
             className={cn(
-              "shrink-0 rounded-full px-3.5 py-1.5 text-[11px] font-semibold border transition",
+              "shrink-0 rounded-full px-3.5 py-1.5 text-label border transition",
               cat === c.key
                 ? "border-transparent text-accent-foreground shadow"
                 : "border-border/60 bg-card/50 text-foreground/70 hover:text-foreground",
@@ -271,7 +271,7 @@ export function ServicesHub({ initialOpen = null, initialCategory = null }: Prop
 
       {recentTools.length > 0 && cat === "all" && !query && (
         <section>
-          <h3 className="text-[11px] font-bold uppercase tracking-widest text-foreground/50 mb-2">
+          <h3 className="text-label uppercase tracking-widest text-foreground/50 mb-2">
             {t("Recently used", "آخر استخدام")}
           </h3>
           <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
@@ -284,7 +284,7 @@ export function ServicesHub({ initialOpen = null, initialCategory = null }: Prop
                 <span className="h-7 w-7 rounded-lg grid place-items-center text-accent-foreground" style={{ background: tool.gradient }}>
                   <tool.Icon className="h-3.5 w-3.5" />
                 </span>
-                <span className="text-[11px] font-semibold whitespace-nowrap">{lang === "ar" ? tool.ar : tool.en}</span>
+                <span className="text-label whitespace-nowrap">{lang === "ar" ? tool.ar : tool.en}</span>
               </button>
             ))}
           </div>
@@ -304,10 +304,10 @@ export function ServicesHub({ initialOpen = null, initialCategory = null }: Prop
               >
                 <tool.Icon className="h-5 w-5" />
               </span>
-              <p className="text-[13px] font-bold leading-tight pe-6 break-words">{lang === "ar" ? tool.ar : tool.en}</p>
-              <p className="text-[11px] text-foreground/55 mt-1.5 leading-snug break-words">{lang === "ar" ? tool.descAr : tool.descEn}</p>
+              <p className="text-body font-bold leading-tight pe-6 break-words">{lang === "ar" ? tool.ar : tool.en}</p>
+              <p className="text-caption text-foreground/55 mt-1.5 leading-snug break-words">{lang === "ar" ? tool.descAr : tool.descEn}</p>
               {days[tool.id] !== undefined && (
-                <span className="mt-2.5 inline-flex max-w-full items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
+                <span className="mt-2.5 inline-flex max-w-full items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-caption text-primary">
                   <span>⏳</span>
                   <span className="truncate">
                     {days[tool.id] === 0
@@ -331,7 +331,7 @@ export function ServicesHub({ initialOpen = null, initialCategory = null }: Prop
       {filtered.length === 0 && (
         <div className="flex flex-col items-center gap-2 py-10 text-foreground/50">
           <Search className="h-8 w-8 opacity-40" />
-          <p className="text-center text-xs">{t("No services match your search", "لا توجد خدمات مطابقة للبحث")}</p>
+          <p className="text-center text-body-sm">{t("No services match your search", "لا توجد خدمات مطابقة للبحث")}</p>
         </div>
       )}
 
@@ -339,7 +339,7 @@ export function ServicesHub({ initialOpen = null, initialCategory = null }: Prop
       <Dialog open={!!active} onOpenChange={(v) => !v && setOpenId(null)}>
         <DialogContent dir={dir} className="w-[calc(100vw-1.5rem)] max-w-lg p-0 gap-0 overflow-hidden">
           <DialogHeader className="px-5 pt-5 pb-3 border-b border-border/60">
-            <DialogTitle className="flex items-center gap-2.5 text-base">
+            <DialogTitle className="flex items-center gap-2.5 text-h3">
               {active && (
                 <span className="h-9 w-9 rounded-xl grid place-items-center text-accent-foreground shrink-0" style={{ background: active.gradient }}>
                   <active.Icon className="h-4.5 w-4.5" />
