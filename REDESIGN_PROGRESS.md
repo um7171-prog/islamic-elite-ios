@@ -1000,6 +1000,108 @@ Committed locally only on `islamic-elite-redesign-2026` — not pushed.
 main was not touched. Quran/Athkar were not modified. No subagents were
 used. Phase 10 was not started.
 
+## Phase 10 — final UI integration: dedupe Qibla naming, rebuild Settings (done)
+
+**Services — investigated the reported Qibla duplication first, before
+touching anything.** The claim was that "القبلة" and "اتجاه القبلة"
+both show up as duplicates. Checked `ServicesHub.tsx`'s `TOOLS` array
+directly: only one `id: "qibla"` entry exists — no duplicate tile
+inside the Services grid itself. Confirmed live via a DOM search on the
+rendered `/tools` page (`button` elements containing "قبلة") that
+exactly one match exists. The real issue was a **cross-surface naming
+mismatch**: Home's `QuickShortcuts.tsx` tile for this same feature
+(same `/qibla` target) already said "القبلة", while the Services tile
+said "اتجاه القبلة" — same dialog, same route, two different Arabic
+labels depending on which part of the app you were looking at. Fixed
+by renaming the Services tile's Arabic label to "القبلة" (keeping "اتجاه
+القبلة" in its search keywords so it's still found either way). Scanned
+the rest of `TOOLS` for the same class of issue (same route, same
+rendered dialog/component, or two ids doing the same job under
+different names) — found none; every other tool id maps to a distinct
+route or dialog.
+
+**Settings — a real reorganization, not just group labels this time.**
+The previous cleanup pass only added 3 uppercase group headers over the
+existing sections without moving anything. This pass actually
+restructures into the 5 requested groups, moving pre-existing sections
+to where their function belongs rather than rewriting their logic:
+- **General (عام)**: Account & App (language, theme — unchanged) + a
+  **newly split-out** Location section. Previously "Location" and
+  "Madhab" were bundled into one "Prayer & Times" section; Location is
+  now its own card here since it's a general app-wide setting (also
+  used for Qibla), not prayer-specific.
+- **Prayer (الصلاة)**: a renamed "Calculation Method" section holding
+  just the Madhab/Asr-method picker (unchanged logic, `usePrayerCalc`),
+  plus Athan Notifications (`AthanSettingsCard` — unchanged, still has
+  its full per-prayer toggles, sound pickers, offset adjusters, and the
+  "auto-update city / Arabic city names / show sunrise" extra toggles
+  inside it, all confirmed still present).
+- **Athkar (الأذكار)**: Athkar Reminders (`AthkarRemindersCard` —
+  unchanged).
+- **App (التطبيق)**: the App Announcements push toggle — native-only,
+  so on web this entire group (header included) is skipped rather than
+  showing an empty section with nothing under it.
+- **Support & Info (الدعم والمعلومات)**: Contact Us channels +
+  the collapsible Advanced Settings/diagnostics panel (version info,
+  notification test, diagnostics link) — both unchanged.
+
+No setting was removed. No toggle was invented — every control in the
+new layout is the exact same pre-existing component, hook, or handler
+as before, just relocated to the group its function actually belongs
+to. No second Settings page exists; this is still the one and only
+`/settings` route.
+
+**Home / Qibla — reviewed, no changes needed.** Saudi Jobs remains
+absent from Home (confirmed again this pass, not re-added). Qibla's own
+`QiblaDialog.tsx` was **not touched** in this phase — the working
+location-gate flow and the tab-tap compass activation from the earlier
+cleanup pass are the reference behavior and were only re-verified, not
+modified.
+
+**Verified, not just claimed (real browser via Playwright, 375px):**
+- Services: live DOM search confirms exactly one Qibla-labelled button
+  on `/tools`; clicking it opens the real `QiblaDialog` (URL stays
+  `/tools`, confirming it's the dialog action, not a route nav);
+  closing it and opening Athkar afterward confirms the dialog system
+  and navigation weren't disturbed by the rename.
+- Settings: confirmed via `innerText` that all 5 group labels render
+  (English ones case-insensitively, since they're visually uppercased
+  via CSS same as before) and that the old combined "Location and
+  calculation method" subtitle is gone (proving an actual restructure
+  happened, not just new headers on old markup). Exercised each control
+  for real: language toggle flips `document.documentElement.dir` both
+  ways; theme toggle actually adds/removes the `.light` class on
+  `<html>` for Day vs Night; Madhab picker's checkmark actually moves
+  to the tapped option and back; screenshots down the full scroll
+  confirm Athan Notifications' entire feature set (per-prayer switches,
+  calculation method list, per-prayer minute offsets, per-prayer athan
+  sound pickers, the 3 extra display toggles), Athkar Reminders,
+  Contact Us channels, and the Advanced Settings collapsible (confirmed
+  it actually opens — `data-state` flips to `open` on click) are all
+  still present and rendered.
+- Home: confirmed absence of "وظائف السعودية"/"Saudi Jobs" in both
+  languages, and exactly one Qibla-labelled button (the QuickShortcuts
+  tile) — no duplicate service surfaced on Home either.
+- Qibla: confirmed live, in both a granted-location and a
+  general re-check, that "تفعيل البوصلة"/"Enable compass" do not appear
+  anywhere on the page and that the compass/distance/bearing cards
+  still render correctly from a real granted location.
+- 375px width: `scrollWidth === clientWidth` (375 === 375) on Services,
+  Settings, Home, and Qibla.
+- Arabic RTL / English LTR: `document.documentElement.dir` correct on
+  every page tested.
+- No console errors or `pageerror`s caused by any of these changes.
+- `npx tsc --noEmit -p tsconfig.app.json`: only the same 3 pre-existing
+  baseline errors remain (confirmed unrelated to this phase — not
+  touched, per instruction).
+- `npm run test`: **50/50 passing** (11 files — `servicesGrid.test.tsx`
+  updated for the unified Qibla label, still 14/14).
+- `npm run build`: succeeds.
+
+Committed locally only on `islamic-elite-redesign-2026` — not pushed.
+main was not touched. File Converter was not modified. IPA/native build
+was not started. No subagents were used. Phase 11 was not started.
+
 ## Next phase
 
 Several things remain open:
