@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
+import { Check, Heart, Sunrise, Sunset, BedDouble, CheckCircle2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
 import { useLocale } from "@/contexts/LocaleContext";
+import { cn } from "@/lib/utils";
 
 interface Athkar { ar: string; en: string; count: number; }
 
@@ -94,16 +95,39 @@ function List({ items, storageKey }: { items: Athkar[]; storageKey: string }) {
 
   const tap = (i: number) => setCounts(c => c.map((v, idx) => idx === i ? Math.min(v + 1, items[i].count) : v));
   return (
-    <div className="space-y-3 max-h-[60vh] overflow-y-auto pe-1">
+    <div className="space-y-2.5 max-h-[58vh] overflow-y-auto pe-1">
       {items.map((it, i) => {
         const done = counts[i] >= it.count;
         return (
-          <button key={i} onClick={() => tap(i)}
-            className={`w-full text-right rounded-2xl p-4 transition border ${done ? "bg-primary/15 border-primary/40" : "bg-secondary/40 border-foreground/10 hover:bg-secondary/60"}`}>
-            <div className="font-arabic text-lg leading-loose text-foreground">{it.ar}</div>
-            <div className="mt-2 text-[11px] text-foreground/60 flex items-center justify-between">
-              <span>{it.en}</span>
-              <span className="font-display tabular-nums text-accent">{counts[i]} / {it.count}</span>
+          <button
+            key={i}
+            onClick={() => tap(i)}
+            className={cn(
+              "w-full text-start rounded-2xl p-4 transition-all border active:scale-[0.99]",
+              done ? "bg-primary/10 border-primary/40" : "bg-card/60 border-foreground/10 hover:bg-foreground/5",
+            )}
+          >
+            <div className="flex items-start gap-3">
+              <span
+                className={cn(
+                  "shrink-0 h-8 w-8 rounded-full grid place-items-center text-[11px] font-bold transition-colors",
+                  done ? "bg-primary text-primary-foreground" : "bg-foreground/8 text-foreground/50",
+                )}
+              >
+                {done ? <Check className="h-4 w-4" /> : i + 1}
+              </span>
+              <div className="min-w-0 flex-1 font-arabic text-lg leading-loose text-foreground">{it.ar}</div>
+            </div>
+            <div className="mt-2 ps-11 flex items-center justify-between gap-2">
+              <span className="text-[11px] text-foreground/60 truncate">{it.en}</span>
+              <span
+                className={cn(
+                  "shrink-0 font-display tabular-nums text-[11px] font-bold rounded-full px-2.5 py-0.5",
+                  done ? "bg-primary/20 text-primary" : "bg-accent/15 text-accent",
+                )}
+              >
+                {counts[i]} / {it.count}
+              </span>
             </div>
           </button>
         );
@@ -112,18 +136,38 @@ function List({ items, storageKey }: { items: Athkar[]; storageKey: string }) {
   );
 }
 
+const tabTrigger =
+  "min-w-0 flex-col h-auto gap-1 py-2 px-1 whitespace-normal text-center leading-tight data-[state=active]:shadow-none";
+
 export function AthkarDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const { t, dir } = useLocale();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent dir={dir} className="max-w-lg">
-        <DialogHeader><DialogTitle className="text-elite-gold">{t("Athkar", "الأذكار")}</DialogTitle></DialogHeader>
-        <Tabs defaultValue="morning">
-          <TabsList className="grid grid-cols-4 w-full">
-            <TabsTrigger value="morning">{t("Morning", "الصباح")}</TabsTrigger>
-            <TabsTrigger value="evening">{t("Evening", "المساء")}</TabsTrigger>
-            <TabsTrigger value="sleep">{t("Sleep", "النوم")}</TabsTrigger>
-            <TabsTrigger value="post-prayer">{t("Post-Prayer", "بعد الصلاة")}</TabsTrigger>
+      <DialogContent dir={dir} className="max-w-lg p-0 overflow-hidden bg-background">
+        <DialogHeader className="px-5 pt-5 pb-3">
+          <DialogTitle className="flex items-center gap-2">
+            <Heart className="h-5 w-5" style={{ color: "hsl(var(--elite-gold-start))" }} />
+            <span className="text-elite-gold">{t("Athkar", "الأذكار")}</span>
+          </DialogTitle>
+        </DialogHeader>
+        <Tabs defaultValue="morning" className="min-w-0 px-5 pb-5">
+          <TabsList className="grid grid-cols-4 w-full min-w-0 h-auto bg-secondary/50">
+            <TabsTrigger value="morning" className={tabTrigger}>
+              <Sunrise className="h-4 w-4" />
+              <span className="text-[10px] font-semibold truncate w-full">{t("Morning", "الصباح")}</span>
+            </TabsTrigger>
+            <TabsTrigger value="evening" className={tabTrigger}>
+              <Sunset className="h-4 w-4" />
+              <span className="text-[10px] font-semibold truncate w-full">{t("Evening", "المساء")}</span>
+            </TabsTrigger>
+            <TabsTrigger value="sleep" className={tabTrigger}>
+              <BedDouble className="h-4 w-4" />
+              <span className="text-[10px] font-semibold truncate w-full">{t("Sleep", "النوم")}</span>
+            </TabsTrigger>
+            <TabsTrigger value="post-prayer" className={tabTrigger}>
+              <CheckCircle2 className="h-4 w-4" />
+              <span className="text-[10px] font-semibold truncate w-full">{t("Post-Prayer", "بعد الصلاة")}</span>
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="morning" className="pt-3"><List items={MORNING} storageKey="morning" /></TabsContent>
           <TabsContent value="evening" className="pt-3"><List items={EVENING} storageKey="evening" /></TabsContent>
