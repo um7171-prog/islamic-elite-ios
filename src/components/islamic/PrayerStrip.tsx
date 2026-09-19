@@ -54,10 +54,10 @@ export function PrayerStrip() {
                   isNext ? "bg-accent/15 ring-1 ring-accent" : "opacity-60"
                 }`}
               >
-                <div className={`text-[10px] font-bold mb-1.5 truncate ${isNext ? "text-accent" : "text-foreground/85"}`}>
+                <div className={`text-label mb-1.5 truncate max-w-full ${isNext ? "text-accent" : "text-foreground/85"}`}>
                   {t(p.nameEn, p.nameAr)}
                 </div>
-                <div className="relative h-9 w-9 mb-1.5">
+                <div className="relative h-10 w-10 mb-1.5">
                   {isNext && (
                     <svg className="absolute inset-0 -rotate-90" viewBox="0 0 36 36">
                       <circle cx="18" cy="18" r="16" fill="none" stroke="hsl(var(--accent) / 0.18)" strokeWidth="2.5" />
@@ -72,11 +72,11 @@ export function PrayerStrip() {
                     </svg>
                   )}
                   <div className="absolute inset-[3px] rounded-full bg-card shadow-md grid place-items-center ring-1 ring-foreground/10">
-                    <Icon className={`h-3.5 w-3.5 ${style.iconClass}`} strokeWidth={2.2} />
+                    <Icon className={`h-4 w-4 ${style.iconClass}`} strokeWidth={2.2} />
                   </div>
                 </div>
                 <div
-                  className={`font-time text-[11px] font-bold tabular-nums ${
+                  className={`font-time text-body-sm font-bold tabular-nums ${
                     isNext ? "text-elite-gold" : "text-foreground"
                   }`}
                 >
@@ -92,20 +92,20 @@ export function PrayerStrip() {
       {/* Sunnah times */}
       <div className="grid grid-cols-2 gap-2">
         <div className="glass rounded-xl px-3 py-2 flex items-center justify-between">
-          <span className="flex items-center gap-2 text-[11px] text-foreground/70">
+          <span className="flex items-center gap-2 text-body-sm text-foreground/70">
             <MoonStar className="h-3.5 w-3.5 text-accent" />
             {t("Midnight", "منتصف الليل")}
           </span>
-          <span className="font-time text-xs font-semibold text-foreground">
+          <span className="font-time text-body-sm font-semibold text-foreground">
             {formatTime(sunnah.middleOfTheNight, locale)}
           </span>
         </div>
         <div className="glass rounded-xl px-3 py-2 flex items-center justify-between">
-          <span className="flex items-center gap-2 text-[11px] text-foreground/70">
+          <span className="flex items-center gap-2 text-body-sm text-foreground/70">
             <Hourglass className="h-3.5 w-3.5 text-accent" />
             {t("Last Third", "الثلث الأخير")}
           </span>
-          <span className="font-time text-xs font-semibold text-elite-gold">
+          <span className="font-time text-body-sm font-semibold text-elite-gold">
             {formatTime(sunnah.lastThirdOfTheNight, locale)}
           </span>
         </div>

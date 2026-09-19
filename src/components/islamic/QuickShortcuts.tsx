@@ -57,7 +57,7 @@ export function QuickShortcuts() {
           >
             <s.Icon className="h-5 w-5" />
           </span>
-          <span className="text-[10.5px] font-semibold text-foreground/80 text-center leading-tight break-words">
+          <span className="text-caption font-semibold text-foreground/80 text-center leading-tight break-words">
             {t(s.en, s.ar)}
           </span>
         </button>

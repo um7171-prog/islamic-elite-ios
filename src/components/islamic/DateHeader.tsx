@@ -24,20 +24,20 @@ export function DateHeader() {
           <CalendarDays className="h-4 w-4" />
         </span>
         <div className="leading-tight">
-          <div className="text-[10px] uppercase tracking-wider text-foreground/60">
+          <div className="text-caption uppercase tracking-wider text-foreground/60">
             {t("Hijri", "هجري")}
           </div>
-          <div className="font-arabic text-sm font-semibold text-elite-gold">
+          <div className="font-arabic text-body font-semibold text-elite-gold">
             {getHijriDate(now, lang)}
           </div>
         </div>
       </div>
       <div className="h-8 w-px bg-foreground/10 shrink-0" />
       <div className="text-end leading-tight">
-        <div className="text-[10px] uppercase tracking-wider text-foreground/60">
+        <div className="text-caption uppercase tracking-wider text-foreground/60">
           {t("Gregorian", "ميلادي")}
         </div>
-        <div className="text-sm font-semibold text-foreground">
+        <div className="text-body font-semibold text-foreground">
           {getGregorianDate(now, lang)}
         </div>
       </div>
