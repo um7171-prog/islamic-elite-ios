@@ -616,12 +616,95 @@ Committed locally only on `islamic-elite-redesign-2026` — not pushed.
 main was not touched. Home/Services (Phases 5-6) were not modified. No
 subagents were used. Phase 8 was not started.
 
+## Phase 8 — Athkar dialog redesign (done)
+
+Reviewed `AthkarDialog.tsx` before touching anything. The "Athkar page"
+is actually a Radix Dialog opened from `/athkar` via the same
+tool-route-opens-a-dialog pattern as Qibla/the 99 Names (see
+`ServicesHub.tsx`'s `PATH_MAP`/`ToolAction` mechanism from earlier
+phases) — not a dedicated route component. Content: 4 lists (Morning /
+Evening / Sleep / Post-Prayer, all pulled from the Quran/Sunnah, none
+removed or altered) with a working per-item tap-to-count counter,
+persisted to `localStorage` per list per day (already fixed in an
+earlier pass — see the code comment on `todayKey()`).
+
+**Changed (one file only):**
+- Restyled to match the same header/card pattern already established
+  in `AsmaAlHusnaDialog.tsx` (Phase 2): `DialogContent` with `p-0
+  overflow-hidden`, a padded custom header with an icon next to the
+  gold title text — the icon gets its gold color via a direct
+  `style={{ color: "hsl(var(--elite-gold-start))" }}` rather than the
+  `text-elite-gold` class, avoiding the same invisible-SVG-icon bug
+  identified and fixed in Phase 7.
+- Each of the 4 tabs now has its own icon (Sunrise/Sunset/BedDouble/
+  CheckCircle2) stacked above a short label, instead of text-only tabs.
+- Each dhikr card now shows a numbered circular badge that turns into a
+  green checkmark once its tally reaches the target count, and the
+  counter is now a colored pill (green when done, gold/accent
+  otherwise) instead of plain small text — makes the existing
+  completion state and counter actually easy to read at a glance.
+- Fixed `text-right` hardcoded on the card button (wrong in English/LTR)
+  → logical `text-start`.
+- **Found and fixed a real bug while testing at 375px**: the 4-column
+  tab grid and the card content were rendering ~30-70px wider than the
+  dialog and getting silently cropped by `overflow-hidden` — a classic
+  CSS grid/flex "automatic minimum size" blowout, where a nested grid
+  item's intrinsic (unwrapped) content width forces its ancestor grid
+  tracks wider than the container. This did **not** show up in the
+  `document.documentElement.scrollWidth === clientWidth` check (stayed
+  375 === 375 throughout, because the dialog is `position: fixed` and
+  clips internally) — it was only caught by actually looking at the
+  screenshots, where "Post-Prayer" was visibly cut to "Post-Pr" and the
+  Arabic dhikr text was cropped on both edges. Fixed with `min-w-0` on
+  the `Tabs` root, the tab-list grid, and each `TabsTrigger`, plus
+  `truncate` on the tab labels. Take-away for later phases: the
+  scrollWidth check catches page-level overflow but not overflow
+  clipped inside a `fixed`/`overflow-hidden` element — a real
+  screenshot is still required, exactly as the verification checklist
+  already asks for.
+- No new features added: there is no favorites/bookmark mechanism for
+  Athkar in the existing code, so none was added, per the "no
+  unnecessary new functions" instruction.
+
+**Verified, not just claimed (real browser via Playwright, 375px):**
+- Opened `/athkar` for real, in both languages.
+- Tapped an actual dhikr (Ayat al-Kursi, target count 1) → counter
+  correctly reads "1 / 1" and the badge turns into a green checkmark.
+- Tapped the 100x tasbih item 3 times → counter reads "3 / 100" and
+  correctly stays "not done" (no premature completion).
+- Switched tabs (Morning → Evening) → confirmed the Evening list is
+  independent state (its own "0 / 1" on Ayat al-Kursi, unaffected by
+  Morning's progress).
+- Reloaded the page → both tallies ("1 / 1" and "3 / 100") persisted
+  correctly, confirming the existing save-progress behavior still
+  works after the visual rewrite.
+- No favorites feature exists in this component, so none was tested
+  (nothing to test — not a regression).
+- Arabic RTL / English LTR: `document.documentElement.dir`/`lang`
+  correctly follow the chosen language; all labels translate; screenshots
+  confirm no visual cropping in either direction after the min-w-0 fix.
+- 375px width: confirmed via `document.documentElement.scrollWidth ===
+  clientWidth` (375 === 375) **and** by visually inspecting screenshots
+  before and after the grid-blowout fix (see above — the numeric check
+  alone was not sufficient here).
+- No console errors or `pageerror`s caused by this change (only the
+  same pre-existing Supabase-realtime/ipapi.co network failures seen in
+  every prior phase's tests, due to this sandbox having no internet
+  access — unrelated to this code).
+- `npx tsc --noEmit`: clean.
+- `npm run test`: **50/50 passing** (11 files, unchanged suite).
+- `npm run build`: succeeds.
+
+Committed locally only on `islamic-elite-redesign-2026` — not pushed.
+main was not touched. Home/Services/Quran (Phases 5-7) were not
+modified. No subagents were used. Phase 9 was not started.
+
 ## Next phase
 
 Several things remain open:
 
 1. **The remaining reference-matched page restyles**: Splash screen,
-   Athkar, Qibla, Prayer Times, Hijri/Gregorian Calendar,
+   Qibla, Prayer Times, Hijri/Gregorian Calendar,
    Appointments-with-notifications, File Converter (**visual framing
    only, e.g. header/back-button style — the converter UI itself stays
    untouched**), Calculators, Settings, Notifications.
