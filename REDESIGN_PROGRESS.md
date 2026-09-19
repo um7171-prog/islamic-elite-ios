@@ -792,6 +792,115 @@ Committed locally only on `islamic-elite-redesign-2026` — not pushed.
 main was not touched. Home/Services/Quran/Athkar (Phases 5-8) were not
 modified. No subagents were used. Phase 10 was not started.
 
+## Phase 9 (continued) — real location-permission gate (done)
+
+Follow-up instruction on the same phase: stop silently falling back to
+the selected city's coordinates when GPS isn't available, and give
+location a proper request/denied/recheck flow instead. `useUserLocation`
+(the hook doing the actual `navigator.geolocation` calls) and the
+bearing/distance math in `lib/qibla.ts` were not touched — only how
+`QiblaDialog.tsx` reacts to the hook's existing states, plus one
+one-line fix inside the hook's error mapping (below).
+
+**Changed (2 files):**
+- `src/components/islamic/QiblaDialog.tsx` — the compass now only
+  renders once a real GPS fix exists (`coords != null`). Three screens,
+  derived from state the hook already exposed:
+  - Brief loading spinner while the very first check is in flight
+    (avoids flashing a wrong bearing before we know the real location).
+  - A full "enable location" screen for denied/unavailable/error, with
+    the requested copy exactly ("نحتاج إلى موقعك لتحديد اتجاه القبلة
+    بدقة.") and one clear "تفعيل الموقع" / "Enable Location" button.
+    This replaces the old small dismissible panel that said "...using
+    your selected city instead" while quietly showing the compass with
+    city coordinates anyway.
+  - The existing compass/distance/bearing UI, once a fix exists —
+    unchanged.
+  - Button behavior is platform-correct, not a blind retry: for a plain
+    error/timeout it calls `requestLocation()` directly; for a denied
+    or service-off permission it calls the existing `openSettings()`
+    (opens native Settings via the already-existing
+    `openNativeAppSettings()` on native, or shows the existing
+    browser-settings toast on web) — retrying a *denied* permission via
+    `getCurrentPosition()` again would silently fail a second time on
+    every mainstream browser, so that path goes straight to the one
+    action that can actually fix it.
+  - A `visibilitychange`/`focus` listener rechecks location once,
+    automatically, when the user returns to the app while the gate is
+    showing — this is what makes "grant permission in Settings, come
+    back, and you're on the compass" work with no extra tap.
+  - Tapping the Compass tab while the gate is showing now also retries
+    the location check (previously a pure no-op, same as the other 3
+    tabs before this phase).
+  - The compass-sensor-only problem panel (denied/unsupported/error for
+    the device-orientation sensor, a separate concern from GPS) and the
+    existing "Enable compass" iOS-permission button are unchanged and
+    still appear exactly as before once a location fix exists.
+- `src/hooks/useQiblaCompass.ts` — `useUserLocation`'s geolocation error
+  handler collapsed every non-"denied" failure into one generic "error"
+  status, even though the hook's own `LocationStatus` type already had
+  a distinct `"unavailable"` value that nothing ever set from a real
+  geolocation error. Mapped `error.code === 2` (`POSITION_UNAVAILABLE`
+  — permission granted, but the device's location service produced no
+  fix) to `"unavailable"` specifically, so "permission denied" and
+  "location service is off" now show their own distinct, correct
+  messages instead of being indistinguishable.
+
+**Verified, not just claimed (real browser via Playwright, 375px):**
+- **Granted + working** (`context` with `geolocation` + `permissions:
+  ['geolocation']` set to real coordinates, no mocking of the app's own
+  code): the gate never appears; the compass renders directly with the
+  granted coordinates converted correctly to D°M'S, a real computed
+  distance (339 km from Madinah's coordinates — correct), and a real
+  computed bearing (176°) — confirms `coords` really drives the existing
+  untouched bearing/distance functions.
+- **Denied** (no permission granted at all — Chromium headless reports
+  `PERMISSION_DENIED` exactly like a real user denial, no mocking): gate
+  appears with "الموقع مطلوب" / "Location needed" and the
+  denied-specific message; the old "...using your selected city
+  instead" text is confirmed gone from the page; tapping "تفعيل الموقع"
+  correctly calls `openSettings()` and shows the real browser-settings
+  toast (verified this is a genuinely different code path from the
+  error-state retry, not the same button doing one generic thing).
+- **Service off / unavailable** (mocked at the `navigator.geolocation`
+  boundary only, to produce a real `code: 2`, since no headless browser
+  can simulate an actual OS-level GPS-off state): shows the distinct
+  "يبدو أن خدمة الموقع متوقفة..." message, confirming the new status
+  mapping and its UI branch both work.
+- **Generic error → recovered** (mocked to fail once with `code: 3`
+  then succeed): gate shows the generic retry message first; tapping
+  "Enable Location" calls `requestLocation()` directly, which succeeds,
+  and the gate is replaced by the compass automatically — computed
+  distance came out as 0 km for coordinates set to the Kaaba itself,
+  confirming the real (untouched) distance formula ran on the real
+  returned coordinates.
+- **Auto-return without any button tap**: denied first, then simulated
+  the app regaining focus (`visibilitychange`→visible, no click)
+  with the mock now returning success — confirmed the app landed back
+  on the compass view on its own, exactly the "grant it in Settings,
+  come back" flow from the spec.
+- Re-verified after all of the above that nothing else regressed: the
+  4 header tabs behave exactly as in the first half of this phase
+  (Map/AR/Sun & Moon give honest "not available yet" toasts), the
+  existing "Enable compass" iOS-permission button still appears
+  unmodified once past the gate, `touch-action: pan-y` is still applied
+  and a simulated horizontal drag still leaves the dialog position and
+  `scrollX` at 0, and the vertical drag-to-close gesture still animates
+  (`translateY(60px)` mid-drag) exactly as before.
+- Arabic RTL / English LTR: confirmed via `document.documentElement.dir`
+  and full-page screenshots of the gate screen in both languages — all
+  text, including the exact requested Arabic copy, renders correctly.
+- 375px width: `scrollWidth === clientWidth` (375 === 375) checked on
+  the granted, denied, and post-drag states.
+- No console errors or `pageerror`s caused by this change in any test.
+- `npx tsc --noEmit`: clean.
+- `npm run test`: **50/50 passing** (11 files, unchanged suite).
+- `npm run build`: succeeds.
+
+Committed locally only on `islamic-elite-redesign-2026` — not pushed.
+main was not touched. Home/Services/Quran/Athkar (Phases 5-8) were not
+modified. No subagents were used. Phase 10 was not started.
+
 ## Next phase
 
 Several things remain open:
