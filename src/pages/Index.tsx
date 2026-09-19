@@ -12,6 +12,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { HeroPrayerCard } from "@/components/islamic/HeroPrayerCard";
 import { PrayerStrip } from "@/components/islamic/PrayerStrip";
 import { DateHeader } from "@/components/islamic/DateHeader";
+import { QuickShortcuts } from "@/components/islamic/QuickShortcuts";
 import { LanguageToggle } from "@/components/islamic/LanguageToggle";
 import { AnnouncementsBell } from "@/components/islamic/AnnouncementsBell";
 import { InstallPrompt } from "@/components/islamic/InstallPrompt";
@@ -241,6 +242,13 @@ function Dashboard() {
           <section className="mb-6 space-y-2">
             <HeroPrayerCard />
             <PrayerStrip />
+          </section>
+
+          <section className="mb-6">
+            <h2 className="font-display text-xs uppercase tracking-[0.2em] text-foreground/60 mb-3 px-1">
+              {t("Quick Access", "اختصارات سريعة")}
+            </h2>
+            <QuickShortcuts />
           </section>
 
           <section className="mb-6">

@@ -479,6 +479,61 @@ Committed locally only on `islamic-elite-redesign-2026` — not pushed. main
 was not touched. No other phase was started, and no subagents were used
 for this phase.
 
+## Phase 6 — Home page redesign
+
+Scoped strictly to the Home page per instructions (no other phase, no
+subagents, Services page untouched).
+
+**Files changed:**
+- `HeroPrayerCard.tsx` — redesigned: a "Next Prayer" pill badge with a
+  crescent icon, the next prayer's name now shown prominently on its own
+  line, the large countdown with a "remaining" label beneath it, and a
+  clear divider before the "Since [current prayer]" side panel. The
+  underlying current/next-prayer calculation is untouched — this is a
+  layout/typography change only.
+- `DateHeader.tsx` — fixed a real RTL bug: the Gregorian side used a
+  hardcoded `text-right` instead of the logical `text-end`, so it would
+  have stayed physically right-aligned even in English/LTR. Added a
+  vertical divider between the Hijri and Gregorian sides (both are still
+  shown together in the same card, per your request) and a border/shadow
+  for visual consistency with the rest of the redesign.
+- `PrayerStrip.tsx` — the 5-prayer icon circles used a hardcoded
+  `bg-white`, which would look inconsistent with the app's actual card
+  color in dark mode; switched to the theme-aware `bg-card` token, plus
+  minor spacing improvements.
+- `QuickShortcuts.tsx` (**new**) — the reference's 4x2 quick-access icon
+  grid, previously entirely missing from the Home page. All 8 tiles
+  (Quran, Athkar, Qibla, Calendar, 99 Names, Calculators, File Converter,
+  More) navigate to real, already-working routes — reuses the same
+  gradient palette as the Services grid for visual consistency, without
+  needing any change to `ServicesHub.tsx`.
+- `Index.tsx` — one new section rendering `<QuickShortcuts />` between the
+  prayer strip and the existing Saudi Jobs promo card.
+
+**Verified, not just claimed:**
+- Real headless-browser test at 375px width in both Arabic (RTL) and
+  English (LTR): zero horizontal overflow in either
+  (`scrollWidth === clientWidth`), zero console errors caused by this
+  change (the only console errors observed are pre-existing network
+  failures — Supabase realtime websocket and an ipapi.co geolocation call
+  — both failing only because this sandboxed test environment has no
+  internet access, unrelated to this phase's code).
+- Clicked an actual shortcut tile (Qibla) and confirmed it navigated to
+  `/qibla` for real.
+- Screenshots confirm the Hijri/Gregorian divider renders correctly
+  mirrored in both directions (Hijri-then-divider-then-Gregorian in RTL,
+  and the same visual order correctly flipped in LTR).
+- `npx tsc --noEmit`: clean.
+- `npm run test`: **50/50 passing** (11 files, unchanged suite — confirms
+  this visual/structural change didn't break routing, the Services grid,
+  or the notification/scheduling logic it depends on).
+- `npm run lint`: 129 problems — exact pre-existing baseline, zero new.
+- `npm run build`: succeeds.
+
+Committed locally only on `islamic-elite-redesign-2026` — not pushed. main
+was not touched. Services page (Phase 5) was not modified. No subagents
+were used. Phase 7 was not started.
+
 ## Next phase
 
 Several things remain open:

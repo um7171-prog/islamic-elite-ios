@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { MoonStar } from "lucide-react";
 import { formatCountdown, getNextPrayer, getPrayerTimes } from "@/lib/prayer";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useCity } from "@/contexts/CityContext";
@@ -51,24 +52,34 @@ export function HeroPrayerCard() {
           app's light/dark theme, so text here is hardcoded to light shades
           rather than the theme-flipping text-foreground token (which turns
           dark brown in light mode and would be unreadable on this background). */}
-      <div className={`relative z-10 grid ${showElapsed ? "grid-cols-2" : "grid-cols-1"} gap-3 items-start text-center`}>
+      <div className="relative z-10 flex flex-col items-center text-center">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold text-white/80">
+          <MoonStar className="h-3.5 w-3.5 text-elite-gold" />
+          {t("Next Prayer", "الصلاة القادمة")}
+        </span>
+        <div className="mt-2 font-arabic text-xl md:text-3xl font-extrabold text-white">
+          {t(next.nameEn, next.nameAr)}
+        </div>
+      </div>
+
+      <div className={`relative z-10 mt-3 grid ${showElapsed ? "grid-cols-2" : "grid-cols-1"} gap-3 items-start text-center`}>
         {/* Next prayer countdown */}
         <div className="flex flex-col items-center">
-          <div className="font-arabic text-lg md:text-2xl font-bold text-white">
-            {t(`${next.nameEn} in`, `${next.nameAr} بعد`)}
-          </div>
-          <div className="mt-1 font-time text-3xl md:text-5xl font-bold text-elite-gold tracking-tight tabular-nums">
+          <div className="font-time text-4xl md:text-5xl font-bold text-elite-gold tracking-tight tabular-nums">
             {formatHMS(msUntilNext)}
+          </div>
+          <div className="mt-1 font-arabic text-[11px] md:text-xs text-white/60">
+            {t("remaining", "متبقٍ")}
           </div>
         </div>
 
         {/* Elapsed since current prayer — only first 45 minutes */}
         {showElapsed && (
-          <div className="flex flex-col items-center">
-            <div className="font-arabic text-lg md:text-2xl font-bold text-white">
+          <div className="flex flex-col items-center border-s border-white/15">
+            <div className="font-arabic text-sm md:text-lg font-semibold text-white/90">
               {t(`Since ${current.nameEn}`, `${current.nameAr} منذ`)}
             </div>
-            <div className="mt-1 font-time text-3xl md:text-5xl font-bold text-white tracking-tight tabular-nums">
+            <div className="mt-1 font-time text-2xl md:text-4xl font-bold text-white tracking-tight tabular-nums">
               {formatHMS(msSinceCurrent)}
             </div>
             <div className="mt-1 font-arabic text-[11px] md:text-xs text-white/60">

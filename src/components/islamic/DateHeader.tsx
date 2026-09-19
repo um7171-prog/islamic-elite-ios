@@ -14,11 +14,11 @@ export function DateHeader() {
   return (
     <div
       dir={dir}
-      className="glass rounded-2xl px-4 py-3 flex items-center justify-between gap-3"
+      className="glass rounded-2xl px-4 py-3 flex items-center justify-between gap-3 border border-foreground/10 shadow-sm"
     >
       <div className="flex items-center gap-2.5">
         <span
-          className="h-9 w-9 rounded-xl grid place-items-center text-accent-foreground"
+          className="h-9 w-9 rounded-xl grid place-items-center text-accent-foreground shrink-0"
           style={{ background: "var(--gradient-gold)" }}
         >
           <CalendarDays className="h-4 w-4" />
@@ -32,7 +32,8 @@ export function DateHeader() {
           </div>
         </div>
       </div>
-      <div className="text-right leading-tight">
+      <div className="h-8 w-px bg-foreground/10 shrink-0" />
+      <div className="text-end leading-tight">
         <div className="text-[10px] uppercase tracking-wider text-foreground/60">
           {t("Gregorian", "ميلادي")}
         </div>

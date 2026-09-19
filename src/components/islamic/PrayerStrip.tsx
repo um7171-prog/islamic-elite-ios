@@ -41,8 +41,8 @@ export function PrayerStrip() {
   return (
     <div dir={dir} className="space-y-3">
       {/* Horizontal strip */}
-      <div className="glass rounded-2xl p-1.5">
-        <div className="flex items-stretch gap-0.5 w-full">
+      <div className="glass rounded-2xl p-2 border border-foreground/10 shadow-sm">
+        <div className="flex items-stretch gap-1 w-full">
           {entries.map((p) => {
             const style = STYLES[p.key] ?? STYLES.dhuhr;
             const Icon = style.Icon;
@@ -50,14 +50,14 @@ export function PrayerStrip() {
             return (
               <div
                 key={p.key}
-                className={`flex-1 min-w-0 flex flex-col items-center px-0.5 py-2 rounded-xl transition ${
-                  isNext ? "bg-accent/15 ring-1 ring-accent" : "opacity-50"
+                className={`flex-1 min-w-0 flex flex-col items-center px-0.5 py-2.5 rounded-xl transition ${
+                  isNext ? "bg-accent/15 ring-1 ring-accent" : "opacity-60"
                 }`}
               >
-                <div className={`text-[10px] font-bold mb-1 truncate ${isNext ? "text-accent" : "text-foreground/85"}`}>
+                <div className={`text-[10px] font-bold mb-1.5 truncate ${isNext ? "text-accent" : "text-foreground/85"}`}>
                   {t(p.nameEn, p.nameAr)}
                 </div>
-                <div className="relative h-9 w-9 mb-1">
+                <div className="relative h-9 w-9 mb-1.5">
                   {isNext && (
                     <svg className="absolute inset-0 -rotate-90" viewBox="0 0 36 36">
                       <circle cx="18" cy="18" r="16" fill="none" stroke="hsl(var(--accent) / 0.18)" strokeWidth="2.5" />
@@ -71,7 +71,7 @@ export function PrayerStrip() {
                       />
                     </svg>
                   )}
-                  <div className="absolute inset-[3px] rounded-full bg-white shadow-md grid place-items-center ring-1 ring-black/5">
+                  <div className="absolute inset-[3px] rounded-full bg-card shadow-md grid place-items-center ring-1 ring-foreground/10">
                     <Icon className={`h-3.5 w-3.5 ${style.iconClass}`} strokeWidth={2.2} />
                   </div>
                 </div>
