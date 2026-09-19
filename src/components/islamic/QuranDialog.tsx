@@ -314,6 +314,11 @@ export function QuranDialog({ open, onOpenChange }: { open: boolean; onOpenChang
                     {toArabicDigits(currentPage)}
                   </span>
                 </div>
+                {!!firstJuz && (
+                  <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full border whitespace-nowrap" style={{ borderColor: strokeCol, color: textCol }}>
+                    الجزء {toArabicDigits(firstJuz)}
+                  </span>
+                )}
               </div>
               <Button size="sm" variant="ghost" className="h-8 px-2 shrink-0" style={{ color: textCol }} onClick={saveBookmark}>
                 {bookmark?.surah === active.number ? <BookmarkCheck className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
@@ -427,37 +432,144 @@ export function QuranDialog({ open, onOpenChange }: { open: boolean; onOpenChang
   );
 }
 
+const QURAN_FONT_STACK = '"KFGQPC Uthman Taha","Amiri Quran","Scheherazade New","Amiri",serif';
+const TEXT_ZOOM_MIN = 18;
+const TEXT_ZOOM_MAX = 42;
+const TEXT_ZOOM_DEFAULT = 26;
+
 function ContinuousTextView({ ayat, surahNumber, translations, showTranslation, isNight, mushafText }: { ayat: Ayah[]; surahNumber: number; translations: Record<number, string>; showTranslation: boolean; isNight: boolean; mushafText: string }) {
+  const [fontSize, setFontSize] = useState(TEXT_ZOOM_DEFAULT);
+  const fontSizeRef = useRef(fontSize);
+  fontSizeRef.current = fontSize;
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const pinchRef = useRef<{ dist: number; startSize: number } | null>(null);
+
+  // Change font size while keeping the ayah nearest the top of the
+  // viewport anchored in place — plain font-size reflow otherwise jumps
+  // the scroll position around, "losing" the reader inside the surah.
+  const applyFontSize = (next: number) => {
+    const clamped = Math.round(Math.min(TEXT_ZOOM_MAX, Math.max(TEXT_ZOOM_MIN, next)));
+    const el = containerRef.current;
+    if (!el) { setFontSize(clamped); return; }
+    const containerTop = el.getBoundingClientRect().top;
+    let anchor: HTMLElement | null = null;
+    let anchorTopOffset = 0;
+    for (const node of Array.from(el.querySelectorAll<HTMLElement>("[data-ayah]"))) {
+      const r = node.getBoundingClientRect();
+      if (r.bottom >= containerTop) { anchor = node; anchorTopOffset = r.top - containerTop; break; }
+    }
+    setFontSize(clamped);
+    requestAnimationFrame(() => {
+      if (!anchor || !containerRef.current) return;
+      const newTop = containerRef.current.getBoundingClientRect().top;
+      const r = anchor.getBoundingClientRect();
+      containerRef.current.scrollTop += (r.top - newTop) - anchorTopOffset;
+    });
+  };
+
+  // Real two-finger pinch → font-size (a page-image "zoom" is a scale()
+  // transform on a raster image; here the content is live text, so the
+  // equivalent of "zooming in" is growing the actual font and letting it
+  // reflow — matches the reference app's behavior in text/reading mode).
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const dist = (touches: TouchList) => {
+      const [a, b] = [touches[0], touches[1]];
+      return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    };
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) pinchRef.current = { dist: dist(e.touches), startSize: fontSizeRef.current };
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && pinchRef.current) {
+        e.preventDefault();
+        const scale = dist(e.touches) / pinchRef.current.dist;
+        setFontSize(Math.round(Math.min(TEXT_ZOOM_MAX, Math.max(TEXT_ZOOM_MIN, pinchRef.current.startSize * scale))));
+      }
+    };
+    const onTouchEnd = (e: TouchEvent) => { if (e.touches.length < 2) pinchRef.current = null; };
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd, { passive: true });
+    el.addEventListener("touchcancel", onTouchEnd, { passive: true });
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+      el.removeEventListener("touchcancel", onTouchEnd);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
-    <div data-scrollable className="h-full overflow-y-auto px-4 sm:px-6 py-5 text-right" dir="rtl" style={{
-      fontFamily: '"KFGQPC Uthman Taha","Amiri Quran","Scheherazade New","Amiri",serif',
-      fontSize: 26, lineHeight: 2.4, color: mushafText,
-    }}>
+    <div
+      ref={containerRef}
+      data-scrollable
+      className="h-full overflow-y-auto overflow-x-hidden px-4 sm:px-6 py-5 text-right"
+      dir="rtl"
+      style={{ color: mushafText, touchAction: "pan-y" }}
+    >
+      {/* Text zoom controls — discrete, reliably testable equivalent of pinch */}
+      <div
+        className="sticky top-0 z-10 flex items-center justify-center gap-1 mb-3 -mt-1 py-1 rounded-full w-fit mx-auto px-2"
+        style={{ background: isNight ? "rgba(15,41,34,0.85)" : "rgba(232,235,210,0.85)", backdropFilter: "blur(4px)" }}
+      >
+        <button
+          type="button"
+          aria-label="تصغير النص"
+          onClick={() => applyFontSize(fontSize - 2)}
+          disabled={fontSize <= TEXT_ZOOM_MIN}
+          className={cn("h-7 w-7 grid place-items-center rounded-full border text-xs font-bold disabled:opacity-30",
+            isNight ? "border-amber-300/50 text-amber-200 bg-black/20" : "border-emerald-700/50 text-emerald-900 bg-white/50")}
+        >−</button>
+        <span className="text-[10px] px-1 opacity-70 tabular-nums" style={{ fontFamily: "inherit" }}>A</span>
+        <button
+          type="button"
+          aria-label="تكبير النص"
+          onClick={() => applyFontSize(fontSize + 2)}
+          disabled={fontSize >= TEXT_ZOOM_MAX}
+          className={cn("h-7 w-7 grid place-items-center rounded-full border text-sm font-bold disabled:opacity-30",
+            isNight ? "border-amber-300/50 text-amber-200 bg-black/20" : "border-emerald-700/50 text-emerald-900 bg-white/50")}
+        >+</button>
+      </div>
+
       {surahNumber !== 1 && surahNumber !== 9 && (
-        <div className="text-center mb-4 text-[22px] opacity-90">بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ</div>
+        <div className="text-center mb-5 opacity-90" style={{ fontFamily: QURAN_FONT_STACK, fontSize: fontSize - 2 }}>
+          بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ
+        </div>
       )}
-      <p style={{ wordSpacing: "normal" }}>
+
+      <div className="space-y-5">
         {ayat.map(a => {
           const cleaned = a.text.replace(/^بِسْمِ\s+ٱللَّهِ\s+ٱلرَّحْمَٰنِ\s+ٱلرَّحِيمِ\s*/, "");
           return (
-            <span key={a.number}>
+            <p
+              key={a.number}
+              data-ayah={a.numberInSurah}
+              className="break-words"
+              style={{ fontFamily: QURAN_FONT_STACK, fontSize, lineHeight: 2, wordSpacing: "normal" }}
+            >
               {cleaned}
-              <span className={cn("inline-grid place-items-center align-middle mx-1 rounded-full border text-[12px] font-bold tabular-nums",
-                isNight ? "border-amber-300/60 text-amber-200" : "border-emerald-700/60 text-emerald-900")}
-                style={{ width: 26, height: 26 }}>
+              <span
+                className={cn("inline-grid place-items-center align-middle mx-1.5 rounded-full border-2 text-[13px] font-bold tabular-nums",
+                  isNight ? "border-amber-300/70 text-amber-200 bg-amber-300/10" : "border-emerald-700/70 text-emerald-900 bg-emerald-700/10")}
+                style={{ width: Math.max(24, fontSize - 6), height: Math.max(24, fontSize - 6), fontFamily: "inherit" }}
+              >
                 {toArabicDigits(a.numberInSurah)}
-              </span>{" "}
-            </span>
+              </span>
+            </p>
           );
         })}
-      </p>
+      </div>
+
       {showTranslation && (
-        <div className="mt-6 pt-4 border-t border-current/20 space-y-2 text-left" dir="ltr" style={{ fontFamily: "inherit", fontSize: 14, lineHeight: 1.5 }}>
+        <div className="mt-6 pt-4 border-t border-current/20 space-y-2 text-left" dir="ltr" style={{ fontFamily: "inherit", fontSize: 14, lineHeight: 1.5, overflowWrap: "break-word" }}>
           {ayat.map(a => {
             const tr = translations[a.numberInSurah];
             if (!tr) return null;
             return (
-              <div key={a.number} className={cn("italic", isNight ? "text-amber-200/80" : "text-emerald-900/80")}>
+              <div key={a.number} className={cn("italic break-words", isNight ? "text-amber-200/80" : "text-emerald-900/80")}>
                 <span className="font-bold">{a.numberInSurah}.</span> {tr}
               </div>
             );
