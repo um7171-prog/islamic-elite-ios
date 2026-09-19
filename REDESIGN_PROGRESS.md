@@ -1211,6 +1211,130 @@ AthanSettingsCard were not modified (no bug was found that originated
 from the appointments system). No subagents were used. Phase 12 was not
 started.
 
+## Phase 12 — functional audit of remaining tools (done, no code changes)
+
+Not a design phase — a real functional audit of every tool not yet
+covered by an earlier phase, specifically to chase down a prior report
+that Document Scanner didn't work. **No bugs were found**, so **no code
+was changed** this phase (per the explicit instruction: don't touch a
+tool that already works). Every tool below was opened and actually
+interacted with — not just checked for a route that resolves.
+
+**PASS — opened, interacted with, and produced a correct real result:**
+- **Document Scanner** (highest priority — previously reported broken):
+  read the full 1123-line implementation end to end first. It uses
+  plain `getUserMedia` (a real web camera API, not Capacitor-native-only
+  — works in ordinary browsers, Safari included), a real-time
+  perspective-quad edge detector drawn on a canvas overlay, a
+  draggable-corner crop editor, real image filters (enhance/gray/B&W
+  via canvas pixel manipulation, not presets), and `jsPDF` export.
+  Tested live with Chromium's fake camera device
+  (`--use-fake-device-for-media-stream`): the camera stream actually
+  attached (`video.videoWidth` = 2160, matching the requested
+  constraint) and rendered on screen (screenshot confirms Chromium's
+  fake test pattern visibly playing); tapped the real shutter button
+  (`aria-label="التقاط"`) and reached the crop/review screen with
+  working draggable corner handles (screenshot confirms); tapped
+  "اعتماد المسح" (confirm) and reached the gallery view showing "تم مسح
+  صفحة واحدة" with the processed page image and per-page
+  crop/rotate/delete controls (screenshot confirms); tapped "حفظ"
+  (Save) and captured a **real download event** — `scan-<ts>.pdf`,
+  60,920 bytes, with the "PDF downloaded" success toast shown. This is
+  a genuine, working, non-trivial feature end to end on web. Could not
+  reproduce whatever the original report described — if it's an
+  iOS-native-specific issue (real device camera permission flow, actual
+  Share Sheet), that needs a real device test this environment cannot
+  provide (see NATIVE below).
+- **File Converter** (`EliteTools.tsx`'s `FileConverter`, 16 conversion
+  types, all client-side via Canvas/`jsPDF`/`pdf-lib`/`pdfjs-dist`/
+  `mammoth` — genuinely implemented, not stubs). Tested 2 representative
+  conversions end to end with real files and real downloads: **Text →
+  PDF** (uploaded a real `.txt`, converted, downloaded a real 3501-byte
+  `test-sample.pdf`) and **PNG → JPG** (uploaded a real 78-byte PNG,
+  converted, downloaded a real 778-byte JPG). Both showed the correct
+  "N file(s) ready" success state and had no errors. The other 14
+  conversion types share the same now-proven helper functions
+  (`downloadBlob`/`canvasToBlob`/`fileToImage`) but were not each
+  individually clicked through — not claimed as tested.
+- **Zakat calculator**: entered 100,000 SAR cash → result showed
+  "2,500.00 ر.س." (exactly 2.5%) — mathematically verified correct.
+- **Age calculator**: entered birth date 1990-05-15 → result showed
+  "36 سنة 4 شهر 4 يوم" plus total days/weeks/hours and next birthday —
+  checked the arithmetic against the app's current simulated date
+  (19/09/2026) and it is correct.
+- **Unit converter**: 10 mm → "1 سنتيمتر" — correct.
+- **Hijri converter**: today's Gregorian date → "8 ربيع الآخر 1448 هـ"
+  — matches the Hijri date shown consistently elsewhere in the app
+  (Calendar page, Phase 11) all session.
+- **Inheritance calculator**: dialog opens with a complete, sensible
+  input form (spouse/sons/daughters/siblings/parents-alive); the
+  calculation algorithm itself is already covered by 4 passing unit
+  tests (`mirath.test.ts` — wife+2sons+2daughters, awl, radd, umariyya
+  scenarios) that were not touched, so its correctness is independently
+  verified without redoing that work by hand.
+- **QR Scanner**: same real camera pipeline as Document Scanner,
+  confirmed the live camera stream opens correctly (`video.videoWidth`
+  populated) with no errors. The actual decode-on-scan logic (pointing
+  a real QR code at the camera) was **not** exercised — noted, not
+  claimed as tested.
+
+**EXTERNAL — implemented correctly, but the live network call could
+not be verified in this sandboxed, offline test environment (same
+pre-existing limitation seen in every earlier phase — Supabase
+realtime, ipapi.co, etc. all fail here for the same reason):**
+- **Currency converter**: calls `api.frankfurter.app` (a real, free
+  exchange-rate API); the UI correctly showed a graceful Arabic error
+  message ("تعذّر جلب أسعار الصرف") with a retry button instead of
+  crashing or inventing a fake rate — this is the correct behavior, not
+  a bug.
+- **Weather**: investigated carefully since the on-screen result looked
+  like it could be "fake" data — it is not. `WeatherDialog` →
+  `DesertModePanel` calls a real `fetchLiveWeather()` against
+  `api.open-meteo.com` for the user's actual selected city, and only
+  merges in a deterministic Al-Qassim seasonal-climatology fallback
+  for whichever fields the live call didn't return; a `● live` badge is
+  shown only when the live fetch actually succeeded, so the UI already
+  distinguishes real vs. estimated data honestly. In this offline
+  sandbox the live fetch fails, so the fallback estimate is what was
+  seen on screen — expected, not a defect. The "radar" tab embeds a
+  real `windy.com` iframe.
+- **Saudi Jobs**: search correctly called a real Supabase edge function
+  (`search-saudi-jobs`), which failed to reach the network in this
+  sandbox; the UI showed an honest "تعذر جلب الوظائف حالياً" error with
+  a retry button — no fake job listings were fabricated.
+- **Media Downloader**: page loads correctly with a real
+  paste-a-link-to-download flow; extracting/downloading from an actual
+  pasted URL needs real internet access to a real target link, which
+  this sandbox cannot provide — not exercised beyond confirming the
+  page and its input UI load without errors.
+
+**NATIVE — genuinely needs a real iOS device/build, not reproducible
+here:** the Share Sheet path in both Document Scanner's `savePdf()`/
+`sharePdf()` and File Converter's `saveOrShareBlob()` (both explicitly
+branch on `isIOSNativeApp()` to use `navigator.share` with a `File`
+instead of `<a download>`, since a plain download link is a silent
+no-op inside a Capacitor WKWebView) — the code path exists and reads
+correctly, but actually exercising it requires a real native build.
+
+**No BLOCKED items** — every tool in the inventory was at least opened
+and interacted with to some degree; nothing was skipped without a
+concrete, stated reason.
+
+**Verified, not just claimed:**
+- 375px width: `scrollWidth === clientWidth` (375 === 375) on every
+  page/dialog tested (Document Scanner, File Converter, all
+  calculators, Weather, Media, Saudi Jobs).
+- No console errors or `pageerror`s in any of the above tests.
+- `npx tsc --noEmit -p tsconfig.app.json`: only the same 3 pre-existing
+  baseline errors remain (not touched, per instruction — no new errors
+  were introduced since no code was changed).
+- `npm run test`: **50/50 passing** (11 files, unchanged suite).
+- `npm run build`: succeeds.
+- No commit was created this phase — `git status` stayed clean
+  throughout, since no bug was found that required a code fix.
+
+main was not touched. No subagents were used. Phase 13 was not started.
+
 ## Next phase
 
 Several things remain open:
