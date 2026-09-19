@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { CalendarDays, Plus, Trash2, Bell, Repeat as RepeatIcon, X, Clock, Play, Music2 } from "lucide-react";
 import { toHijri } from "hijri-converter";
+import { ar, enUS } from "date-fns/locale";
 import { useLocale } from "@/contexts/LocaleContext";
 import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -177,6 +178,7 @@ export function EventsCalendar() {
       <div className="glass rounded-2xl p-3">
         <Calendar
           mode="single"
+          locale={lang === "ar" ? ar : enUS}
           selected={selected}
           month={month}
           onMonthChange={setMonth}
