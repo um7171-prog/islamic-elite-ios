@@ -81,7 +81,7 @@ describe("Unified Services grid — confirmed services actually render", () => {
     const expected = [
       "القرآن الكريم", // Quran
       "الأذكار", // Athkar
-      "اتجاه القبلة", // Qibla
+      "القبلة", // Qibla
       "مواقيت الصلاة", // Prayer times
       "التقويم", // Calendar
       "أسماء الله الحسنى", // 99 Names
@@ -128,10 +128,12 @@ describe("Unified Services grid — navigation actually works", () => {
 
   it("tapping the Qibla tile opens the real QiblaDialog (not a route)", () => {
     renderGrid();
-    fireEvent.click(screen.getByText("اتجاه القبلة"));
+    fireEvent.click(screen.getAllByText("القبلة")[0]);
     expect(navigateMock).not.toHaveBeenCalled();
-    // QiblaDialog's own title text becomes visible once open.
-    expect(screen.getAllByText("القبلة").length).toBeGreaterThan(0);
+    // QiblaDialog's own title text becomes visible once open — now the same
+    // "القبلة" label as the tile itself (unified naming), so there are two
+    // matches once the dialog is open instead of just the tile.
+    expect(screen.getAllByText("القبلة").length).toBeGreaterThan(1);
   });
 
   it("the direct /asma-al-husna URL (initialOpen) opens the 99 Names dialog immediately", () => {

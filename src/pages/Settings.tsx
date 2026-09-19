@@ -181,37 +181,8 @@ export default function Settings() {
       </header>
 
       <div className="space-y-4">
+        {/* ===== 1. General — language, appearance, location ===== */}
         <GroupLabel>{t("General", "عام")}</GroupLabel>
-        {nativeApp && (
-          <Section
-            icon={BellRing}
-            title={t("App Announcements", "إعلانات التطبيق")}
-            subtitle={t("Optional updates from the app administrator", "تحديثات اختيارية من إدارة التطبيق")}
-          >
-            <Row
-              label={t("App announcements", "إعلانات وتنبيهات التطبيق")}
-              description={t(
-                "Optional remote announcements from the app administrator. You can turn them off anytime.",
-                "إشعارات اختيارية من إدارة التطبيق، ويمكنك إيقافها في أي وقت.",
-              )}
-            >
-              <button
-                type="button"
-                role="switch"
-                aria-checked={announcementPush}
-                onClick={async () => {
-                  const next = !announcementPush;
-                  setAnnouncementPush(next);
-                  await setAnnouncementPushEnabled(next);
-                }}
-                className={`relative h-7 w-12 rounded-full transition ${announcementPush ? "bg-accent" : "bg-foreground/15"}`}
-              >
-                <span className={`absolute top-1 h-5 w-5 rounded-full bg-background shadow transition ${announcementPush ? "start-6" : "start-1"}`} />
-              </button>
-            </Row>
-          </Section>
-        )}
-        {/* Account & App */}
         <Section
           icon={Globe}
           title={t("Account & App", "الحساب والتطبيق")}
@@ -255,52 +226,50 @@ export default function Settings() {
           </Row>
         </Section>
 
-        <GroupLabel>{t("Prayer & Reminders", "الصلاة والتذكيرات")}</GroupLabel>
-        {/* Prayer & Times */}
         <Section
           icon={MapPin}
-          title={t("Prayer & Times", "مواقيت الصلاة")}
-          subtitle={t("Location and calculation method", "الموقع وطريقة الحساب")}
+          title={t("Location", "الموقع")}
+          subtitle={t("Used to calculate prayer times and the Qibla direction", "يُستخدم لحساب مواقيت الصلاة واتجاه القبلة")}
         >
-          <Row label={t("Location", "الموقع")} description={lang === "ar" ? city.ar : city.en}>
+          <Row label={t("City", "المدينة")} description={lang === "ar" ? city.ar : city.en}>
             <CitySelector compact />
           </Row>
+        </Section>
 
-          <div className="rounded-xl border border-foreground/10 p-3 space-y-2">
-            <div className="flex items-center gap-2">
-              <BookOpen className="h-4 w-4 text-accent" />
-              <div className="text-sm font-medium">{t("Madhab (Asr method)", "المذهب (وقت العصر)")}</div>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {MADHABS.map((m) => {
-                const active = madhab === m.id;
-                return (
-                  <button
-                    key={m.id}
-                    onClick={() => setMadhab(m.id)}
-                    className={`text-start rounded-lg border p-2.5 transition ${
-                      active
-                        ? "border-accent bg-accent/10"
-                        : "border-foreground/10 hover:bg-foreground/5"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">{t(m.en, m.ar)}</span>
-                      {active && <Check className="h-4 w-4 text-accent" />}
-                    </div>
-                    <div className="text-[10px] text-foreground/60 mt-0.5">{t(m.note.en, m.note.ar)}</div>
-                  </button>
-                );
-              })}
-            </div>
+        {/* ===== 2. Prayer — calculation method + Athan notifications ===== */}
+        <GroupLabel>{t("Prayer", "الصلاة")}</GroupLabel>
+        <Section
+          icon={BookOpen}
+          title={t("Calculation Method", "طريقة الحساب")}
+          subtitle={t("Madhab used for Asr timing", "المذهب المعتمد لوقت العصر")}
+        >
+          <div className="grid grid-cols-2 gap-2">
+            {MADHABS.map((m) => {
+              const active = madhab === m.id;
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => setMadhab(m.id)}
+                  className={`text-start rounded-lg border p-2.5 transition ${
+                    active
+                      ? "border-accent bg-accent/10"
+                      : "border-foreground/10 hover:bg-foreground/5"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">{t(m.en, m.ar)}</span>
+                    {active && <Check className="h-4 w-4 text-accent" />}
+                  </div>
+                  <div className="text-[10px] text-foreground/60 mt-0.5">{t(m.note.en, m.note.ar)}</div>
+                </button>
+              );
+            })}
           </div>
         </Section>
 
-        {/* Athan notifications & pre-prayer reminders — AthanSettingsCard already
-            covers both (per-prayer toggles, sounds, and the pre-prayer reminder
-            offset) internally; it gets its own Section here instead of being
-            folded into "Prayer & Times" so the notification settings the user
-            asked to see labeled distinctly are clearly separate from location/madhab. */}
+        {/* AthanSettingsCard already covers per-prayer toggles, sounds, and
+            the pre-prayer reminder offset internally — unchanged, just
+            grouped under "Prayer" now instead of "Prayer & Times". */}
         <Section
           icon={Bell}
           title={t("Athan Notifications", "إشعارات الأذان")}
@@ -314,7 +283,8 @@ export default function Settings() {
           />
         </Section>
 
-        {/* Athkar reminders */}
+        {/* ===== 3. Athkar ===== */}
+        <GroupLabel>{t("Athkar", "الأذكار")}</GroupLabel>
         <Section
           icon={Bell}
           title={t("Athkar Reminders", "تذكير الأذكار")}
@@ -323,7 +293,42 @@ export default function Settings() {
           <AthkarRemindersCard />
         </Section>
 
-        <GroupLabel>{t("Support", "الدعم")}</GroupLabel>
+        {/* ===== 4. App — real app-behavior settings only (native-only today) ===== */}
+        {nativeApp && (
+          <>
+            <GroupLabel>{t("App", "التطبيق")}</GroupLabel>
+            <Section
+              icon={BellRing}
+              title={t("App Announcements", "إعلانات التطبيق")}
+              subtitle={t("Optional updates from the app administrator", "تحديثات اختيارية من إدارة التطبيق")}
+            >
+              <Row
+                label={t("App announcements", "إعلانات وتنبيهات التطبيق")}
+                description={t(
+                  "Optional remote announcements from the app administrator. You can turn them off anytime.",
+                  "إشعارات اختيارية من إدارة التطبيق، ويمكنك إيقافها في أي وقت.",
+                )}
+              >
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={announcementPush}
+                  onClick={async () => {
+                    const next = !announcementPush;
+                    setAnnouncementPush(next);
+                    await setAnnouncementPushEnabled(next);
+                  }}
+                  className={`relative h-7 w-12 rounded-full transition ${announcementPush ? "bg-accent" : "bg-foreground/15"}`}
+                >
+                  <span className={`absolute top-1 h-5 w-5 rounded-full bg-background shadow transition ${announcementPush ? "start-6" : "start-1"}`} />
+                </button>
+              </Row>
+            </Section>
+          </>
+        )}
+
+        {/* ===== 5. Support & info ===== */}
+        <GroupLabel>{t("Support & Info", "الدعم والمعلومات")}</GroupLabel>
         {/* Contact Us */}
         <Section
           icon={MessageCircle}

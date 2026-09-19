@@ -80,7 +80,10 @@ const TOOLS: Tool[] = [
   // (not QuranDialog) — an existing, deliberate product decision kept as-is.
   { id: "quran", en: "Quran", ar: "القرآن الكريم", descEn: "Uthmani script, with recitations", descAr: "الرسم العثماني مع التلاوات", category: "religious", Icon: BookOpen, gradient: PURPLE, keywords: "قرآن مصحف تلاوة quran mushaf", action: { kind: "route", to: "/mushaf" } },
   { id: "athkar", en: "Athkar", ar: "الأذكار", descEn: "Morning, evening & more", descAr: "الصباح والمساء وغيرها", category: "religious", Icon: Heart, gradient: EMERALD, keywords: "أذكار athkar", action: { kind: "dialog" } },
-  { id: "qibla", en: "Qibla", ar: "اتجاه القبلة", descEn: "Compass to the Kaaba", descAr: "بوصلة نحو الكعبة", category: "religious", Icon: Compass, gradient: BLUE, keywords: "قبلة بوصلة qibla compass", action: { kind: "dialog" } },
+  // Title unified to "القبلة" (was "اتجاه القبلة") to match the same
+  // feature's label on the Home QuickShortcuts tile — same dialog/route,
+  // was just displayed under two different Arabic names across the app.
+  { id: "qibla", en: "Qibla", ar: "القبلة", descEn: "Compass to the Kaaba", descAr: "بوصلة نحو الكعبة", category: "religious", Icon: Compass, gradient: BLUE, keywords: "قبلة بوصلة اتجاه القبلة qibla compass", action: { kind: "dialog" } },
   { id: "prayer-times", en: "Prayer Times", ar: "مواقيت الصلاة", descEn: "Today's five prayers", descAr: "أوقات الصلوات الخمس اليوم", category: "religious", Icon: Sun, gradient: GOLD, keywords: "صلاة مواقيت أذان prayer times", action: { kind: "route", to: "/" } },
   { id: "calendar", en: "Calendar", ar: "التقويم", descEn: "Hijri & Gregorian events", descAr: "الأحداث الهجرية والميلادية", category: "religious", Icon: CalendarHeart, gradient: EMERALD, keywords: "تقويم مناسبات موعد calendar", action: { kind: "route", to: "/calendar" } },
   { id: "asmaAlHusna", en: "99 Names of Allah", ar: "أسماء الله الحسنى", descEn: "Names, transliteration & meaning", descAr: "الأسماء واللفظ والمعنى", category: "religious", Icon: Sparkles, gradient: GOLD, keywords: "أسماء الله الحسنى names of allah asma husna", action: { kind: "dialog" } },
