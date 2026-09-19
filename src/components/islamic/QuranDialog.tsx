@@ -40,7 +40,10 @@ export function QuranDialog({ open, onOpenChange }: { open: boolean; onOpenChang
   const [ayat, setAyat] = useState<Ayah[]>([]);
   const [loading, setLoading] = useState(false);
   const [showTranslation, setShowTranslation] = useState(false);
-  const [translations, setTranslations] = useState<Record<number, string>>({});
+  // Keyed by surah number, then by numberInSurah — kept namespaced so an
+  // ayah key from one surah can never collide with another surah's ayah
+  // key (both spaces range 1..N and previously shared one flat map).
+  const [translations, setTranslations] = useState<Record<number, Record<number, string>>>({});
   const [autoScroll, setAutoScroll] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [pageIndex, setPageIndex] = useState(0);
@@ -95,7 +98,9 @@ export function QuranDialog({ open, onOpenChange }: { open: boolean; onOpenChang
       .then(j => {
         const map: Record<number, string> = {};
         (j.data?.ayahs || []).forEach((a: any) => { map[a.numberInSurah] = a.text; });
-        setTranslations(prev => ({ ...prev, ...map, [active.number]: "loaded" as any }));
+        // Namespaced by surah so an ayah's numberInSurah key can never
+        // collide with another surah's — each surah keeps its own map.
+        setTranslations(prev => ({ ...prev, [active.number]: map }));
       }).catch(() => {});
   }, [active, showTranslation]);
 
@@ -437,7 +442,7 @@ const TEXT_ZOOM_MIN = 18;
 const TEXT_ZOOM_MAX = 42;
 const TEXT_ZOOM_DEFAULT = 26;
 
-function ContinuousTextView({ ayat, surahNumber, translations, showTranslation, isNight, mushafText }: { ayat: Ayah[]; surahNumber: number; translations: Record<number, string>; showTranslation: boolean; isNight: boolean; mushafText: string }) {
+function ContinuousTextView({ ayat, surahNumber, translations, showTranslation, isNight, mushafText }: { ayat: Ayah[]; surahNumber: number; translations: Record<number, Record<number, string>>; showTranslation: boolean; isNight: boolean; mushafText: string }) {
   const [fontSize, setFontSize] = useState(TEXT_ZOOM_DEFAULT);
   const fontSizeRef = useRef(fontSize);
   fontSizeRef.current = fontSize;
@@ -566,7 +571,7 @@ function ContinuousTextView({ ayat, surahNumber, translations, showTranslation, 
       {showTranslation && (
         <div className="mt-6 pt-4 border-t border-current/20 space-y-2 text-left" dir="ltr" style={{ fontFamily: "inherit", fontSize: 14, lineHeight: 1.5, overflowWrap: "break-word" }}>
           {ayat.map(a => {
-            const tr = translations[a.numberInSurah];
+            const tr = translations[surahNumber]?.[a.numberInSurah];
             if (!tr) return null;
             return (
               <div key={a.number} className={cn("italic break-words", isNight ? "text-amber-200/80" : "text-emerald-900/80")}>
