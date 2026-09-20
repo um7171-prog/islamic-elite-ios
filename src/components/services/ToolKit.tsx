@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 export function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <Label className="text-[11px] font-semibold text-foreground/70">{label}</Label>
+      <Label className="text-label text-foreground/70">{label}</Label>
       {children}
     </div>
   );
@@ -32,7 +32,7 @@ export function NumberField({
           className="h-11 bg-input/60 border-border/70 text-base font-semibold"
         />
         {suffix && (
-          <span className="pointer-events-none absolute inset-y-0 end-3 grid place-items-center text-[11px] text-foreground/50">
+          <span className="pointer-events-none absolute inset-y-0 end-3 grid place-items-center text-caption text-foreground/50">
             {suffix}
           </span>
         )}
@@ -73,7 +73,7 @@ export function ResultCard({
   return (
     <div className="rounded-2xl border border-border/60 bg-card/70 p-4 space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <h4 className="text-xs font-bold uppercase tracking-widest text-foreground/60">{title}</h4>
+        <h4 className="text-label uppercase tracking-widest text-foreground/60">{title}</h4>
         <div className="flex gap-1">
           <Button size="icon" variant="ghost" className="h-8 w-8" onClick={copy} aria-label={t("Copy", "نسخ")}>
             <Copy className="h-4 w-4" />
@@ -93,9 +93,9 @@ export function ResultCard({
       )}
       <div className="space-y-1.5">
         {rows.map((r) => (
-          <div key={r.label} className="flex items-center justify-between gap-3 text-sm">
+          <div key={r.label} className="flex items-center justify-between gap-3 text-body">
             <span className="text-foreground/60">{r.label}</span>
-            <span className={cn("font-semibold tabular-nums", r.strong && "text-primary text-base")}>{r.value}</span>
+            <span className={cn("font-semibold tabular-nums", r.strong && "text-primary text-h3")}>{r.value}</span>
           </div>
         ))}
       </div>

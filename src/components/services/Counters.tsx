@@ -48,19 +48,19 @@ export function CountdownRow({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold break-words">{lang === "ar" ? event.ar : event.en}</p>
-          <p className="text-[11px] text-foreground/60 mt-0.5 break-words">
+          <p className="text-body font-bold break-words">{lang === "ar" ? event.ar : event.en}</p>
+          <p className="text-caption text-foreground/60 mt-0.5 break-words">
             {formatWeekday(target, L)} · {formatGregorian(target, L)}
           </p>
-          <p className="text-[11px] text-foreground/45 break-words">{formatHijri(target, L)}</p>
-          {event.note && <p className="text-[10px] text-primary/80 mt-1 leading-snug break-words">{lang === "ar" ? event.note.ar : event.note.en}</p>}
+          <p className="text-caption text-foreground/45 break-words">{formatHijri(target, L)}</p>
+          {event.note && <p className="text-caption text-primary/80 mt-1 leading-snug break-words">{lang === "ar" ? event.note.ar : event.note.en}</p>}
         </div>
         <div className="text-end shrink-0">
           <div className="text-2xl font-extrabold tabular-nums leading-none" style={{ color: "hsl(var(--primary))" }}>
             {c.days}
           </div>
-          <div className="text-[10px] text-foreground/55">{t("days", "يوم")}</div>
-          <div className="text-[11px] font-semibold tabular-nums text-foreground/70 mt-1">
+          <div className="text-caption text-foreground/55">{t("days", "يوم")}</div>
+          <div className="text-caption font-semibold tabular-nums text-foreground/70 mt-1">
             {pad(c.hours)}:{pad(c.minutes)}:{pad(c.seconds)}
           </div>
         </div>
@@ -77,25 +77,25 @@ export function CountdownRow({
             ].map((u) => (
               <div key={u.l} className="rounded-xl border border-border/50 bg-background/40 py-2 text-center">
                 <div className="text-base font-extrabold tabular-nums leading-none">{u.v}</div>
-                <div className="text-[9.5px] text-foreground/55 mt-1">{u.l}</div>
+                <div className="text-caption text-foreground/55 mt-1">{u.l}</div>
               </div>
             ))}
           </div>
           <div className="mt-3 space-y-1 border-t border-border/50 pt-2.5">
-            <div className="flex items-start justify-between gap-2 text-[11px]">
+            <div className="flex items-start justify-between gap-2 text-caption">
               <span className="text-foreground/55 shrink-0">{t("Day", "اليوم")}</span>
               <span className="font-semibold text-end break-words">{formatWeekday(target, L)}</span>
             </div>
-            <div className="flex items-start justify-between gap-2 text-[11px]">
+            <div className="flex items-start justify-between gap-2 text-caption">
               <span className="text-foreground/55 shrink-0">{t("Gregorian date", "التاريخ الميلادي")}</span>
               <span className="font-semibold text-end break-words">{formatGregorian(target, L)}</span>
             </div>
-            <div className="flex items-start justify-between gap-2 text-[11px]">
+            <div className="flex items-start justify-between gap-2 text-caption">
               <span className="text-foreground/55 shrink-0">{t("Hijri date", "التاريخ الهجري")}</span>
               <span className="font-semibold text-end break-words">{formatHijri(target, L)}</span>
             </div>
             {after && (
-              <div className="flex items-start justify-between gap-2 text-[11px]">
+              <div className="flex items-start justify-between gap-2 text-caption">
                 <span className="text-foreground/55 shrink-0">{t("Following date", "الموعد الذي يليه")}</span>
                 <span className="font-semibold text-end break-words">{formatDate(after, L)}</span>
               </div>
@@ -104,7 +104,7 @@ export function CountdownRow({
         </>
       )}
 
-      <p className="mt-2 text-[9.5px] text-foreground/40 break-words">
+      <p className="mt-2 text-caption text-foreground/40 break-words">
         {t("Data last updated", "آخر تحديث للبيانات")}: {formatLastUpdated(L)}
       </p>
     </div>

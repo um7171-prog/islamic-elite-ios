@@ -248,7 +248,7 @@ export function CurrencyConverter() {
         {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
         {t("Refresh rate", "تحديث السعر")}
       </Button>
-      {err && <p className="text-xs text-destructive text-center">{err}</p>}
+      {err && <p className="text-body-sm text-destructive text-center">{err}</p>}
       {converted != null && (
         <ResultCard
           title={t("Converted amount", "المبلغ المحوَّل")}
@@ -387,7 +387,7 @@ export function InheritanceCalculator() {
           <button
             key={row.label}
             onClick={() => row.set(!row.on)}
-            className={`h-11 rounded-xl border text-xs font-semibold transition ${row.on ? "border-primary/60 bg-primary/15 text-primary" : "border-border/60 bg-card/50 text-foreground/70"}`}
+            className={`h-11 rounded-xl border text-label transition ${row.on ? "border-primary/60 bg-primary/15 text-primary" : "border-border/60 bg-card/50 text-foreground/70"}`}
           >
             {row.label}
           </button>
@@ -395,7 +395,7 @@ export function InheritanceCalculator() {
       </div>
 
       {res.method === "empty" ? (
-        <p className="rounded-2xl border border-border/60 bg-card/60 p-4 text-xs text-foreground/60">
+        <p className="rounded-2xl border border-border/60 bg-card/60 p-4 text-body-sm text-foreground/60">
           {t("Please select at least one heir.", "الرجاء اختيار وارث واحد على الأقل.")}
         </p>
       ) : (
@@ -417,12 +417,12 @@ export function InheritanceCalculator() {
             <div key={s.id} className="rounded-2xl border border-border/60 bg-card/70 p-3.5">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-[13px] font-bold truncate">{ar ? s.ar : s.en}</p>
-                  <p className="text-[10.5px] text-foreground/55 mt-0.5 leading-snug break-words">{ar ? s.reasonAr : s.reasonEn}</p>
+                  <p className="text-body font-bold truncate">{ar ? s.ar : s.en}</p>
+                  <p className="text-caption text-foreground/55 mt-0.5 leading-snug break-words">{ar ? s.reasonAr : s.reasonEn}</p>
                 </div>
                 <div className="text-end shrink-0">
-                  <p className="text-[13px] font-extrabold tabular-nums" style={{ color: "hsl(var(--primary))" }}>{money(s.amount)}</p>
-                  <p className="text-[10px] text-foreground/55 mt-0.5">{s.fraction} · {s.percent.toFixed(2)}%</p>
+                  <p className="text-body font-extrabold tabular-nums" style={{ color: "hsl(var(--primary))" }}>{money(s.amount)}</p>
+                  <p className="text-caption text-foreground/55 mt-0.5">{s.fraction} · {s.percent.toFixed(2)}%</p>
                 </div>
               </div>
             </div>
@@ -432,9 +432,9 @@ export function InheritanceCalculator() {
 
       {res.blocked.length > 0 && (
         <div className="rounded-2xl border border-border/60 bg-muted/30 p-3.5 space-y-1">
-          <p className="text-[11px] font-bold text-foreground/70">{t("Blocked heirs (hajb)", "الورثة المحجوبون")}</p>
+          <p className="text-label text-foreground/70">{t("Blocked heirs (hajb)", "الورثة المحجوبون")}</p>
           {res.blocked.map((b, i) => (
-            <p key={i} className="text-[10.5px] text-foreground/55 leading-snug">• {ar ? b.ar : b.en}</p>
+            <p key={i} className="text-caption text-foreground/55 leading-snug">• {ar ? b.ar : b.en}</p>
           ))}
         </div>
       )}
@@ -442,12 +442,12 @@ export function InheritanceCalculator() {
       {res.notes.length > 0 && (
         <div className="rounded-2xl border border-primary/30 bg-primary/10 p-3.5 space-y-1">
           {res.notes.map((n, i) => (
-            <p key={i} className="text-[10.5px] leading-relaxed text-foreground/75">⚠️ {ar ? n.ar : n.en}</p>
+            <p key={i} className="text-caption leading-relaxed text-foreground/75">⚠️ {ar ? n.ar : n.en}</p>
           ))}
         </div>
       )}
 
-      <p className="text-[11px] leading-relaxed text-foreground/50">
+      <p className="text-caption leading-relaxed text-foreground/50">
         {t(
           "Educational estimate covering fixed shares, residuaries, blocking, awl and radd. For binding rulings consult a qualified scholar or the courts.",
           "حساب تعليمي يشمل أصحاب الفروض والعصبات والحجب والعول والرد. للفتوى الملزمة يُرجع إلى أهل العلم أو المحاكم المختصة.",
