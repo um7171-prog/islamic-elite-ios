@@ -25,7 +25,6 @@ import {
   ATHAN_SOUNDS,
   athanSoundOption,
   PRE_REMINDER_VOICE_URL,
-  PRE_REMINDER_NATIVE_SOUND,
   saveAthanSettings,
   soundUrl,
 } from "@/lib/athanSettings";
@@ -68,12 +67,12 @@ function Group({
     <section className="space-y-2">
       <div className="flex items-center gap-2 px-1">
         <Icon className="h-4 w-4 text-elite-gold" />
-        <h3 className="text-[13px] font-semibold text-elite-gold">{title}</h3>
+        <h3 className="text-body-sm font-semibold text-elite-gold">{title}</h3>
       </div>
       <div className="rounded-2xl border border-foreground/10 bg-secondary/25 divide-y divide-foreground/10 overflow-hidden">
         {children}
       </div>
-      {hint && <p className="px-1 text-[11px] leading-relaxed text-foreground/55">{hint}</p>}
+      {hint && <p className="px-1 text-caption leading-relaxed text-foreground/55">{hint}</p>}
     </section>
   );
 }
@@ -90,8 +89,8 @@ function Row({
   return (
     <div className="flex items-center justify-between gap-3 px-3.5 py-3 min-h-[48px]">
       <div className="min-w-0">
-        <div className="text-sm font-medium">{label}</div>
-        {sub && <div className="text-[11px] text-foreground/55 leading-snug">{sub}</div>}
+        <div className="text-body font-medium">{label}</div>
+        {sub && <div className="text-caption text-foreground/55 leading-snug">{sub}</div>}
       </div>
       <div className="shrink-0 flex items-center gap-2">{children}</div>
     </div>
@@ -194,7 +193,7 @@ export function AthanSettingsCard({ settings, onChange, onReschedule }: Props) {
     onPick,
   }: { label: string; value: AthanSound; onPick: (v: AthanSound) => void }) => (
     <div className="px-3.5 py-3 space-y-2">
-      <div className="text-sm font-medium">{label}</div>
+      <div className="text-body font-medium">{label}</div>
       <div className="flex flex-wrap gap-1.5">
         {ATHAN_SOUNDS.map((s) => {
           const active = s.value === value;
@@ -204,7 +203,7 @@ export function AthanSettingsCard({ settings, onChange, onReschedule }: Props) {
               <button
                 type="button"
                 onClick={() => onPick(s.value)}
-                className={`rounded-s-lg border px-2.5 py-1.5 text-[11px] transition ${
+                className={`rounded-s-lg border px-2.5 py-1.5 text-caption transition ${
                   active
                     ? "border-elite-gold bg-elite-gold/15 text-elite-gold font-semibold"
                     : "border-foreground/10 hover:bg-foreground/5"
@@ -231,14 +230,17 @@ export function AthanSettingsCard({ settings, onChange, onReschedule }: Props) {
 
   return (
     <div className="space-y-5">
+      {/* Notification status — real permStatus only, never invented. On web
+          (native === false) this section renders nothing rather than guess
+          at an iOS-only permission state. */}
       {native && permStatus === "denied" && (
         <div className="rounded-2xl border border-destructive/40 bg-destructive/10 p-4 space-y-3">
           <div className="flex items-start gap-2">
-            <AlertTriangle className="h-4 w-4 text-destructive mt-0.5" />
-            <p className="text-sm">إشعارات التطبيق مقفلة من إعدادات iPhone.</p>
+            <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+            <p className="text-body-sm">{t("App notifications are locked in iPhone Settings.", "إشعارات التطبيق مقفلة من إعدادات iPhone.")}</p>
           </div>
           <Button size="sm" variant="outline" onClick={() => void openNativeAppSettings()}>
-            فتح إعدادات iPhone
+            {t("Open iPhone Settings", "فتح إعدادات iPhone")}
           </Button>
         </div>
       )}
@@ -246,12 +248,19 @@ export function AthanSettingsCard({ settings, onChange, onReschedule }: Props) {
       {native && permStatus === "prompt" && (
         <div className="rounded-2xl border border-elite-gold/40 bg-elite-gold/10 p-4 space-y-3">
           <div className="flex items-start gap-2">
-            <Bell className="h-4 w-4 text-elite-gold mt-0.5" />
-            <p className="text-sm">لم يتم تفعيل الإشعارات بعد — فعّلها لتصلك تنبيهات مواقيت الصلاة في وقتها.</p>
+            <Bell className="h-4 w-4 text-elite-gold mt-0.5 shrink-0" />
+            <p className="text-body-sm">{t("Notifications aren't enabled yet — turn them on to get prayer alerts on time.", "لم يتم تفعيل الإشعارات بعد — فعّلها لتصلك تنبيهات مواقيت الصلاة في وقتها.")}</p>
           </div>
           <Button size="sm" onClick={() => requestReopenNotificationPrompt()}>
             {t("Enable notifications now", "تفعيل الإشعارات الآن")}
           </Button>
+        </div>
+      )}
+
+      {native && permStatus === "granted" && (
+        <div className="flex items-center gap-2 rounded-2xl border border-primary/30 bg-primary/10 px-4 py-3">
+          <Check className="h-4 w-4 text-primary shrink-0" />
+          <p className="text-body-sm text-primary font-medium">{t("Notifications are enabled", "الإشعارات مفعّلة")}</p>
         </div>
       )}
 
@@ -260,8 +269,8 @@ export function AthanSettingsCard({ settings, onChange, onReschedule }: Props) {
         icon={Bell}
         title={t("Prayer notifications", "إشعارات الصلوات")}
         hint={t(
-          "A separate switch for each prayer.",
-          "مفتاح مستقل لكل صلاة، يعمل حتى والتطبيق مغلق.",
+          "A separate switch for each prayer. These are local, on-device alerts scheduled from prayer times — not a remote/admin push, so they work even without internet or the app open.",
+          "مفتاح مستقل لكل صلاة. هذه تنبيهات محلية من الجهاز نفسه حسب مواقيت الصلاة — وليست إشعارات إدارية عن بُعد — لذلك تعمل حتى بلا إنترنت أو والتطبيق مغلق.",
         )}
       >
         {PRAYER_ITEMS.map((p) => (
@@ -278,7 +287,7 @@ export function AthanSettingsCard({ settings, onChange, onReschedule }: Props) {
       <Group
         icon={Clock}
         title={t("Reminder before prayer", "تنبيه قبل الصلاة")}
-        hint={`«استغفر الله وأتوب إليه» — ${PRE_REMINDER_NATIVE_SOUND}`}
+        hint={t("An audio reminder — «Astaghfirullah wa atubu ilayh» — before each prayer's own alert.", "تنبيه صوتي — «استغفر الله وأتوب إليه» — قبل تنبيه كل صلاة.")}
       >
         <div className="px-3.5 py-3 space-y-2">
           <div className="flex flex-wrap gap-1.5">
@@ -289,7 +298,7 @@ export function AthanSettingsCard({ settings, onChange, onReschedule }: Props) {
                   key={m}
                   type="button"
                   onClick={() => update({ preReminderMinutes: m })}
-                  className={`min-w-[64px] rounded-lg border px-3 py-2 text-xs transition ${
+                  className={`min-w-[64px] rounded-lg border px-3 py-2 text-caption transition ${
                     active
                       ? "border-elite-gold bg-elite-gold/15 text-elite-gold font-semibold"
                       : "border-foreground/10 hover:bg-foreground/5"
@@ -301,11 +310,11 @@ export function AthanSettingsCard({ settings, onChange, onReschedule }: Props) {
             })}
           </div>
         </div>
-        <Row label={t("Reminder voice", "صوت التنبيه")} sub="استغفر الله وأتوب إليه">
+        <Row label={t("Reminder voice", "صوت التنبيه")} sub={t("Astaghfirullah wa atubu ilayh", "استغفر الله وأتوب إليه")}>
           <button
             type="button"
             onClick={() => preview("pre", PRE_REMINDER_VOICE_URL)}
-            className="rounded-lg border border-foreground/10 px-3 py-1.5 text-xs hover:bg-foreground/5"
+            className="rounded-lg border border-foreground/10 px-3 py-1.5 text-caption hover:bg-foreground/5"
           >
             {playing === "pre" ? <Square className="h-3 w-3" /> : <Play className="h-3 w-3" />}
           </button>
@@ -322,7 +331,7 @@ export function AthanSettingsCard({ settings, onChange, onReschedule }: Props) {
                 key={m.id}
                 type="button"
                 onClick={() => { setMethod(m.id); void onReschedule?.(); }}
-                className={`text-start rounded-lg border px-2.5 py-2 text-[12px] transition ${
+                className={`text-start rounded-lg border px-2.5 py-2 text-caption transition ${
                   active
                     ? "border-elite-gold bg-elite-gold/15 text-elite-gold font-semibold"
                     : "border-foreground/10 hover:bg-foreground/5"
@@ -358,7 +367,7 @@ export function AthanSettingsCard({ settings, onChange, onReschedule }: Props) {
               >
                 <Minus className="h-4 w-4" />
               </button>
-              <span className="w-10 text-center text-sm font-semibold tabular-nums" dir="ltr">
+              <span className="w-10 text-center text-body font-semibold tabular-nums" dir="ltr">
                 {v > 0 ? `+${v}` : v}
               </span>
               <button
@@ -376,7 +385,7 @@ export function AthanSettingsCard({ settings, onChange, onReschedule }: Props) {
           <Button
             size="sm"
             variant="ghost"
-            className="gap-2 text-xs"
+            className="gap-2 text-caption"
             onClick={() => { resetAdjustments(); void onReschedule?.(); }}
           >
             <RotateCcw className="h-3.5 w-3.5" />

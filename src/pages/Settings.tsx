@@ -28,6 +28,7 @@ import { AthkarRemindersCard } from "@/components/islamic/AthkarRemindersCard";
 import { useNativeAthanScheduler } from "@/components/NativeAthanScheduler";
 import { SEO } from "@/components/SEO";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Switch } from "@/components/ui/switch";
 import { isNativeApp, runNotificationDeliveryTest } from "@/lib/nativeNotify";
 import { getAnnouncementPushEnabled, setAnnouncementPushEnabled } from "@/lib/pushDevice";
 import { getAppVersion, type AppVersionInfo } from "@/lib/appVersion";
@@ -273,7 +274,7 @@ export default function Settings() {
         <Section
           icon={Bell}
           title={t("Athan Notifications", "إشعارات الأذان")}
-          subtitle={t("Per-prayer alerts, sounds, and reminders before prayer", "تنبيهات كل صلاة، الأصوات، والتذكير قبل الصلاة")}
+          subtitle={t("Local, on-device alerts based on prayer times", "تنبيهات محلية من الجهاز حسب مواقيت الصلاة")}
         >
           <AthanSettingsCard
             settings={athan}
@@ -300,28 +301,22 @@ export default function Settings() {
             <Section
               icon={BellRing}
               title={t("App Announcements", "إعلانات التطبيق")}
-              subtitle={t("Optional updates from the app administrator", "تحديثات اختيارية من إدارة التطبيق")}
+              subtitle={t("Remote push from the app administrator — separate from Athan alerts", "إشعارات عن بُعد من إدارة التطبيق — منفصلة عن تنبيهات الأذان")}
             >
               <Row
                 label={t("App announcements", "إعلانات وتنبيهات التطبيق")}
                 description={t(
-                  "Optional remote announcements from the app administrator. You can turn them off anytime.",
-                  "إشعارات اختيارية من إدارة التطبيق، ويمكنك إيقافها في أي وقت.",
+                  "Optional remote announcements from the app administrator (requires internet). Unrelated to prayer-time alerts. You can turn them off anytime.",
+                  "إشعارات إدارية اختيارية عن بُعد (تحتاج إنترنت)، ولا علاقة لها بتنبيهات مواقيت الصلاة. يمكنك إيقافها في أي وقت.",
                 )}
               >
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={announcementPush}
-                  onClick={async () => {
-                    const next = !announcementPush;
+                <Switch
+                  checked={announcementPush}
+                  onCheckedChange={async (next) => {
                     setAnnouncementPush(next);
                     await setAnnouncementPushEnabled(next);
                   }}
-                  className={`relative h-7 w-12 rounded-full transition ${announcementPush ? "bg-accent" : "bg-foreground/15"}`}
-                >
-                  <span className={`absolute top-1 h-5 w-5 rounded-full bg-background shadow transition ${announcementPush ? "start-6" : "start-1"}`} />
-                </button>
+                />
               </Row>
             </Section>
           </>

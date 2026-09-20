@@ -74,7 +74,7 @@ export function AthkarRemindersCard() {
           type="button"
           onClick={() => onSelect(m)}
           className={cn(
-            "rounded-full border px-2.5 py-1 text-[11px] transition",
+            "rounded-full border px-2.5 py-1 text-caption transition",
             value === m
               ? "border-primary bg-primary/15 text-primary"
               : "border-foreground/15 text-foreground/70 hover:border-foreground/30",
@@ -94,8 +94,8 @@ export function AthkarRemindersCard() {
           <div className="flex items-center gap-2 min-w-0">
             <Sunrise className="h-4 w-4 text-accent shrink-0" />
             <div className="min-w-0">
-              <div className="text-sm font-medium">{t("Morning Athkar", "أذكار الصباح")}</div>
-              <div className="text-[11px] text-foreground/60">
+              <div className="text-body font-medium">{t("Morning Athkar", "أذكار الصباح")}</div>
+              <div className="text-caption text-foreground/60">
                 {morningAt
                   ? t(`After sunrise · today ${fmt(morningAt)}`, `بعد الشروق · اليوم ${fmt(morningAt)}`)
                   : t("After sunrise", "بعد الشروق")}
@@ -118,8 +118,8 @@ export function AthkarRemindersCard() {
           <div className="flex items-center gap-2 min-w-0">
             <Sunset className="h-4 w-4 text-accent shrink-0" />
             <div className="min-w-0">
-              <div className="text-sm font-medium">{t("Evening Athkar", "أذكار المساء")}</div>
-              <div className="text-[11px] text-foreground/60">
+              <div className="text-body font-medium">{t("Evening Athkar", "أذكار المساء")}</div>
+              <div className="text-caption text-foreground/60">
                 {eveningAt
                   ? t(`Before Maghrib · today ${fmt(eveningAt)}`, `قبل المغرب · اليوم ${fmt(eveningAt)}`)
                   : t("Before Maghrib", "قبل المغرب")}
@@ -140,9 +140,9 @@ export function AthkarRemindersCard() {
       <div className="rounded-xl border border-foreground/10 p-3 space-y-2">
         <div className="flex items-center gap-2">
           <Music2 className="h-4 w-4 text-accent" />
-          <div className="text-sm font-medium">{t("Athkar reminder sound", "صوت تنبيه الأذكار")}</div>
+          <div className="text-body font-medium">{t("Athkar reminder sound", "صوت تنبيه الأذكار")}</div>
         </div>
-        <p className="text-[11px] text-foreground/60">
+        <p className="text-caption text-foreground/60">
           {t("Short bell tone — never the adhan.", "نغمة جرس قصيرة — ليست أذاناً.")}
         </p>
         <div className="space-y-1.5">
@@ -159,7 +159,7 @@ export function AthkarRemindersCard() {
               <button
                 type="button"
                 onClick={() => update({ sound: s.id as ReminderSoundId })}
-                className="min-w-0 flex-1 text-start text-[12px] font-medium"
+                className="min-w-0 flex-1 text-start text-caption font-medium"
               >
                 {lang === "ar" ? s.ar : s.en}
               </button>
