@@ -66,13 +66,13 @@ export function AsmaAlHusnaDialog({ open, onOpenChange }: Props) {
               </span>
               <div className="min-w-0 flex-1">
                 <div className="font-arabic text-lg leading-tight text-foreground">{n.ar}</div>
-                <div className="text-[11px] text-foreground/60 truncate">
+                <div className="text-xs text-foreground/60 truncate">
                   {n.transliteration}
                   {lang === "en" ? ` — ${n.en}` : ""}
                 </div>
               </div>
               {lang === "ar" && (
-                <div className="shrink-0 max-w-[38%] text-end text-[11px] text-foreground/60 leading-snug">
+                <div className="shrink-0 max-w-[38%] text-end text-xs text-foreground/60 leading-snug">
                   {n.en}
                 </div>
               )}

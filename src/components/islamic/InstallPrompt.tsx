@@ -8,6 +8,18 @@ export function InstallPrompt() {
   const iosNative = isIOSNativeApp();
   const [show, setShow] = useState(false);
   const [dismissed, setDismissed] = useState(true);
+  // The tip sits at z-[60], above Radix dialogs (z-50): while a dialog is open
+  // (e.g. the Document Scanner) it would cover and intercept taps on the
+  // dialog's bottom controls such as the shutter button.
+  const [modalOpen, setModalOpen] = useState(false);
+
+  useEffect(() => {
+    const check = () => setModalOpen(!!document.querySelector('[role="dialog"][data-state="open"]'));
+    check();
+    const mo = new MutationObserver(check);
+    mo.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-state"] });
+    return () => mo.disconnect();
+  }, []);
 
   useEffect(() => {
     if (iosNative) return;
@@ -39,7 +51,7 @@ export function InstallPrompt() {
     setTimeout(() => setDismissed(true), 300);
   };
 
-  if (iosNative || dismissed) return null;
+  if (iosNative || dismissed || modalOpen) return null;
 
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
@@ -55,7 +67,7 @@ export function InstallPrompt() {
             <h3 className="font-display text-sm font-bold text-elite-gold">
               {t("Add to Home Screen", "أضف للشاشة الرئيسية")}
             </h3>
-            <p className="text-[11px] text-foreground/70 mt-0.5 leading-relaxed">
+            <p className="text-xs text-foreground/70 mt-0.5 leading-relaxed">
               {t(
                 "Install this app for quick access without opening the browser every time.",
                 "ثبّت التطبيق للوصول السريع دون فتح المتصفح في كل مرة."
@@ -97,7 +109,7 @@ export function InstallPrompt() {
           </div>
         )}
 
-        <div className="mt-3 flex items-center justify-center gap-1 text-[10px] text-foreground/40">
+        <div className="mt-3 flex items-center justify-center gap-1 text-xs text-foreground/40">
           <ArrowUpFromLine className="h-3 w-3" />
           <span>
             {t("You can also tap 'Add to Home Screen' in your browser menu.",

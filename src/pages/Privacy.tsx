@@ -109,7 +109,8 @@ export default function Privacy() {
       <InfoCard icon={Plug} title={t("Third-party APIs", "واجهات API الخارجية")}>
         <Bullets
           items={[
-            t("Prayer time, Hijri calendar and weather services.", "خدمات مواقيت الصلاة والتقويم الهجري والطقس."),
+            t("Prayer time and Hijri calendar services.", "خدمات مواقيت الصلاة والتقويم الهجري."),
+            t("Open-Meteo (current temperature): only the coordinates of your selected city or automatic location are sent, without any identifier.", "Open-Meteo (درجة الحرارة الحالية): تُرسل فقط إحداثيات مدينتك المحددة أو موقعك التلقائي، بلا أي معرّف."),
             t(
               "When you choose OCR or AI translation, the text or image you selected is sent through our server to an external AI processor (Google Gemini through Lovable AI Gateway) only to produce the requested result. The iOS app asks for your consent before the first such transfer.",
               "عند اختيار استخراج النص OCR أو الترجمة بالذكاء الاصطناعي، يُرسل النص أو الصورة التي اخترتها عبر خادمنا إلى مزود معالجة ذكاء اصطناعي خارجي (Google Gemini عبر Lovable AI Gateway) فقط لإنتاج النتيجة المطلوبة. ويطلب تطبيق iOS موافقتك قبل أول إرسال من هذا النوع.",

@@ -1,5 +1,6 @@
 // Remote (APNs) push notifications — admin announcements & updates ONLY.
 // Athan / prayer alerts are LOCAL notifications and live in `nativeAthan.ts`.
+import { addInboxItem } from "@/lib/notificationInbox";
 import { supabase } from "@/integrations/supabase/client";
 import { isNativeApp } from "./platform";
 
@@ -81,7 +82,14 @@ export async function registerPushNotifications(
       await PN.addListener("registrationError", (e) => {
         if (import.meta.env.DEV) console.warn("[push] registration error", e);
       }),
+      // Admin push arriving while the app is open: goes into the Notification Center with its real receive time.
+      await PN.addListener("pushNotificationReceived", (n) => {
+        addInboxItem({ kind: "push", id: n.id ? `push-${n.id}` : undefined, title: n.title ?? "", body: n.body ?? "", route: typeof n.data?.route === "string" ? n.data.route : undefined });
+      }),
       await PN.addListener("pushNotificationActionPerformed", (action) => {
+        // Tapped from the lock screen / banner: record it (arrival time = the tap, the only time the app learns of it).
+        const n = action.notification;
+        addInboxItem({ kind: "push", id: n?.id ? `push-${n.id}` : undefined, title: n?.title ?? "", body: n?.body ?? "", route: typeof n?.data?.route === "string" ? n.data.route : undefined });
         onOpen?.((action.notification?.data || {}) as Record<string, unknown>);
       }),
     ];

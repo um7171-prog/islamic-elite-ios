@@ -37,8 +37,8 @@ export default function Faq() {
     {
       q: t("Can I use the app offline?", "هل يمكن استخدام التطبيق بدون إنترنت؟"),
       a: t(
-        "You can install the app on your device, and several tools keep working offline. Features that need the internet (media, AI, weather) require a connection.",
-        "يمكنك تثبيت التطبيق على جهازك، وتعمل عدة أدوات بدون إنترنت، أما الميزات التي تحتاج اتصالاً (الوسائط والذكاء الاصطناعي والطقس) فتتطلب إنترنت.",
+        "You can install the app on your device, and several tools keep working offline. Features that need the internet (media, AI, currency rates) require a connection.",
+        "يمكنك تثبيت التطبيق على جهازك، وتعمل عدة أدوات بدون إنترنت، أما الميزات التي تحتاج اتصالاً (الوسائط والذكاء الاصطناعي وأسعار العملات) فتتطلب إنترنت.",
       ),
     },
     {

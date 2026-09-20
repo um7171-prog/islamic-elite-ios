@@ -2,6 +2,7 @@ import { isNativeApp } from "@/lib/platform";
 import { NOTIFICATION_RANGES, type NotificationGroup } from "./ranges";
 import { pluginCancelGroup, pluginPendingGroup, pluginScheduleGroup, type NativeScheduleItem } from "./plugin";
 import { checkPermissionStatus } from "./permission";
+import { isDryRun, logDryRun } from "./dryRun";
 
 export interface ScheduleItemInput {
   id: number;
@@ -28,24 +29,35 @@ export interface ScheduleGroupResult {
  * unless it comes back from `pendingGroup`.
  */
 export async function scheduleGroup(group: NotificationGroup, itemsIn: ScheduleItemInput[]): Promise<ScheduleGroupResult> {
-  if (!isNativeApp()) return { scheduled: 0, verifiedIds: [], errors: [], reason: "not-native" };
+  const range = NOTIFICATION_RANGES[group];
+  const now = Date.now();
+  const build = (): NativeScheduleItem[] =>
+    itemsIn
+      .filter((it) => it.at.getTime() > now + 5000 && Number.isFinite(it.at.getTime()))
+      // Soonest first, so when a group has more items than its cap (many
+      // calendar events) it is the nearest ones that get scheduled.
+      .sort((a, b) => a.at.getTime() - b.at.getTime())
+      .slice(0, range.cap)
+      .map((it) => ({
+        id: it.id,
+        title: it.title,
+        body: it.body,
+        atMs: it.at.getTime(),
+        sound: it.sound || "default",
+        extra: it.extra,
+      }));
+
+  if (!isNativeApp()) {
+    // Browser: nothing can be scheduled. In dry-run mode only, record the request
+    // that WOULD be sent so tests can verify it (never reported as delivered).
+    if (isDryRun()) logDryRun({ group, minId: range.min, maxId: range.max, items: build().map((i) => ({ id: i.id, atMs: i.atMs, title: i.title, body: i.body })) });
+    return { scheduled: 0, verifiedIds: [], errors: [], reason: "not-native" };
+  }
 
   const status = await checkPermissionStatus();
   if (status !== "granted") return { scheduled: 0, verifiedIds: [], errors: [], reason: "permission-denied" };
 
-  const range = NOTIFICATION_RANGES[group];
-  const now = Date.now();
-  const items: NativeScheduleItem[] = itemsIn
-    .filter((it) => it.at.getTime() > now + 5000 && Number.isFinite(it.at.getTime()))
-    .slice(0, range.cap)
-    .map((it) => ({
-      id: it.id,
-      title: it.title,
-      body: it.body,
-      atMs: it.at.getTime(),
-      sound: it.sound || "default",
-      extra: it.extra,
-    }));
+  const items = build();
 
   if (items.length === 0) {
     // An intentional empty rebuild (e.g. every prayer switch turned off) still

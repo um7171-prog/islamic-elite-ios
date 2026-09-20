@@ -1,60 +1,70 @@
-import { Home, LayoutGrid, Heart, Settings as SettingsIcon } from "lucide-react";
+import { CalendarDays, Heart, Home, LayoutGrid, Settings as SettingsIcon } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useLocale } from "@/contexts/LocaleContext";
 import { resetAppScroll } from "@/components/ScrollToTop";
 
-// Matches the reference design's 4-tab bar: Home / Services / Favorites /
-// Settings. File Converter and the Media downloader are no longer their own
-// bottom-tab destinations — both are reachable as tiles inside the unified
-// Services grid (see ServicesHub.tsx), so nothing was removed, only moved.
-export type TabKey = "home" | "tools" | "favorites" | "settings";
+type TabKey = "home" | "tools" | "favorites" | "appointments" | "settings";
 
-interface Props {
-  /** "other" keeps every tab inactive (used by pages outside the main tabs). */
-  active: TabKey | "other";
-  onChange: (t: TabKey) => void;
+const TABS: { key: TabKey; to: string; en: string; ar: string; Icon: React.ElementType }[] = [
+  { key: "home", to: "/", en: "Home", ar: "الرئيسية", Icon: Home },
+  { key: "tools", to: "/tools", en: "Services", ar: "الخدمات", Icon: LayoutGrid },
+  { key: "favorites", to: "/favorites", en: "Favorites", ar: "المفضلة", Icon: Heart },
+  { key: "appointments", to: "/calendar", en: "Appointments", ar: "المواعيد", Icon: CalendarDays },
+  { key: "settings", to: "/settings", en: "Settings", ar: "الإعدادات", Icon: SettingsIcon },
+];
+
+/** Which tab a path belongs to (pages opened from Services stay under Services). */
+function tabFor(pathname: string): TabKey | null {
+  if (pathname === "/") return "home";
+  if (pathname === "/favorites") return "favorites";
+  if (pathname === "/calendar") return "appointments";
+  if (["/settings", "/prayer-settings", "/notification-settings", "/location"].some((p) => pathname === p || pathname.startsWith(p + "/"))) return "settings";
+  if (
+    ["/tools", "/calculators", "/date-converter", "/convert", "/media", "/saudi-jobs", "/government-jobs", "/ai"].some(
+      (p) => pathname === p || pathname.startsWith(p + "/"),
+    )
+  ) {
+    return "tools";
+  }
+  return null;
 }
 
-export function BottomNav({ active, onChange }: Props) {
+/** App-wide bottom tab bar (Home / Services / Favorites / Notifications /
+ * Settings). Rendered once by the app shell so every screen has the same one. */
+export function BottomNav() {
   const { t, dir } = useLocale();
-  const items: { key: TabKey; en: string; ar: string; Icon: React.ElementType }[] = [
-    { key: "home", en: "Home", ar: "الرئيسية", Icon: Home },
-    { key: "tools", en: "Services", ar: "الخدمات", Icon: LayoutGrid },
-    { key: "favorites", en: "Favorites", ar: "المفضلة", Icon: Heart },
-    { key: "settings", en: "Settings", ar: "الإعدادات", Icon: SettingsIcon },
-  ];
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const active = tabFor(pathname);
 
   return (
     <nav
       dir={dir}
-      className="bottom-navigation border-t border-foreground/10 bg-background/95 backdrop-blur-xl"
-      style={{
-        paddingBottom: "env(safe-area-inset-bottom, 0px)",
-        backgroundColor: "hsl(var(--background) / 0.95)",
-      }}
+      aria-label={t("Main navigation", "التنقل الرئيسي")}
+      className="bottom-navigation border-t border-foreground/[0.08] bg-card"
+      style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
-      <ul className="mx-auto flex max-w-6xl items-stretch justify-around px-2 pb-0.5 pt-1">
-        {items.map((it) => {
+      <ul className="mx-auto flex max-w-2xl items-stretch justify-around px-0 pb-0.5 pt-1.5">
+        {TABS.map((it) => {
           const isActive = active === it.key;
           return (
-            <li key={it.key} className="flex-1">
+            <li key={it.key} className="min-w-0 flex-1">
               <button
                 type="button"
-                onClick={() => { resetAppScroll(); onChange(it.key); }}
+                data-nav={it.key}
+                onClick={() => {
+                  resetAppScroll();
+                  if (pathname !== it.to) navigate(it.to);
+                }}
                 style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
-                className={`flex min-h-[48px] w-full flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 transition ${
-                  isActive ? "text-accent" : "text-foreground/60 hover:text-foreground/90"
+                className={`relative flex min-h-[52px] w-full flex-col items-center justify-center gap-1 rounded-xl py-1 transition ${
+                  isActive ? "text-primary" : "text-foreground/55 hover:text-foreground/80"
                 }`}
                 aria-current={isActive ? "page" : undefined}
               >
-
-                <span
-                  className={`grid h-8 w-8 place-items-center rounded-lg transition ${
-                    isActive ? "bg-accent/15 shadow-sm" : "bg-transparent"
-                  }`}
-                >
-                  <it.Icon className="h-5 w-5" />
-                </span>
-                <span className="text-[10px] font-semibold leading-none">{t(it.en, it.ar)}</span>
+                <it.Icon className="h-[22px] w-[22px]" strokeWidth={isActive ? 2.4 : 2} />
+                <span data-nav-label className="max-w-full truncate text-[12px] font-semibold leading-none tracking-[-0.03em]">{t(it.en, it.ar)}</span>
+                {isActive && <span className="absolute -top-1.5 h-[3px] w-8 rounded-full bg-accent" />}
               </button>
             </li>
           );

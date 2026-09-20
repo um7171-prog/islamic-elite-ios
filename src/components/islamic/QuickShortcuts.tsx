@@ -1,64 +1,53 @@
 import { useNavigate } from "react-router-dom";
-import { BookOpen, Heart, Compass, CalendarHeart, Sparkles, Calculator, Repeat, LayoutGrid } from "lucide-react";
+import { BookOpen, CalendarClock, CalendarDays, Calculator, Clock, Compass, Heart, LayoutGrid, Repeat } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
-
-// Same gradient palette used for these exact tools in ServicesHub.tsx (the
-// Services grid), repeated here rather than imported so this component
-// doesn't require any change to that file. Every route below is a real,
-// already-working page — nothing here is a placeholder.
-const GOLD = "linear-gradient(135deg, hsl(42 85% 55%), hsl(38 90% 65%))";
-const EMERALD = "linear-gradient(135deg, hsl(158 70% 35%), hsl(168 75% 45%))";
-const BLUE = "linear-gradient(135deg, hsl(200 70% 45%), hsl(195 80% 60%))";
-const PURPLE = "linear-gradient(135deg, hsl(280 50% 40%), hsl(260 60% 55%))";
+import { IconBadge } from "@/components/site/IconBadge";
 
 interface Shortcut {
   en: string;
   ar: string;
   Icon: React.ElementType;
-  gradient: string;
   to: string;
 }
 
+// Every tile opens a real, already-working screen — nothing here is a placeholder.
 const SHORTCUTS: Shortcut[] = [
-  { en: "Quran", ar: "القرآن الكريم", Icon: BookOpen, gradient: PURPLE, to: "/mushaf" },
-  { en: "Athkar", ar: "الأذكار", Icon: Heart, gradient: EMERALD, to: "/athkar" },
-  { en: "Qibla", ar: "القبلة", Icon: Compass, gradient: BLUE, to: "/qibla" },
-  { en: "Calendar", ar: "التقويم", Icon: CalendarHeart, gradient: EMERALD, to: "/calendar" },
-  { en: "99 Names", ar: "أسماء الله الحسنى", Icon: Sparkles, gradient: GOLD, to: "/asma-al-husna" },
-  { en: "Calculators", ar: "الحاسبات", Icon: Calculator, gradient: GOLD, to: "/tools" },
-  { en: "Converter", ar: "تحويل الملفات", Icon: Repeat, gradient: EMERALD, to: "/convert" },
-  { en: "More", ar: "المزيد", Icon: LayoutGrid, gradient: BLUE, to: "/tools" },
+  { en: "Quran", ar: "القرآن الكريم", Icon: BookOpen, to: "/quran" },
+  { en: "Prayer Times", ar: "أوقات الصلاة", Icon: Clock, to: "/prayer-times" },
+  { en: "Qibla", ar: "القبلة", Icon: Compass, to: "/qibla" },
+  { en: "Calendar", ar: "التقويم", Icon: CalendarDays, to: "/calendar" },
+  { en: "Appointments", ar: "المواعيد", Icon: CalendarClock, to: "/calendar?add=1" },
+  { en: "Athkar", ar: "الأذكار", Icon: Heart, to: "/athkar" },
+  { en: "File Converter", ar: "تحويل الملفات", Icon: Repeat, to: "/convert" },
+  { en: "Tools", ar: "أدوات عامة", Icon: Calculator, to: "/calculators" },
+  { en: "More", ar: "المزيد", Icon: LayoutGrid, to: "/more" },
 ];
 
-/** Quick-access shortcut grid for the Home page, matching the reference
- * design's 4x2 icon grid. Every tile navigates to a real, existing route —
- * no new pages or logic, this only adds fast entry points to features that
- * already work (most already live inside the unified Services grid). */
+/** Home shortcut grid (3 columns): emerald/gold icon badge + Arabic label with
+ * the English name under it (Arabic UI) or the English label alone (English UI). */
 export function QuickShortcuts() {
-  const { t, dir } = useLocale();
+  const { t, dir, lang } = useLocale();
   const navigate = useNavigate();
 
   return (
-    <div dir={dir} className="grid grid-cols-4 gap-x-2 gap-y-4">
+    <div dir={dir} className="grid grid-cols-3 gap-x-3 gap-y-5">
       {SHORTCUTS.map((s) => (
         <button
-          key={s.en}
+          key={s.to}
+          type="button"
+          data-shortcut={s.to}
           onClick={() => navigate(s.to)}
-          className="flex flex-col items-center gap-1.5 group"
+          className="group flex min-w-0 flex-col items-center gap-2 rounded-2xl py-1 transition active:scale-95"
           style={{ touchAction: "manipulation" }}
         >
-          <span
-            className="h-12 w-12 rounded-full grid place-items-center text-accent-foreground border-2 transition-transform group-active:scale-95 group-hover:scale-105"
-            style={{
-              background: s.gradient,
-              borderColor: "hsl(var(--elite-gold-start))",
-              boxShadow: "var(--shadow-glow-gold)",
-            }}
-          >
-            <s.Icon className="h-5 w-5" />
-          </span>
-          <span className="text-caption font-semibold text-foreground/80 text-center leading-tight break-words">
-            {t(s.en, s.ar)}
+          <IconBadge icon={s.Icon} size="lg" className="shadow-[0_4px_12px_-4px_hsl(160_50%_15%/0.5)]" />
+          <span className="w-full text-center leading-tight">
+            <span className="block break-words text-body-sm font-semibold text-foreground">{t(s.en, s.ar)}</span>
+            {lang === "ar" && (
+              <span className="mt-0.5 block break-words text-[12px] text-foreground/55" dir="ltr">
+                {s.en}
+              </span>
+            )}
           </span>
         </button>
       ))}

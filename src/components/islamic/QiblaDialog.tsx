@@ -24,8 +24,11 @@ function toDMS(deg: number) {
   return `${d}° ${m}' ${s}"`;
 }
 
+/** Compass point labels in Arabic UI (N/E/S/W → ش/ق/ج/غ). */
+const AR_COMPASS: Record<string, string> = { N: "ش", E: "ق", S: "ج", W: "غ", NE: "شق", SE: "جق", SW: "جغ", NW: "شغ" };
+
 export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
-  const { t, dir } = useLocale();
+  const { t, dir, lang } = useLocale();
   const { city } = useCity();
 
   // Live GPS position when available, otherwise the selected city (never crashes).
@@ -318,7 +321,7 @@ export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChang
                         </span>
                       )}
                     </div>
-                    <span className="text-[11px]">{tab.label}</span>
+                    <span className="text-xs">{tab.label}</span>
                     {tab.active && (
                       <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 h-1 w-10 rounded-t-full bg-[hsl(var(--qibla-ring-blue))]" />
                     )}
@@ -405,7 +408,7 @@ export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChang
           <>
           {/* Coordinates row */}
           <div className="text-center text-[13px] text-[hsl(var(--qibla-coord-fg))] font-medium">
-            Latitude: {toDMS(lat)} Longitude: {toDMS(lng)}
+            {t("Latitude", "خط العرض")}: <span dir="ltr">{toDMS(lat)}</span> · {t("Longitude", "خط الطول")}: <span dir="ltr">{toDMS(lng)}</span>
           </div>
 
           {/* Help circle (top corner) */}
@@ -456,7 +459,7 @@ export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChang
               <circle cx="100" cy="100" r="88" fill="none" stroke="hsl(var(--qibla-outer-ring))" strokeWidth="0.4" />
               <text fill="hsl(var(--qibla-outer-text))" fontSize="6" letterSpacing="3" fontWeight="700">
                 <textPath href="#outerTextPath" startOffset="0">
-                  ★ القبلة ★ القبلة ★ القبلة ★ القبلة ★ القبلة ★ القبلة ★ القبلة ★ القبلة ★ القبلة ★ القبلة ★ القبلة ★ القبلة
+                  {Array.from({ length: 12 }, () => `★ ${t("QIBLA", "القبلة")}`).join(" ")}
                 </textPath>
               </text>
             </svg>
@@ -598,7 +601,7 @@ export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChang
                     fill={c}
                     transform={`rotate(${a} ${x} ${y})`}
                   >
-                    {l}
+                    {lang === "ar" ? AR_COMPASS[l] ?? l : l}
                   </text>
                 );
               })}
@@ -623,7 +626,7 @@ export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChang
                     fill="hsl(var(--qibla-cardinal))"
                     transform={`rotate(${a} ${x} ${y})`}
                   >
-                    {l}
+                    {lang === "ar" ? AR_COMPASS[l] ?? l : l}
                   </text>
                 );
               })}
@@ -659,7 +662,7 @@ export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChang
               <span className="text-[13px] font-bold leading-none">
                 {accuracy === "high" ? "●●●" : accuracy === "medium" ? "●●" : accuracy === "low" ? "●" : "—"}
               </span>
-              <span className="text-[9px] text-[hsl(var(--qibla-muted-fg))] mt-0.5">{t("Accuracy", "الدقة")}</span>
+              <span className="text-xs text-[hsl(var(--qibla-muted-fg))] mt-0.5">{t("Accuracy", "الدقة")}</span>
             </div>
 
             {/* Distance card */}
@@ -668,7 +671,7 @@ export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChang
                 <KaabaIcon className="h-4 w-4" />
                 <span className="font-bold text-[14px]">{Math.round(distanceKm).toLocaleString()} KM</span>
               </div>
-              <div className="text-[10px] text-[hsl(var(--qibla-muted-fg))] mt-0.5">
+              <div className="text-xs text-[hsl(var(--qibla-muted-fg))] mt-0.5">
                 {t("Distance to Kaaba", "البُعد عن الكعبة")}
               </div>
             </div>
@@ -679,7 +682,7 @@ export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChang
                 <CompassIcon className="h-4 w-4 text-[hsl(var(--qibla-card-fg))]" />
                 <span className="font-bold text-[14px]">{Math.round(qibla)}°</span>
               </div>
-              <div className="text-[10px] text-[hsl(var(--qibla-muted-fg))] mt-0.5">
+              <div className="text-xs text-[hsl(var(--qibla-muted-fg))] mt-0.5">
                 {t("Qibla from North", "اتجاه القبلة من الشمال")}
               </div>
             </div>
@@ -728,7 +731,7 @@ export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChang
 
           {/* Calibration hint when the reading is noisy */}
           {accuracy === "low" && (
-            <p className="mt-2 text-center text-[11px] text-[hsl(var(--qibla-tick-major))]">
+            <p className="mt-2 text-center text-xs text-[hsl(var(--qibla-tick-major))]">
               {t("Move your phone in a figure-8 to calibrate the compass.", "حرّك الهاتف على شكل الرقم ٨ لمعايرة البوصلة.")}
             </p>
           )}
@@ -768,7 +771,7 @@ export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChang
           <button
             type="button"
             onClick={() => { unlockAudio(); triggerAlignmentAlert(); }}
-            className="mt-3 w-full text-[11px] text-[hsl(var(--qibla-muted-fg))] underline-offset-2 hover:underline"
+            className="mt-3 w-full text-xs text-[hsl(var(--qibla-muted-fg))] underline-offset-2 hover:underline"
           >
             {t("Test alignment alert", "اختبار تنبيه القبلة")}
           </button>

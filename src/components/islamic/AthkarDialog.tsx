@@ -1,65 +1,15 @@
 import { useEffect, useState } from "react";
-import { Check, Heart, Sunrise, Sunset, BedDouble, CheckCircle2 } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Check, Search, Sunrise, Sunset, BedDouble, CheckCircle2, X } from "lucide-react";
+import { FullScreenDialog } from "@/components/site/FullScreenDialog";
+import { EVENING, MORNING, POST_PRAYER, SLEEP, type Athkar } from "@/lib/athkarData";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLocale } from "@/contexts/LocaleContext";
 import { cn } from "@/lib/utils";
 
-interface Athkar { ar: string; en: string; count: number; }
 
-const AYAT_KURSI = "أَعُوذُ بِاللَّهِ مِنَ الشَّيْطَانِ الرَّجِيمِ. اللَّهُ لَا إِلَهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ، لَا تَأْخُذُهُ سِنَةٌ وَلَا نَوْمٌ، لَهُ مَا فِي السَّمَاوَاتِ وَمَا فِي الْأَرْضِ، مَنْ ذَا الَّذِي يَشْفَعُ عِنْدَهُ إِلَّا بِإِذْنِهِ، يَعْلَمُ مَا بَيْنَ أَيْدِيهِمْ وَمَا خَلْفَهُمْ، وَلَا يُحِيطُونَ بِشَيْءٍ مِنْ عِلْمِهِ إِلَّا بِمَا شَاءَ، وَسِعَ كُرْسِيُّهُ السَّمَاوَاتِ وَالْأَرْضَ، وَلَا يَئُودُهُ حِفْظُهُمَا، وَهُوَ الْعَلِيُّ الْعَظِيمُ.";
-const IKHLAS = "بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ. قُلْ هُوَ اللَّهُ أَحَدٌ. اللَّهُ الصَّمَدُ. لَمْ يَلِدْ وَلَمْ يُولَدْ. وَلَمْ يَكُنْ لَهُ كُفُوًا أَحَدٌ.";
-const FALAQ = "بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ. قُلْ أَعُوذُ بِرَبِّ الْفَلَقِ. مِنْ شَرِّ مَا خَلَقَ. وَمِنْ شَرِّ غَاسِقٍ إِذَا وَقَبَ. وَمِنْ شَرِّ النَّفَّاثَاتِ فِي الْعُقَدِ. وَمِنْ شَرِّ حَاسِدٍ إِذَا حَسَدَ.";
-const NAS = "بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ. قُلْ أَعُوذُ بِرَبِّ النَّاسِ. مَلِكِ النَّاسِ. إِلَهِ النَّاسِ. مِنْ شَرِّ الْوَسْوَاسِ الْخَنَّاسِ. الَّذِي يُوَسْوِسُ فِي صُدُورِ النَّاسِ. مِنَ الْجِنَّةِ وَالنَّاسِ.";
-
-const MORNING: Athkar[] = [
-  { ar: AYAT_KURSI, en: "Ayat al-Kursi", count: 1 },
-  { ar: IKHLAS, en: "Surah Al-Ikhlas", count: 3 },
-  { ar: FALAQ, en: "Surah Al-Falaq", count: 3 },
-  { ar: NAS, en: "Surah An-Nas", count: 3 },
-  { ar: "أَصْبَحْنَا وَأَصْبَحَ الْمُلْكُ لِلَّهِ، وَالْحَمْدُ لِلَّهِ، لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ. رَبِّ أَسْأَلُكَ خَيْرَ مَا فِي هَذَا الْيَوْمِ وَخَيْرَ مَا بَعْدَهُ، وَأَعُوذُ بِكَ مِنْ شَرِّ مَا فِي هَذَا الْيَوْمِ وَشَرِّ مَا بَعْدَهُ، رَبِّ أَعُوذُ بِكَ مِنَ الْكَسَلِ وَسُوءِ الْكِبَرِ، رَبِّ أَعُوذُ بِكَ مِنْ عَذَابٍ فِي النَّارِ وَعَذَابٍ فِي الْقَبْرِ.", en: "Morning supplication", count: 1 },
-  { ar: "اللَّهُمَّ بِكَ أَصْبَحْنَا، وَبِكَ أَمْسَيْنَا، وَبِكَ نَحْيَا، وَبِكَ نَمُوتُ، وَإِلَيْكَ النُّشُورُ.", en: "O Allah, by You we reach the morning…", count: 1 },
-  { ar: "سُبْحَانَ اللَّهِ وَبِحَمْدِهِ.", en: "Glory and praise be to Allah", count: 100 },
-  { ar: "لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ، وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ.", en: "None has the right to be worshipped except Allah…", count: 10 },
-];
-
-const EVENING: Athkar[] = [
-  { ar: AYAT_KURSI, en: "Ayat al-Kursi", count: 1 },
-  { ar: IKHLAS, en: "Surah Al-Ikhlas", count: 3 },
-  { ar: FALAQ, en: "Surah Al-Falaq", count: 3 },
-  { ar: NAS, en: "Surah An-Nas", count: 3 },
-  { ar: "أَمْسَيْنَا وَأَمْسَى الْمُلْكُ لِلَّهِ، وَالْحَمْدُ لِلَّهِ، لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ. رَبِّ أَسْأَلُكَ خَيْرَ مَا فِي هَذِهِ اللَّيْلَةِ وَخَيْرَ مَا بَعْدَهَا، وَأَعُوذُ بِكَ مِنْ شَرِّ مَا فِي هَذِهِ اللَّيْلَةِ وَشَرِّ مَا بَعْدَهَا، رَبِّ أَعُوذُ بِكَ مِنَ الْكَسَلِ وَسُوءِ الْكِبَرِ، رَبِّ أَعُوذُ بِكَ مِنْ عَذَابٍ فِي النَّارِ وَعَذَابٍ فِي الْقَبْرِ.", en: "Evening supplication", count: 1 },
-  { ar: "اللَّهُمَّ بِكَ أَمْسَيْنَا، وَبِكَ أَصْبَحْنَا، وَبِكَ نَحْيَا، وَبِكَ نَمُوتُ، وَإِلَيْكَ الْمَصِيرُ.", en: "O Allah, by You we reach the evening…", count: 1 },
-  { ar: "أَعُوذُ بِكَلِمَاتِ اللَّهِ التَّامَّاتِ مِنْ شَرِّ مَا خَلَقَ.", en: "I seek refuge in the perfect words of Allah…", count: 3 },
-  { ar: "بِسْمِ اللَّهِ الَّذِي لَا يَضُرُّ مَعَ اسْمِهِ شَيْءٌ فِي الْأَرْضِ وَلَا فِي السَّمَاءِ وَهُوَ السَّمِيعُ الْعَلِيمُ.", en: "In the name of Allah, with whose name nothing is harmed…", count: 3 },
-];
-
-const SLEEP: Athkar[] = [
-  { ar: AYAT_KURSI, en: "Ayat al-Kursi", count: 1 },
-  { ar: IKHLAS, en: "Surah Al-Ikhlas", count: 1 },
-  { ar: FALAQ, en: "Surah Al-Falaq", count: 1 },
-  { ar: NAS, en: "Surah An-Nas", count: 1 },
-  { ar: "آمَنَ الرَّسُولُ بِمَا أُنْزِلَ إِلَيْهِ مِنْ رَبِّهِ وَالْمُؤْمِنُونَ، كُلٌّ آمَنَ بِاللَّهِ وَمَلَائِكَتِهِ وَكُتُبِهِ وَرُسُلِهِ، لَا نُفَرِّقُ بَيْنَ أَحَدٍ مِنْ رُسُلِهِ، وَقَالُوا سَمِعْنَا وَأَطَعْنَا، غُفْرَانَكَ رَبَّنَا وَإِلَيْكَ الْمَصِيرُ. لَا يُكَلِّفُ اللَّهُ نَفْسًا إِلَّا وُسْعَهَا، لَهَا مَا كَسَبَتْ وَعَلَيْهَا مَا اكْتَسَبَتْ، رَبَّنَا لَا تُؤَاخِذْنَا إِنْ نَسِينَا أَوْ أَخْطَأْنَا، رَبَّنَا وَلَا تَحْمِلْ عَلَيْنَا إِصْرًا كَمَا حَمَلْتَهُ عَلَى الَّذِينَ مِنْ قَبْلِنَا، رَبَّنَا وَلَا تُحَمِّلْنَا مَا لَا طَاقَةَ لَنَا بِهِ، وَاعْفُ عَنَّا وَاغْفِرْ لَنَا وَارْحَمْنَا، أَنْتَ مَوْلَانَا فَانْصُرْنَا عَلَى الْقَوْمِ الْكَافِرِينَ.", en: "Last two verses of Surah Al-Baqarah", count: 1 },
-  { ar: "اللَّهُمَّ بِاسْمِكَ أَمُوتُ وَأَحْيَا.", en: "In Your name O Allah I die and I live", count: 1 },
-  { ar: "اللَّهُمَّ قِنِي عَذَابَكَ يَوْمَ تَبْعَثُ عِبَادَكَ.", en: "O Allah save me from Your punishment…", count: 3 },
-  { ar: "بِاسْمِكَ رَبِّي وَضَعْتُ جَنْبِي، وَبِكَ أَرْفَعُهُ، فَإِنْ أَمْسَكْتَ نَفْسِي فَارْحَمْهَا، وَإِنْ أَرْسَلْتَهَا فَاحْفَظْهَا بِمَا تَحْفَظُ بِهِ عِبَادَكَ الصَّالِحِينَ.", en: "In Your name my Lord I lay my side…", count: 1 },
-  { ar: "اللَّهُمَّ أَسْلَمْتُ نَفْسِي إِلَيْكَ، وَفَوَّضْتُ أَمْرِي إِلَيْكَ، وَوَجَّهْتُ وَجْهِي إِلَيْكَ، وَأَلْجَأْتُ ظَهْرِي إِلَيْكَ، رَغْبَةً وَرَهْبَةً إِلَيْكَ، لَا مَلْجَأَ وَلَا مَنْجَا مِنْكَ إِلَّا إِلَيْكَ، آمَنْتُ بِكِتَابِكَ الَّذِي أَنْزَلْتَ، وَنَبِيِّكَ الَّذِي أَرْسَلْتَ.", en: "O Allah, I submit myself to You…", count: 1 },
-  { ar: "سُبْحَانَ اللَّهِ.", en: "SubhanAllah", count: 33 },
-  { ar: "الْحَمْدُ لِلَّهِ.", en: "Alhamdulillah", count: 33 },
-  { ar: "اللَّهُ أَكْبَرُ.", en: "Allahu Akbar", count: 34 },
-  { ar: "اللَّهُمَّ رَبَّ السَّمَاوَاتِ السَّبْعِ وَرَبَّ الْعَرْشِ الْعَظِيمِ، رَبَّنَا وَرَبَّ كُلِّ شَيْءٍ، فَالِقَ الْحَبِّ وَالنَّوَى، وَمُنْزِلَ التَّوْرَاةِ وَالْإِنْجِيلِ وَالْفُرْقَانِ، أَعُوذُ بِكَ مِنْ شَرِّ كُلِّ شَيْءٍ أَنْتَ آخِذٌ بِنَاصِيَتِهِ. اللَّهُمَّ أَنْتَ الْأَوَّلُ فَلَيْسَ قَبْلَكَ شَيْءٌ، وَأَنْتَ الْآخِرُ فَلَيْسَ بَعْدَكَ شَيْءٌ، وَأَنْتَ الظَّاهِرُ فَلَيْسَ فَوْقَكَ شَيْءٌ، وَأَنْتَ الْبَاطِنُ فَلَيْسَ دُونَكَ شَيْءٌ، اقْضِ عَنَّا الدَّيْنَ وَأَغْنِنَا مِنَ الْفَقْرِ.", en: "O Allah, Lord of the seven heavens…", count: 1 },
-  { ar: "الْحَمْدُ لِلَّهِ الَّذِي أَطْعَمَنَا وَسَقَانَا، وَكَفَانَا وَآوَانَا، فَكَمْ مِمَّنْ لَا كَافِيَ لَهُ وَلَا مُؤْوِيَ.", en: "Praise be to Allah Who fed us…", count: 1 },
-];
-
-const POST_PRAYER: Athkar[] = [
-  { ar: "أَسْتَغْفِرُ اللَّهَ (ثلاثاً)", en: "I seek forgiveness from Allah (3 times)", count: 3 },
-  { ar: "اللَّهُمَّ أَنْتَ السَّلَامُ، وَمِنْكَ السَّلَامُ، تَبَارَكْتَ يَا ذَا الْجَلَالِ وَالْإِكْرَامِ", en: "O Allah, You are As-Salam…", count: 1 },
-  { ar: "لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ، وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ", en: "None has the right to be worshipped except Allah…", count: 1 },
-  { ar: "سُبْحَانَ اللَّهِ (33 مرة)، وَالْحَمْدُ لِلَّهِ (33 مرة)، وَاللَّهُ أَكْبَرُ (33 مرة)", en: "SubhanAllah, Alhamdulillah, Allahu Akbar (33 each)", count: 99 },
-  { ar: "لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ، وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ (بعد التكبيرات)", en: "Takbir after Salah", count: 1 },
-  { ar: "اللَّهُمَّ صَلِّ عَلَى مُحَمَّدٍ وَعَلَى آلِ مُحَمَّدٍ", en: "O Allah, send blessings upon Muhammad…", count: 1 },
-  { ar: AYAT_KURSI, en: "Ayat al-Kursi (once)", count: 1 },
-];
+/** Diacritics-insensitive matching for the search box. */
+const normalize = (x: string) =>
+  x.normalize("NFD").replace(/[\u064B-\u065F\u0670\u06D6-\u06ED\u0640]/g, "").replace(/[\u0671\u0622\u0623\u0625]/g, "\u0627").toLowerCase().trim();
 
 // The app advertises "progress saved" for Athkar, but tallies were only ever
 // in-memory React state — closing the dialog (a Radix Dialog, unmounted on
@@ -70,7 +20,7 @@ function todayKey(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function List({ items, storageKey }: { items: Athkar[]; storageKey: string }) {
+function List({ items, storageKey, query }: { items: Athkar[]; storageKey: string; query: string }) {
   const fullKey = `athkar.counts.${storageKey}.${todayKey()}`;
   const [counts, setCounts] = useState<number[]>(() => {
     try {
@@ -93,40 +43,65 @@ function List({ items, storageKey }: { items: Athkar[]; storageKey: string }) {
     }
   }, [counts, fullKey]);
 
+  const { lang, t } = useLocale();
   const tap = (i: number) => setCounts(c => c.map((v, idx) => idx === i ? Math.min(v + 1, items[i].count) : v));
+  const nq = normalize(query);
+  const doneCount = items.filter((it, i) => counts[i] >= it.count).length;
   return (
-    <div className="space-y-2.5 max-h-[58vh] overflow-y-auto pe-1">
+    <div className="space-y-3">
+      <div className="flex items-center justify-between rounded-2xl bg-card px-4 py-3 shadow-sm ring-1 ring-foreground/[0.07]" data-testid="athkar-progress">
+        <span className="text-body font-semibold text-foreground/70">{t("Completed", "المنجز")}</span>
+        <span dir="ltr" className="font-display text-[26px] font-bold tabular-nums text-primary">{doneCount} <span className="text-[16px] font-semibold text-foreground/50">/ {items.length}</span></span>
+      </div>
       {items.map((it, i) => {
+        if (nq && !normalize(it.ar).includes(nq) && !it.en.toLowerCase().includes(nq)) return null;
         const done = counts[i] >= it.count;
+        const pct = Math.min(100, Math.round((counts[i] / it.count) * 100));
         return (
           <button
             key={i}
+            data-thikr={i}
+            data-done={done ? "1" : "0"}
             onClick={() => tap(i)}
             className={cn(
-              "w-full text-start rounded-2xl p-4 transition-all border active:scale-[0.99]",
-              done ? "bg-primary/10 border-primary/40" : "bg-card/60 border-foreground/10 hover:bg-foreground/5",
+              "w-full overflow-hidden rounded-3xl text-start shadow-sm ring-1 transition active:scale-[0.99]",
+              done ? "bg-primary/10 ring-primary/30" : "bg-card ring-foreground/[0.07]",
             )}
           >
-            <div className="flex items-start gap-3">
+            <div className="flex items-center justify-between gap-3 px-5 pt-4">
               <span
                 className={cn(
-                  "shrink-0 h-8 w-8 rounded-full grid place-items-center text-[11px] font-bold transition-colors",
-                  done ? "bg-primary text-primary-foreground" : "bg-foreground/8 text-foreground/50",
+                  "grid h-9 w-9 place-items-center rounded-full text-body-sm font-bold transition-colors",
+                  done ? "bg-primary text-primary-foreground" : "bg-[hsl(var(--header-a))] text-[hsl(var(--elite-gold-end))]",
                 )}
               >
                 {done ? <Check className="h-4 w-4" /> : i + 1}
               </span>
-              <div className="min-w-0 flex-1 font-arabic text-lg leading-loose text-foreground">{it.ar}</div>
+              <span className="h-px flex-1 bg-gradient-to-r from-transparent via-[hsl(var(--elite-gold-start)/0.5)] to-transparent" />
+              <span className="text-body-sm font-semibold text-foreground/50">{t("Tap to count", "اضغط للعدّ")}</span>
             </div>
-            <div className="mt-2 ps-11 flex items-center justify-between gap-2">
-              <span className="text-[11px] text-foreground/60 truncate">{it.en}</span>
+            {/* The dhikr itself: large, high-contrast, generous line height */}
+            <p
+              data-testid="thikr-text"
+              dir="rtl"
+              className="px-5 pb-2 pt-4 text-center font-arabic text-[26px] font-bold leading-[2.35] text-foreground"
+            >
+              {it.ar}
+            </p>
+            {lang === "en" && <p className="px-5 pb-1 text-center text-body text-foreground/65">{it.en}</p>}
+            <div className="flex items-center gap-4 px-5 pb-5 pt-3">
+              <div className="h-2 flex-1 overflow-hidden rounded-full bg-foreground/[0.08]">
+                <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+              </div>
               <span
+                data-testid="thikr-count"
+                dir="ltr"
                 className={cn(
-                  "shrink-0 font-display tabular-nums text-[11px] font-bold rounded-full px-2.5 py-0.5",
-                  done ? "bg-primary/20 text-primary" : "bg-accent/15 text-accent",
+                  "grid min-w-[84px] place-items-center rounded-2xl px-4 py-2 font-display text-[28px] font-bold leading-none tabular-nums",
+                  done ? "bg-primary text-primary-foreground" : "bg-accent/15 text-[hsl(var(--elite-gold-start))]",
                 )}
               >
-                {counts[i]} / {it.count}
+                {counts[i]}<span className="text-[16px] font-semibold opacity-70"> / {it.count}</span>
               </span>
             </div>
           </button>
@@ -137,44 +112,59 @@ function List({ items, storageKey }: { items: Athkar[]; storageKey: string }) {
 }
 
 const tabTrigger =
-  "min-w-0 flex-col h-auto gap-1 py-2 px-1 whitespace-normal text-center leading-tight data-[state=active]:shadow-none";
+  "min-w-0 flex-col h-auto gap-1 rounded-full py-2 px-1 whitespace-normal text-center leading-tight data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm";
 
 export function AthkarDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
-  const { t, dir } = useLocale();
+  const { t } = useLocale();
+  const [query, setQuery] = useState("");
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent dir={dir} className="max-w-lg p-0 overflow-hidden bg-background">
-        <DialogHeader className="px-5 pt-5 pb-3">
-          <DialogTitle className="flex items-center gap-2">
-            <Heart className="h-5 w-5" style={{ color: "hsl(var(--elite-gold-start))" }} />
-            <span className="text-elite-gold">{t("Athkar", "الأذكار")}</span>
-          </DialogTitle>
-        </DialogHeader>
-        <Tabs defaultValue="morning" className="min-w-0 px-5 pb-5">
-          <TabsList className="grid grid-cols-4 w-full min-w-0 h-auto bg-secondary/50">
-            <TabsTrigger value="morning" className={tabTrigger}>
-              <Sunrise className="h-4 w-4" />
-              <span className="text-[10px] font-semibold truncate w-full">{t("Morning", "الصباح")}</span>
-            </TabsTrigger>
-            <TabsTrigger value="evening" className={tabTrigger}>
-              <Sunset className="h-4 w-4" />
-              <span className="text-[10px] font-semibold truncate w-full">{t("Evening", "المساء")}</span>
-            </TabsTrigger>
-            <TabsTrigger value="sleep" className={tabTrigger}>
-              <BedDouble className="h-4 w-4" />
-              <span className="text-[10px] font-semibold truncate w-full">{t("Sleep", "النوم")}</span>
-            </TabsTrigger>
-            <TabsTrigger value="post-prayer" className={tabTrigger}>
-              <CheckCircle2 className="h-4 w-4" />
-              <span className="text-[10px] font-semibold truncate w-full">{t("Post-Prayer", "بعد الصلاة")}</span>
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="morning" className="pt-3"><List items={MORNING} storageKey="morning" /></TabsContent>
-          <TabsContent value="evening" className="pt-3"><List items={EVENING} storageKey="evening" /></TabsContent>
-          <TabsContent value="sleep" className="pt-3"><List items={SLEEP} storageKey="sleep" /></TabsContent>
-          <TabsContent value="post-prayer" className="pt-3"><List items={POST_PRAYER} storageKey="post-prayer" /></TabsContent>
-        </Tabs>
-      </DialogContent>
-    </Dialog>
+    <FullScreenDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      titleAr="الأذكار"
+      titleEn="Athkar"
+      extra={
+        <div className="relative">
+          <Search className="pointer-events-none absolute inset-y-0 start-3.5 my-auto h-[18px] w-[18px] text-foreground/40" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            data-testid="athkar-search"
+            placeholder={t("Search Athkar…", "ابحث في الأذكار…")}
+            className="h-12 w-full rounded-2xl bg-card ps-11 pe-11 text-body text-foreground outline-none placeholder:text-foreground/40 focus-visible:ring-2 focus-visible:ring-ring"
+          />
+          {query && (
+            <button type="button" onClick={() => setQuery("")} aria-label={t("Clear", "مسح")} className="absolute inset-y-0 end-2 my-auto grid h-9 w-9 place-items-center text-foreground/45">
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      }
+    >
+      <Tabs defaultValue="morning" className="min-w-0">
+        <TabsList className="grid h-auto w-full min-w-0 grid-cols-4 gap-1 rounded-full bg-foreground/[0.06] p-1">
+          <TabsTrigger value="morning" className={tabTrigger}>
+            <Sunrise className="h-4 w-4" />
+            <span className="w-full truncate text-body-sm font-semibold">{t("Morning", "الصباح")}</span>
+          </TabsTrigger>
+          <TabsTrigger value="evening" className={tabTrigger}>
+            <Sunset className="h-4 w-4" />
+            <span className="w-full truncate text-body-sm font-semibold">{t("Evening", "المساء")}</span>
+          </TabsTrigger>
+          <TabsTrigger value="sleep" className={tabTrigger}>
+            <BedDouble className="h-4 w-4" />
+            <span className="w-full truncate text-body-sm font-semibold">{t("Sleep", "النوم")}</span>
+          </TabsTrigger>
+          <TabsTrigger value="post-prayer" className={tabTrigger}>
+            <CheckCircle2 className="h-4 w-4" />
+            <span className="w-full truncate text-body-sm font-semibold">{t("Post-Prayer", "بعد الصلاة")}</span>
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="morning" className="pt-4"><List items={MORNING} storageKey="morning" query={query} /></TabsContent>
+        <TabsContent value="evening" className="pt-4"><List items={EVENING} storageKey="evening" query={query} /></TabsContent>
+        <TabsContent value="sleep" className="pt-4"><List items={SLEEP} storageKey="sleep" query={query} /></TabsContent>
+        <TabsContent value="post-prayer" className="pt-4"><List items={POST_PRAYER} storageKey="post-prayer" query={query} /></TabsContent>
+      </Tabs>
+    </FullScreenDialog>
   );
 }

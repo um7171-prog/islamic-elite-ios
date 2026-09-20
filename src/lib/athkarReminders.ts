@@ -101,7 +101,7 @@ export async function syncAthkarReminders(
         body: txt.body,
         at: new Date(d.sunrise.getTime() + settings.morningAfterSunrise * 60_000),
         sound,
-        extra: { route: "/?athkar=morning" },
+        extra: { route: "/athkar" },
       });
     }
     if (settings.eveningEnabled) {
@@ -112,7 +112,7 @@ export async function syncAthkarReminders(
         body: txt.body,
         at: new Date(d.maghrib.getTime() - settings.eveningBeforeMaghrib * 60_000),
         sound,
-        extra: { route: "/?athkar=evening" },
+        extra: { route: "/athkar" },
       });
     }
   });

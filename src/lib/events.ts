@@ -25,10 +25,38 @@ export interface CalEvent {
   remindMinutesBefore: number | null;
   /** built-in reminder sound id */
   sound?: ReminderSoundId;
+  /** optional grouping shown as an icon in lists ("general" when absent) */
+  category?: EventCategory;
   createdAt: number;
 }
 
+export type EventCategory = "general" | "work" | "personal" | "health";
+export const EVENT_CATEGORIES: { id: EventCategory; ar: string; en: string }[] = [
+  { id: "general", ar: "عام", en: "General" },
+  { id: "work", ar: "عمل", en: "Work" },
+  { id: "personal", ar: "شخصي", en: "Personal" },
+  { id: "health", ar: "صحي", en: "Health" },
+];
+
 const STORAGE_KEY = "elite.calendar.events.v1";
+const CAL_NOTIF_KEY = "elite.notifications.calendar.v1";
+
+/** Master switch for appointment reminders (default on). Off = every calendar
+ * notification is cleared; the appointments themselves are untouched. */
+export function isCalendarNotificationsEnabled(): boolean {
+  try {
+    return localStorage.getItem(CAL_NOTIF_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+export function setCalendarNotificationsEnabled(on: boolean) {
+  try {
+    localStorage.setItem(CAL_NOTIF_KEY, on ? "on" : "off");
+  } catch {
+    /* private mode */
+  }
+}
 
 export const EVENT_ID_MIN = NOTIFICATION_RANGES.calendar.min;
 export const EVENT_ID_MAX = NOTIFICATION_RANGES.calendar.max;
@@ -169,11 +197,17 @@ export const REPEAT_CHOICES: { value: Repeat; ar: string; en: string }[] = [
 
 // ---------------- Native local notifications ----------------
 
-/** Stable per-event notification id inside the events range (20000–29999). */
+const EVENT_ID_SPAN = EVENT_ID_MAX - EVENT_ID_MIN + 1;
+
+/** Stable per-event notification id, always inside the calendar range
+ * (EVENT_ID_MIN..EVENT_ID_MAX). Staying inside the range is what lets the
+ * native scheduler cancel a deleted event's notification (it only clears ids
+ * within the range it is given) and keeps calendar ids from ever colliding
+ * with another group's range. */
 function notifId(ev: CalEvent, offset = 0): number {
   let h = 0;
-  for (let i = 0; i < ev.id.length; i++) h = (h * 31 + ev.id.charCodeAt(i)) % 9990;
-  return EVENT_ID_MIN + ((h + offset * 3) % 9990);
+  for (let i = 0; i < ev.id.length; i++) h = (h * 31 + ev.id.charCodeAt(i)) % EVENT_ID_SPAN;
+  return EVENT_ID_MIN + ((h + offset * 3) % EVENT_ID_SPAN);
 }
 
 /**
@@ -181,6 +215,7 @@ function notifId(ev: CalEvent, offset = 0): number {
  * Only the events id range is touched — prayers and athkar are untouched.
  */
 export async function syncEventNotifications(events: CalEvent[], lang: "ar" | "en") {
+  if (!isCalendarNotificationsEnabled()) return scheduleGroup("calendar", []);
   const now = new Date();
   const items: {
     id: number;

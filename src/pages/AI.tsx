@@ -1,7 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, ArrowLeft, Eraser, Sparkles, ScanText, Bot } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
-import { BottomNav, type TabKey } from "@/components/islamic/BottomNav";
 import { SEO } from "@/components/SEO";
 
 
@@ -57,9 +56,6 @@ export default function AI() {
   const navigate = useNavigate();
   const BackIcon = dir === "rtl" ? ArrowRight : ArrowLeft;
 
-  const handleTabChange = (next: TabKey) => {
-    navigate(next === "home" ? "/" : `/${next}`);
-  };
 
   return (
     <div
@@ -138,7 +134,6 @@ export default function AI() {
         ))}
       </section>
 
-      <BottomNav active="other" onChange={handleTabChange} />
     </div>
   );
 }

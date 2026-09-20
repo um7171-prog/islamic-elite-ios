@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
+import { ALL_THEME_VARS, DEFAULT_THEME_ID, THEME_STORAGE_KEY, themeById, type ThemeId } from "@/lib/themes";
 
 export type ThemeMode = "system" | "night" | "light";
 type ResolvedTheme = "night" | "light";
@@ -13,6 +14,9 @@ interface ThemeCtx {
   /** Back-compat: set resolved theme (forces manual override). */
   setTheme: (t: ResolvedTheme) => void;
   isNight: boolean;
+  /** Colour identity (Emerald, Makkah…) — independent of light/dark. */
+  themeId: ThemeId;
+  setThemeId: (id: ThemeId) => void;
 }
 
 const ThemeCtx = createContext<ThemeCtx | null>(null);
@@ -35,8 +39,17 @@ function loadMode(): ThemeMode {
   return "system";
 }
 
+function loadThemeId(): ThemeId {
+  try {
+    return themeById(localStorage.getItem(THEME_STORAGE_KEY)).id;
+  } catch {
+    return DEFAULT_THEME_ID;
+  }
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [mode, setModeState] = useState<ThemeMode>(() => loadMode());
+  const [themeId, setThemeIdState] = useState<ThemeId>(() => loadThemeId());
   const [systemTheme, setSystemTheme] = useState<ResolvedTheme>(() => getSystemTheme());
 
   // Listen to system theme changes
@@ -62,10 +75,28 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   }, [mode, resolved]);
 
+  // Apply the colour theme: clear every variable a theme may set, then set the
+  // active theme's tokens for the resolved appearance. (Emerald sets none — its
+  // values live in index.css.) Runs whenever the theme OR the appearance changes,
+  // so any theme works in both light and dark.
+  useEffect(() => {
+    const root = document.documentElement;
+    ALL_THEME_VARS.forEach((v) => root.style.removeProperty(v));
+    const tokens = themeById(themeId).tokens[resolved];
+    Object.entries(tokens).forEach(([k, v]) => root.style.setProperty(k, v as string));
+    root.dataset.theme = themeId;
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, themeId);
+    } catch {
+      /* private mode */
+    }
+  }, [themeId, resolved]);
+
+  const setThemeId = useCallback((id: ThemeId) => setThemeIdState(themeById(id).id), []);
   const setMode = useCallback((m: ThemeMode) => setModeState(m), []);
   const setTheme = useCallback((t: ResolvedTheme) => setModeState(t), []);
 
-  const value: ThemeCtx = { theme: resolved, mode, setMode, setTheme, isNight: resolved === "night" };
+  const value: ThemeCtx = { theme: resolved, mode, setMode, setTheme, isNight: resolved === "night", themeId, setThemeId };
   return <ThemeCtx.Provider value={value}>{children}</ThemeCtx.Provider>;
 }
 

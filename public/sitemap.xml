@@ -71,9 +71,29 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.techsnds.com/weather</loc>
+    <loc>https://www.techsnds.com/prayer-times</loc>
     <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://www.techsnds.com/calendar</loc>
+    <changefreq>weekly</changefreq>
     <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.techsnds.com/calculators</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.techsnds.com/date-converter</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.techsnds.com/convert</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.techsnds.com/qr-scanner</loc>

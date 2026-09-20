@@ -3,8 +3,8 @@ import { useCity } from "@/contexts/CityContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { usePrayerCalc } from "@/contexts/PrayerCalcContext";
 import { isNativeApp } from "@/lib/platform";
+import { isDryRun } from "@/lib/notifications/dryRun";
 import {
-  DEFAULT_PRAYER_NOTIFICATION_SETTINGS,
   loadPrayerNotificationSettings,
   savePrayerNotificationSettings,
   type PrayerNotificationSettings,
@@ -35,7 +35,9 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   const [permission, setPermission] = useState<NotificationPermissionStatus>("notDetermined");
   const [prayerSettings, setPrayerSettingsState] = useState<PrayerNotificationSettings>(() =>
-    native ? loadPrayerNotificationSettings() : DEFAULT_PRAYER_NOTIFICATION_SETTINGS,
+    // Always restore saved preferences (web included) so the Settings toggles
+    // don't silently reset on reload; only the native app schedules from them.
+    loadPrayerNotificationSettings(),
   );
   const [scheduledPrayerCount, setScheduledPrayerCount] = useState(0);
 
@@ -70,19 +72,38 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   };
 
   // ---- Prayer schedule rebuild: city / madhab / calc / settings / lang ----
-  const reschedulePrayer = async () => {
-    if (!native || permission !== "granted") return 0;
-    const res = await schedulePrayerNotifications({
+  // Every rebuild is queued behind the previous one, and always runs with the
+  // values of the render that requested it. Rapid changes (e.g. tapping through
+  // reminder minutes) therefore finish in request order — the last request,
+  // carrying the newest settings, is always the one that ends up scheduled.
+  const prayerQueueRef = useRef<Promise<unknown>>(Promise.resolve());
+  const reschedulePrayer = (): Promise<number> => {
+    if (!native || permission !== "granted") return Promise.resolve(0);
+    const snapshot = {
       lat: city.lat,
       lng: city.lng,
       madhab,
       calc,
       settings: prayerSettings,
-      lang: lang === "ar" ? "ar" : "en",
-    });
-    setScheduledPrayerCount(res.scheduled);
-    return res.scheduled;
+      lang: (lang === "ar" ? "ar" : "en") as "ar" | "en",
+    };
+    const job = prayerQueueRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        const res = await schedulePrayerNotifications(snapshot);
+        setScheduledPrayerCount(res.scheduled);
+        return res.scheduled;
+      });
+    prayerQueueRef.current = job;
+    return job;
   };
+  // Always points at the newest render's rebuild. Long-lived listeners (the
+  // foreground handler below) call this instead of a closure captured when the
+  // listener was registered — otherwise coming back to the app re-scheduled
+  // with stale settings (e.g. the old reminder minutes) and undid the user's
+  // latest change.
+  const latestReschedulePrayer = useRef(reschedulePrayer);
+  latestReschedulePrayer.current = reschedulePrayer;
 
   useEffect(() => {
     void reschedulePrayer();
@@ -96,11 +117,12 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const rerunRef = useRef(false);
 
   useEffect(() => {
-    if (!native) return;
+    // Dry-run (test only): run the same calendar/Athkar pipeline in a browser and record requests.
+    if (!native && !isDryRun()) return;
     let disposed = false;
 
     const performAthkarAndCalendar = async () => {
-      const status = await checkPermissionStatus();
+      const status = native ? await checkPermissionStatus() : "granted";
       if (status !== "granted" || disposed) return;
       const l: "ar" | "en" = lang === "ar" ? "ar" : "en";
       const days: AthkarDayTimes[] = [];
@@ -147,7 +169,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         const handle = await App.addListener("appStateChange", ({ isActive }) => {
           if (isActive) {
             window.setTimeout(requestRun, 500);
-            window.setTimeout(() => void reschedulePrayer(), 500);
+            window.setTimeout(() => void latestReschedulePrayer.current(), 500);
           }
         });
         if (listenerCancelled) handle.remove();
@@ -169,7 +191,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   }, [native, city.lat, city.lng, madhab, calc, lang]);
 
   const rebuildAll = async () => {
-    await reschedulePrayer();
+    await latestReschedulePrayer.current();
     // Athkar/calendar go through the same coordinator every other trigger uses.
     const { requestNotificationRebuild } = await import("@/lib/notifications/coordinator");
     requestNotificationRebuild();
@@ -187,4 +209,9 @@ export function useNotifications(): NotificationsContextValue {
   const ctx = useContext(NotificationsContext);
   if (!ctx) throw new Error("useNotifications must be used inside NotificationsProvider");
   return ctx;
+}
+
+/** Same as useNotifications, but null outside a NotificationsProvider. */
+export function useNotificationsOptional(): NotificationsContextValue | null {
+  return useContext(NotificationsContext);
 }

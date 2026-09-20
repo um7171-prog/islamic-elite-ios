@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { isNativeApp } from "@/lib/platform";
 import { ANNOUNCEMENT_PUSH_CHANGED_EVENT, getAnnouncementPushEnabled, registerPushNotifications } from "@/lib/pushDevice";
 import { useLocale } from "@/contexts/LocaleContext";
+import { addInboxItem } from "@/lib/notificationInbox";
 
 /**
  * Native-only: opens the right screen when the user taps a notification, and
@@ -35,12 +36,16 @@ export function NotificationRouter() {
     (async () => {
       try {
         const { LocalNotifications } = await import("@capacitor/local-notifications");
+        // A local notification delivered while the app is open enters the Notification Center now.
+        const received = await LocalNotifications.addListener("localNotificationReceived", (n) => {
+          addInboxItem({ kind: "local", id: `local-${n.id}-${Math.floor(Date.now() / 60_000)}`, title: n.title ?? "", body: n.body ?? "", route: (n.extra as { route?: string } | undefined)?.route });
+        });
         const handle = await LocalNotifications.addListener("localNotificationActionPerformed", (event) => {
           const route = (event.notification?.extra as { route?: string } | undefined)?.route || "/";
           navigate(route);
         });
-        if (cancelled) handle.remove();
-        else remove = () => handle.remove();
+        if (cancelled) { handle.remove(); received.remove(); }
+        else remove = () => { handle.remove(); received.remove(); };
       } catch {
         /* plugin unavailable */
       }

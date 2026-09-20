@@ -12,11 +12,11 @@ import { ServicesHub, SERVICE_TOOLS, DIALOG_TOOL_IDS, ROUTE_TOOL_TARGETS } from 
 // snapshot so a service tile can never silently point at a page that
 // doesn't exist ("no dead links" requirement).
 const REGISTERED_ROUTES = new Set([
-  "/", "/tools", "/media", "/calendar", "/athkar", "/qibla", "/quran", "/tasbeeh",
-  "/translate", "/weather", "/notifications", "/qr-scanner", "/document-scanner",
+  "/", "/tools", "/media", "/calendar", "/athkar", "/qibla", "/quran", "/tasbeeh", "/calculators", "/date-converter", "/prayer-settings",
+  "/translate", "/notifications", "/qr-scanner", "/document-scanner", "/prayer-times",
   "/asma-al-husna", "/about", "/admin", "/ai", "/ai/background-remover",
   "/ai/image-enhancer", "/ai/ocr", "/contact", "/convert", "/cookies", "/disclaimer",
-  "/faq", "/government-jobs", "/mushaf", "/notification-diagnostics", "/privacy",
+  "/faq", "/government-jobs", "/mushaf", "/privacy",
   "/reset-password", "/saudi-jobs", "/saudi-jobs/:id", "/settings", "/sitemap", "/terms",
 ]);
 
@@ -102,16 +102,16 @@ describe("Unified Services grid — confirmed services actually render", () => {
 });
 
 describe("Unified Services grid — navigation actually works", () => {
-  it("tapping the Quran tile navigates to /mushaf (kept exactly as before, not QuranDialog)", () => {
+  it("tapping the Quran tile opens the Quran index page (/quran), which leads into the Mushaf reader", () => {
     renderGrid();
     fireEvent.click(screen.getByText("القرآن الكريم"));
-    expect(navigateMock).toHaveBeenCalledWith("/mushaf");
+    expect(navigateMock).toHaveBeenCalledWith("/quran");
   });
 
-  it("tapping the Prayer Times tile navigates home", () => {
+  it("tapping the Prayer Times tile navigates to its own dedicated page, not Home", () => {
     renderGrid();
     fireEvent.click(screen.getByText("مواقيت الصلاة"));
-    expect(navigateMock).toHaveBeenCalledWith("/");
+    expect(navigateMock).toHaveBeenCalledWith("/prayer-times");
   });
 
   it("tapping the Calendar tile navigates to /calendar", () => {
@@ -174,7 +174,7 @@ describe("Unified Services grid — dialog-kind tools all have a matching dialog
     // its dialog, this at least confirms the id list itself stays a fixed,
     // reviewed set rather than silently growing unnoticed.
     const known = [
-      "athkar", "qibla", "asmaAlHusna", "tasbeeh", "translate", "weather", "scanner", "docscan",
+      "athkar", "qibla", "asmaAlHusna", "tasbeeh", "translate", "scanner", "docscan",
     ];
     expect(new Set(DIALOG_TOOL_IDS)).toEqual(new Set(known));
   });

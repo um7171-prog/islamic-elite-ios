@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Bell } from "lucide-react";
 import { toast } from "sonner";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/contexts/LocaleContext";
 import { isIOSNativeApp } from "@/lib/platform";
@@ -43,7 +43,7 @@ function writeFlag(v: "accepted" | "deferred") {
  * never automatically.
  */
 export function NotificationOnboardingCard() {
-  const { t } = useLocale();
+  const { t, dir } = useLocale();
   const { rebuildAll, refreshPermission } = useNotifications();
   const [open, setOpen] = useState(false);
   const [requesting, setRequesting] = useState(false);
@@ -52,10 +52,16 @@ export function NotificationOnboardingCard() {
   useEffect(() => {
     if (startedRef.current) return;
     startedRef.current = true;
-    if (!isIOSNativeApp() || readFlag()) return;
+    if (readFlag()) return; // answered/deferred before: never nag on later launches
 
     let cancelled = false;
     const timer = window.setTimeout(async () => {
+      // Let the launch screen finish first.
+      if (document.querySelector('[data-testid="splash"]')) {
+        window.setTimeout(() => !cancelled && setOpen(true), 1500);
+        return;
+      }
+      if (!isIOSNativeApp()) { setOpen(true); return; }
       const status = await checkPermissionStatus();
       if (cancelled) return;
       if (status === "notDetermined") setOpen(true);
@@ -69,8 +75,8 @@ export function NotificationOnboardingCard() {
   }, []);
 
   useEffect(() => {
-    if (!isIOSNativeApp()) return;
     const onReopen = () => {
+      if (!isIOSNativeApp()) return;
       void checkPermissionStatus().then((status) => {
         if (status === "notDetermined") setOpen(true);
       });
@@ -82,6 +88,14 @@ export function NotificationOnboardingCard() {
   const handleEnable = async () => {
     setRequesting(true);
     try {
+      if (!isIOSNativeApp()) {
+        // Browser: there is no iOS notification permission to request. Record the
+        // answer honestly; alerts are delivered by the installed iPhone app.
+        writeFlag("accepted");
+        setOpen(false);
+        toast.info(t("Alerts are delivered by the iPhone app. Your preferences are saved.", "التنبيهات يرسلها تطبيق iPhone. تم حفظ تفضيلاتك."));
+        return;
+      }
       const status = await requestPermission();
       writeFlag("accepted");
       setOpen(false);
@@ -100,30 +114,36 @@ export function NotificationOnboardingCard() {
     setOpen(false);
   };
 
-  if (!isIOSNativeApp()) return null;
-
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleLater(); }}>
-      <DialogContent className="max-w-sm text-center" dir="rtl">
-        <DialogHeader>
-          <div className="mx-auto mb-2 h-12 w-12 rounded-2xl grid place-items-center bg-elite-gold/15 text-elite-gold">
-            <Bell className="h-6 w-6" />
+      <DialogContent dir={dir} data-testid="notif-onboarding" className="max-w-sm overflow-hidden rounded-[28px] border-0 p-0 [&>button]:hidden">
+        <div className="bg-header relative px-6 pb-8 pt-9 text-center">
+          <div className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-white/10 text-[hsl(var(--elite-gold-end))] ring-2 ring-inset ring-[hsl(var(--elite-gold-start)/0.8)]">
+            <Bell className="h-9 w-9" />
           </div>
-          <DialogTitle className="text-center text-h3">
-            {t("Enable app notifications", "فعّل إشعارات التطبيق")}
-          </DialogTitle>
-        </DialogHeader>
-        <ul className="text-start text-body text-foreground/80 space-y-1.5 pt-1 pb-1 list-disc ps-5">
-          <li>{t("Prayer time alerts.", "تنبيهات مواقيت الصلاة.")}</li>
-          <li>{t("Athkar reminders.", "تذكيرات الأذكار.")}</li>
-          <li>{t("Appointment reminders.", "تذكيرات المواعيد.")}</li>
-        </ul>
-        <div className="flex flex-col gap-2 pt-2">
-          <Button onClick={() => void handleEnable()} disabled={requesting}>
-            {requesting ? t("Requesting…", "جارٍ الطلب…") : t("Enable notifications", "تفعيل الإشعارات")}
+          <DialogHeader className="mt-5 space-y-2">
+            <DialogTitle className="text-center font-display text-h2 font-bold text-white">
+              {t("Enable Notifications", "فعّل الإشعارات")}
+            </DialogTitle>
+            <DialogDescription className="text-center text-body leading-relaxed text-white/80">
+              {t("Receive prayer, appointment and Athkar reminders on time.", "استقبل تنبيهات الصلاة والمواعيد والأذكار في وقتها.")}
+            </DialogDescription>
+          </DialogHeader>
+        </div>
+        <div className="space-y-3 bg-background px-6 pb-6 pt-5">
+          {!isIOSNativeApp() && (
+            <p data-testid="notif-onboarding-web-note" className="rounded-2xl bg-foreground/[0.06] p-3 text-body-sm leading-relaxed text-foreground/70">
+              {t(
+                "In the browser no alerts are sent — they are delivered by the installed iPhone app.",
+                "في المتصفح لا تُرسل التنبيهات — يرسلها تطبيق iPhone المثبَّت.",
+              )}
+            </p>
+          )}
+          <Button size="lg" className="h-12 w-full text-body font-bold text-primary-foreground" data-testid="notif-enable" onClick={() => void handleEnable()} disabled={requesting}>
+            {requesting ? t("Requesting…", "جارٍ الطلب…") : t("Enable", "تفعيل الإشعارات")}
           </Button>
-          <Button variant="ghost" onClick={handleLater} disabled={requesting}>
-            {t("Later", "لاحقًا")}
+          <Button variant="ghost" className="h-11 w-full text-body text-foreground" data-testid="notif-not-now" onClick={handleLater} disabled={requesting}>
+            {t("Not Now", "ليس الآن")}
           </Button>
         </div>
       </DialogContent>

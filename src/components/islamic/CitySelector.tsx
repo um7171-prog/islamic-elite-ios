@@ -32,7 +32,7 @@ export function CitySelector({ compact = false }: { compact?: boolean }) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <button
-          className={`inline-flex items-center gap-1.5 rounded-full glass px-3 py-1.5 text-xs hover:bg-foreground/10 transition ${
+          className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-full glass px-4 py-1.5 text-body-sm text-foreground hover:bg-foreground/10 transition ${
             compact ? "" : "font-medium"
           }`}
         >
@@ -70,7 +70,7 @@ export function CitySelector({ compact = false }: { compact?: boolean }) {
                   <MapPin className="h-4 w-4 text-accent/80" />
                   <span className="text-start">
                     <span className="block">{lang === "ar" ? c.ar : c.en}</span>
-                    <span className="block text-[10px] text-foreground/45">
+                    <span className="block text-xs text-foreground/45">
                       {lang === "ar" ? c.countryAr : c.countryEn}
                     </span>
                   </span>
@@ -85,7 +85,7 @@ export function CitySelector({ compact = false }: { compact?: boolean }) {
             </div>
           )}
         </div>
-        <p className="text-[10px] text-foreground/50 text-center mt-2">
+        <p className="text-xs text-foreground/50 text-center mt-2">
           {t("Saudi cities are built in; global results use live coordinate search.", "مدن السعودية مدمجة؛ والنتائج العالمية تستخدم بحث الإحداثيات المباشر.")}
         </p>
       </DialogContent>

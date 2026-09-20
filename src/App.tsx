@@ -13,6 +13,17 @@ import { PrayerCalcProvider } from "@/contexts/PrayerCalcContext";
 import Index from "./pages/Index.tsx";
 import ResetPassword from "./pages/ResetPassword.tsx";
 import Settings from "./pages/Settings.tsx";
+import PrayerTimes from "./pages/PrayerTimes.tsx";
+import CalendarPage from "./pages/CalendarPage.tsx";
+import NotificationsPage from "./pages/NotificationsPage.tsx";
+import NotificationSettingsPage from "./pages/NotificationSettingsPage.tsx";
+import LocationSettingsPage from "./pages/LocationSettingsPage.tsx";
+import PrayerSettingsPage from "./pages/PrayerSettingsPage.tsx";
+import CalculatorsPage from "./pages/CalculatorsPage.tsx";
+import DateConverterPage from "./pages/DateConverterPage.tsx";
+import QuranIndexPage from "./pages/QuranIndexPage.tsx";
+import MorePage from "./pages/MorePage.tsx";
+import { SplashScreen } from "@/components/site/SplashScreen";
 import { NotificationRouter } from "./components/notifications/NotificationRouter";
 import { NotificationsProvider } from "./components/notifications/NotificationsProvider";
 import { NotificationOnboardingCard } from "./components/notifications/NotificationOnboardingCard";
@@ -21,6 +32,7 @@ import { NotificationOnboardingCard } from "./components/notifications/Notificat
 // including how its chunk loads.
 import FileConverterPage from "./pages/FileConverterPage.tsx";
 import { isIOSNativeApp } from "@/lib/platform";
+import { BottomNav } from "@/components/islamic/BottomNav";
 import Privacy from "./pages/Privacy.tsx";
 import Terms from "./pages/Terms.tsx";
 import Contact from "./pages/Contact.tsx";
@@ -60,18 +72,18 @@ const TOOL_PATHS = [
   "/tools",
   "/favorites",
   "/media",
-  "/calendar",
   "/athkar",
   "/qibla",
-  "/quran",
   "/tasbeeh",
   "/translate",
-  "/weather",
   "/qr-scanner",
   "/document-scanner",
   "/asma-al-husna",
 ];
 
+
+// Full-screen experiences that own the whole viewport (no tab bar).
+const HIDE_NAV_PATHS = ["/mushaf", "/admin", "/reset-password"];
 
 /** Single app shell: fixed header-less flex column with ONE scroll container. */
 const AppShell = () => {
@@ -88,16 +100,14 @@ const AppShell = () => {
         className={`app-scroll${allowPinch ? " allow-pinch" : ""}`}
       >
         <Suspense fallback={<RouteFallback />}>
+        {/* Soft fade/rise on every screen change; pointer events are never blocked. */}
+        <div key={pathname} className={pathname.startsWith("/mushaf") ? undefined : "page-enter"}>
         <Routes>
           <Route path="/" element={<Index />} />
           {TOOL_PATHS.filter((p) => !(iosNative && p === "/media")).map((p) => (
             <Route key={p} path={p} element={<Index />} />
           ))}
           {iosNative && <Route path="/media" element={<Navigate to="/tools" replace />} />}
-          {/* Notification settings live only in Settings now (previously also
-              opened a duplicate dialog from the Services grid) — redirect
-              instead of 404ing this indexed URL. */}
-          <Route path="/notifications" element={<Navigate to="/settings" replace />} />
           <Route path="/mushaf" element={<Mushaf />} />
           <Route path="/convert" element={<FileConverterPage />} />
           <Route path="/ai" element={<AI />} />
@@ -117,13 +127,25 @@ const AppShell = () => {
           <Route path="/government-jobs" element={<GovernmentJobs />} />
           <Route path="/sitemap" element={<SitemapPage />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/prayer-times" element={<PrayerTimes />} />
+          <Route path="/calendar" element={<CalendarPage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/notification-settings" element={<NotificationSettingsPage />} />
+          <Route path="/location" element={<LocationSettingsPage />} />
+          <Route path="/prayer-settings" element={<PrayerSettingsPage />} />
+          <Route path="/calculators" element={<CalculatorsPage />} />
+          <Route path="/date-converter" element={<DateConverterPage />} />
+          <Route path="/quran" element={<QuranIndexPage />} />
+          <Route path="/more" element={<MorePage />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </div>
         </Suspense>
       </main>
+      {!HIDE_NAV_PATHS.some((p) => pathname.startsWith(p)) && <BottomNav />}
     </div>
   );
 };
@@ -131,6 +153,7 @@ const AppShell = () => {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
+      <SplashScreen />
       <Toaster />
       <Sonner />
       <ThemeProvider>

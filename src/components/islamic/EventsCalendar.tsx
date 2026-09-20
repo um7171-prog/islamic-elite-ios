@@ -1,27 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { CalendarDays, Plus, Trash2, Bell, Repeat as RepeatIcon, X, Clock, Play, Music2 } from "lucide-react";
+import { Bell, ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { toHijri } from "hijri-converter";
 import { ar, enUS } from "date-fns/locale";
 import { useLocale } from "@/contexts/LocaleContext";
 import { Calendar } from "@/components/ui/calendar";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import {
-  DEFAULT_REMINDER_SOUND,
-  REMINDER_SOUNDS,
-  previewSound,
-  type ReminderSoundId,
-} from "@/lib/notifications/sounds";
+import { DEFAULT_REMINDER_SOUND, type ReminderSoundId } from "@/lib/notifications/sounds";
 import {
   CalEvent,
-  REMINDER_CHOICES,
-  REPEAT_CHOICES,
   Repeat,
   eventDateTime,
   loadEvents,
@@ -34,38 +22,78 @@ import {
   ymd,
 } from "@/lib/events";
 import { requestNotificationRebuild } from "@/lib/notifications/coordinator";
+import { uid } from "@/lib/id";
+import { checkPermissionStatus } from "@/lib/notifications/permission";
+import { requestReopenNotificationOnboarding } from "@/components/notifications/NotificationOnboardingCard";
+import { isIOSNativeApp } from "@/lib/platform";
+import { CATEGORY_ICON, EventForm, type EventDraft } from "./EventForm";
 
-function fmtGregorian(d: Date) {
-  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
-}
-function fmtHijri(d: Date) {
-  try {
-    const h = toHijri(d.getFullYear(), d.getMonth() + 1, d.getDate());
-    return `${pad2(h.hd)}/${pad2(h.hm)}/${h.hy}`;
-  } catch {
-    return "";
-  }
+const MODE_KEY = "elite.calendar.mode.v1";
+type Mode = "gregorian" | "hijri";
+
+/** A sensible default time: 09:00 on a future day; for today, the next full hour
+ * at least 30 minutes away — so "Save" is never rejected for a time that has
+ * already passed just because the user kept the default. */
+function defaultTimeFor(date: Date): string {
+  const now = new Date();
+  const sameDay = date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDate() === now.getDate();
+  if (!sameDay) return "09:00";
+  const t = new Date(now.getTime() + 30 * 60_000);
+  t.setMinutes(0, 0, 0);
+  t.setHours(t.getHours() + 1);
+  if (t.getDate() !== now.getDate()) return "23:59";
+  return `${pad2(t.getHours())}:00`;
 }
 
-const emptyDraft = (date: Date) => ({
+const emptyDraft = (date: Date): EventDraft => ({
   title: "",
-  time: "09:00",
   notes: "",
-  repeat: "none" as Repeat,
-  remindMinutesBefore: 0 as number | null,
-  sound: DEFAULT_REMINDER_SOUND as ReminderSoundId,
   date,
+  time: defaultTimeFor(date),
+  repeat: "none" as Repeat,
+  remindMinutesBefore: 10,
+  sound: DEFAULT_REMINDER_SOUND as ReminderSoundId,
+  category: "general",
 });
 
-export function EventsCalendar() {
+function fmtMonth(d: Date, lang: "ar" | "en", calendar: "gregory" | "islamic-umalqura") {
+  const loc = `${lang === "ar" ? "ar-SA" : "en-US"}-u-ca-${calendar}-nu-latn`;
+  return new Intl.DateTimeFormat(loc, { month: "long", year: "numeric" }).format(d);
+}
+
+/** Hijri title for a Gregorian month: one month, or "A – B" when the month spans two. */
+function hijriMonthTitle(month: Date, lang: "ar" | "en") {
+  const first = new Date(month.getFullYear(), month.getMonth(), 1);
+  const last = new Date(month.getFullYear(), month.getMonth() + 1, 0);
+  const a = fmtMonth(first, lang, "islamic-umalqura");
+  const b = fmtMonth(last, lang, "islamic-umalqura");
+  return a === b ? a : `${a.replace(/\s\d+.*$/, "")} – ${b}`;
+}
+
+function fmtDay(d: Date, lang: "ar" | "en", calendar: "gregory" | "islamic-umalqura") {
+  const loc = `${lang === "ar" ? "ar-SA" : "en-US"}-u-ca-${calendar}-nu-latn`;
+  return new Intl.DateTimeFormat(loc, { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(d);
+}
+
+export function EventsCalendar({ hideHeading = false }: { hideHeading?: boolean }) {
   const { t, dir, lang } = useLocale();
+  const L: "ar" | "en" = lang === "ar" ? "ar" : "en";
   const [params, setParams] = useSearchParams();
   const [events, setEvents] = useState<CalEvent[]>(() => loadEvents());
   const [selected, setSelected] = useState<Date>(new Date());
   const [month, setMonth] = useState<Date>(new Date());
-  const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState(() => emptyDraft(new Date()));
   const [now, setNow] = useState(new Date());
+  const [mode, setMode] = useState<Mode>(() => {
+    try {
+      return localStorage.getItem(MODE_KEY) === "hijri" ? "hijri" : "gregorian";
+    } catch {
+      return "gregorian";
+    }
+  });
+  const [formOpen, setFormOpen] = useState(false);
+  const [draft, setDraft] = useState<EventDraft>(() => emptyDraft(new Date()));
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(new Date()), 60_000);
@@ -77,22 +105,42 @@ export function EventsCalendar() {
     requestNotificationRebuild();
   }, [events, lang]);
 
-  // Opened from a notification tap: /calendar?event=<id>
   useEffect(() => {
-    const id = params.get("event");
-    if (!id) return;
-    const ev = events.find((e) => e.id === id);
-    if (ev) {
-      // `ev.date` is a bare "yyyy-mm-dd" string — `new Date(str)` parses that
-      // as UTC midnight, while every date shown elsewhere in this component
-      // is local time. For any user west of UTC that can open the calendar
-      // one day before the actual event. parseYmd() builds it in local time.
-      const d = parseYmd(ev.date);
+    try {
+      localStorage.setItem(MODE_KEY, mode);
+    } catch {
+      /* private mode */
+    }
+  }, [mode]);
+
+  // Deep links:
+  //  /calendar?event=<id>       opened from a notification tap
+  //  /calendar?add=1|YYYY-MM-DD open the "add appointment" form (optionally on a date)
+  useEffect(() => {
+    const evId = params.get("event");
+    const add = params.get("add");
+    if (!evId && !add) return;
+    if (evId) {
+      const ev = events.find((e) => e.id === evId);
+      if (ev) {
+        // `ev.date` is a bare "yyyy-mm-dd": parse in local time (new Date(str) is UTC).
+        const d = parseYmd(ev.date);
+        setSelected(d);
+        setMonth(d);
+      }
+    }
+    if (add) {
+      const d = /^\d{4}-\d{2}-\d{2}$/.test(add) ? parseYmd(add) : new Date();
       setSelected(d);
       setMonth(d);
+      setEditingId(null);
+      setDraft(emptyDraft(d));
+      setFormOpen(true);
     }
-    params.delete("event");
-    setParams(params, { replace: true });
+    const next = new URLSearchParams(params);
+    next.delete("event");
+    next.delete("add");
+    setParams(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params]);
 
@@ -114,30 +162,46 @@ export function EventsCalendar() {
   const next = useMemo(() => upcoming(events, 6, now), [events, now]);
 
   const openAdd = () => {
+    setEditingId(null);
+    setFormError(null);
     setDraft(emptyDraft(selected));
-    setOpen(true);
+    setFormOpen(true);
   };
 
-  const addEvent = () => {
+  const openEdit = (e: CalEvent) => {
+    setEditingId(e.id);
+    setFormError(null);
+    setDraft({
+      title: e.title,
+      notes: e.notes ?? "",
+      date: parseYmd(e.date),
+      time: e.time,
+      repeat: e.repeat,
+      remindMinutesBefore: e.remindMinutesBefore,
+      sound: (e.sound ?? DEFAULT_REMINDER_SOUND) as ReminderSoundId,
+      category: e.category ?? "general",
+    });
+    setFormOpen(true);
+  };
+
+  const saveDraft = () => {
     if (!draft.title.trim()) {
-      toast({ title: t("Title required", "العنوان مطلوب"), variant: "destructive" });
+      setFormError(t("Enter a title for the appointment.", "اكتب عنواناً للموعد."));
       return;
     }
     const dateStr = ymd(draft.date);
     const time = draft.time || "09:00";
-    // A one-time event in the past is accepted silently today, then silently
-    // never scheduled (nextOccurrence() drops it) — the user is never told
-    // why no reminder ever arrives. Block it here with a clear message.
+    // A one-time event in the past is never scheduled (nextOccurrence() drops
+    // it), so the user would never know why no reminder arrives: say so, in
+    // the form itself (a toast behind a full-screen sheet is easy to miss).
     if (draft.repeat === "none" && eventDateTime(dateStr, time) <= new Date()) {
-      toast({
-        title: t("This time has already passed", "هذا الوقت قد فات بالفعل"),
-        description: t("Choose a future date and time.", "اختر تاريخًا ووقتًا في المستقبل."),
-        variant: "destructive",
-      });
+      setFormError(t("This time has already passed. Choose a future date and time.", "هذا الوقت قد فات بالفعل. اختر تاريخاً ووقتاً في المستقبل."));
       return;
     }
+    setFormError(null);
+    const existing = editingId ? events.find((x) => x.id === editingId) : undefined;
     const ev: CalEvent = {
-      id: crypto.randomUUID(),
+      id: existing?.id ?? uid(),
       title: draft.title.trim(),
       date: dateStr,
       time,
@@ -145,37 +209,130 @@ export function EventsCalendar() {
       repeat: draft.repeat,
       remindMinutesBefore: draft.remindMinutesBefore,
       sound: draft.sound,
-      createdAt: Date.now(),
+      category: draft.category,
+      createdAt: existing?.createdAt ?? Date.now(),
     };
-    setEvents((p) => [...p, ev]);
+    setEvents((p) => (existing ? p.map((x) => (x.id === ev.id ? ev : x)) : [...p, ev]));
     setSelected(draft.date);
-    setOpen(false);
-    toast({ title: t("Event added", "تمت إضافة الموعد") });
+    setMonth(draft.date);
+    setFormOpen(false);
+    setEditingId(null);
+    toast({ title: existing ? t("Event updated", "تم تحديث الموعد") : t("Event added", "تمت إضافة الموعد") });
+
+    // First time a reminder is requested and iOS has never been asked: explain
+    // why notifications are needed (the system prompt only ever appears from
+    // the explanation card's button, never on its own).
+    if (ev.remindMinutesBefore !== null && isIOSNativeApp()) {
+      void checkPermissionStatus().then((st) => {
+        if (st === "notDetermined") requestReopenNotificationOnboarding();
+      });
+    }
   };
 
-  const removeEvent = (id: string) => setEvents((p) => p.filter((e) => e.id !== id));
-
-  const repeatLabel = (r: Repeat) => {
-    const c = REPEAT_CHOICES.find((x) => x.value === r)!;
-    return lang === "ar" ? c.ar : c.en;
+  const removeEvent = (id: string) => {
+    setEvents((p) => p.filter((e) => e.id !== id));
+    if (editingId === id) {
+      setFormOpen(false);
+      setEditingId(null);
+    }
   };
-  const reminderLabel = (m: number | null) => {
-    const c = REMINDER_CHOICES.find((x) => x.minutes === m);
-    return c ? (lang === "ar" ? c.ar : c.en) : "";
+
+  const shiftMonth = (delta: number) => setMonth((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1));
+  const Prev = dir === "rtl" ? ChevronRight : ChevronLeft;
+  const Next = dir === "rtl" ? ChevronLeft : ChevronRight;
+
+  const primaryTitle = mode === "hijri" ? hijriMonthTitle(month, L) : fmtMonth(month, L, "gregory");
+  const secondaryTitle = mode === "hijri" ? fmtMonth(month, L, "gregory") : hijriMonthTitle(month, L);
+
+  const renderRow = (e: CalEvent, subtitle?: string) => {
+    const Icon = CATEGORY_ICON[e.category ?? "general"];
+    return (
+      <li key={e.id + (subtitle ?? "")} className="flex items-center gap-2 px-1 py-1" data-event-id={e.id}>
+        <button
+          type="button"
+          onClick={() => openEdit(e)}
+          aria-label={`${t("Edit", "تعديل")}: ${e.title}`}
+          className="flex min-w-0 flex-1 items-center gap-3 py-1.5 text-start"
+        >
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+            <Icon className="h-5 w-5" />
+          </span>
+          <span className="min-w-0 flex-1 leading-tight">
+            <span className="block truncate text-body font-semibold">{e.title}</span>
+            <span className="block truncate text-body-sm text-foreground/60">{subtitle ?? e.notes ?? ""}</span>
+          </span>
+          <span dir="ltr" className="shrink-0 font-time text-body-sm font-bold tabular-nums text-foreground/75">
+            {e.time}
+          </span>
+          {e.remindMinutesBefore !== null && (
+            <Bell className="h-4 w-4 shrink-0 text-[hsl(var(--elite-gold-start))]" aria-label={t("Reminder on", "التذكير مفعّل")} />
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => removeEvent(e.id)}
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-foreground/45 transition hover:text-destructive"
+          aria-label={`${t("Delete", "حذف")}: ${e.title}`}
+        >
+          <Trash2 className="h-[18px] w-[18px]" />
+        </button>
+      </li>
+    );
   };
 
   return (
-    <div dir={dir} className="space-y-3">
-      <div className="px-1">
-        <h2 className="font-display text-xs uppercase tracking-[0.2em] text-foreground/60">
-          {t("Calendar & Events", "التقويم والمواعيد")}
-        </h2>
-        <p className="mt-1 text-[11px] text-foreground/50">
-          {t("Hijri / Gregorian calendar with reminders.", "تقويم هجري وميلادي مع تذكيرات.")}
-        </p>
-      </div>
+    <div dir={dir} className="space-y-4">
+      {!hideHeading && <h2 className="px-1 font-display text-h3 font-bold">{t("Calendar & Events", "التقويم والمواعيد")}</h2>}
 
-      <div className="glass rounded-2xl p-3">
+      {/* ---- Month card ---- */}
+      <div className="glass rounded-3xl p-3">
+        <div className="mb-3 flex items-center justify-between gap-2 px-1">
+          <button
+            type="button"
+            onClick={() => shiftMonth(-1)}
+            aria-label={t("Previous month", "الشهر السابق")}
+            className="grid h-10 w-10 place-items-center rounded-full bg-foreground/[0.06] transition active:scale-95"
+          >
+            <Prev className="h-5 w-5" />
+          </button>
+          <div className="min-w-0 text-center leading-tight">
+            <div className="truncate font-display text-h3 font-bold" data-testid="cal-primary-title">
+              {primaryTitle}
+            </div>
+            <div className="truncate text-body-sm text-foreground/60">{secondaryTitle}</div>
+          </div>
+          <button
+            type="button"
+            onClick={() => shiftMonth(1)}
+            aria-label={t("Next month", "الشهر التالي")}
+            className="grid h-10 w-10 place-items-center rounded-full bg-foreground/[0.06] transition active:scale-95"
+          >
+            <Next className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div
+          role="radiogroup"
+          aria-label={t("Calendar type", "نوع التقويم")}
+          className="mx-auto mb-2 flex w-full max-w-[260px] rounded-full bg-foreground/[0.06] p-0.5"
+        >
+          {(["gregorian", "hijri"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              role="radio"
+              aria-checked={mode === m}
+              onClick={() => setMode(m)}
+              className={cn(
+                "min-h-[36px] flex-1 rounded-full px-3 text-body-sm font-semibold transition",
+                mode === m ? "bg-primary text-primary-foreground shadow-sm" : "text-foreground/65",
+              )}
+            >
+              {m === "gregorian" ? t("Gregorian", "ميلادي") : t("Hijri", "هجري")}
+            </button>
+          ))}
+        </div>
+
         <Calendar
           mode="single"
           locale={lang === "ar" ? ar : enUS}
@@ -196,268 +353,85 @@ export function EventsCalendar() {
               } catch {
                 /* noop */
               }
+              const greg = String(date.getDate());
+              const [big, small] = mode === "hijri" ? [hd, greg] : [greg, hd];
               return (
-                <div className="flex flex-col items-center justify-center leading-none gap-0.5">
-                  <span className="text-[9px] font-normal text-muted-foreground">{date.getDate()}</span>
-                  <span className="text-[15px] font-bold text-elite-gold">{hd}</span>
+                <div className="flex flex-col items-center justify-center gap-0.5 leading-none">
+                  <span className="text-[16px] font-bold">{big}</span>
+                  <span className="text-[11px] font-normal opacity-70">{small}</span>
                 </div>
               );
             },
           }}
           classNames={{
-            head_cell: "text-muted-foreground rounded-md w-11 font-normal text-[0.8rem]",
-            cell: "h-11 w-11 text-center text-sm p-0 relative [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
-            day: "h-11 w-11 p-0 font-normal aria-selected:opacity-100 rounded-md hover:bg-accent/40 aria-selected:bg-primary aria-selected:text-primary-foreground",
-            day_today: "ring-2 ring-elite-gold/70 rounded-md",
+            caption: "hidden",
+            head_cell: "text-foreground/60 rounded-md w-11 font-semibold text-[0.8rem]",
+            cell: "h-12 w-11 p-0 text-center text-sm relative focus-within:relative focus-within:z-20",
+            day: "h-12 w-11 rounded-full p-0 font-normal transition aria-selected:opacity-100 hover:bg-primary/10",
+            day_selected: "!bg-primary !text-primary-foreground hover:!bg-primary",
+            day_today: "ring-2 ring-inset ring-accent",
+            day_outside: "text-foreground/30 opacity-60",
           }}
-          className="mx-auto pointer-events-auto"
+          className="pointer-events-auto mx-auto p-0"
         />
-        <div className="mt-2 flex items-center justify-between gap-2 border-t border-foreground/10 pt-3">
-          <span className="inline-flex items-center gap-1.5 text-xs">
-            <span className="font-mono font-semibold text-foreground/85">{fmtGregorian(selected)}</span>
-            <span className="text-foreground/30">·</span>
-            <span className="font-mono text-elite-gold">{fmtHijri(selected)}</span>
-          </span>
-          <span className="text-[10px] uppercase tracking-wider text-foreground/40">
-            {t("DD/MM/YYYY", "يوم/شهر/سنة")}
-          </span>
-        </div>
       </div>
 
-      {/* Day events */}
-      <div className="glass rounded-2xl p-3">
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="h-8 w-8 shrink-0 rounded-lg grid place-items-center bg-accent/15 text-accent">
-              <CalendarDays className="h-4 w-4" />
-            </span>
-            <div className="min-w-0">
-              <div className="text-sm font-semibold">{t("Events", "مواعيد اليوم المحدد")}</div>
-              <div className="truncate font-mono text-[10px] text-foreground/50">{fmtGregorian(selected)}</div>
-            </div>
+      {/* ---- Selected day ---- */}
+      <div className="glass rounded-3xl p-4">
+        <div className="min-w-0 leading-snug">
+          <div className="truncate font-display text-body-lg font-bold" data-testid="cal-selected-greg">
+            {fmtDay(selected, L, "gregory")}
           </div>
+          <div className="truncate text-body-sm text-[hsl(var(--elite-gold-start))]" data-testid="cal-selected-hijri">
+            {fmtDay(selected, L, "islamic-umalqura")}
+          </div>
+        </div>
+        <ul className="mt-2 divide-y divide-foreground/[0.07]" data-testid="day-list">
+          {dayEvents.length === 0 ? (
+            <li className="py-7 text-center text-body-sm text-foreground/55">{t("No events for this day.", "لا توجد مواعيد في هذا اليوم.")}</li>
+          ) : (
+            dayEvents.map((e) => renderRow(e))
+          )}
+        </ul>
+      </div>
+
+      {/* ---- Upcoming ---- */}
+      <div className="glass rounded-3xl p-4">
+        <div className="mb-1 flex items-center justify-between gap-3">
+          <h3 className="font-display text-body-lg font-bold">{t("Upcoming Appointments", "المواعيد القادمة")}</h3>
           <button
+            type="button"
+            data-testid="add-event"
             onClick={openAdd}
-            className="h-9 w-9 shrink-0 rounded-full grid place-items-center text-accent-foreground shadow-lg transition active:scale-95 hover:scale-105"
-            style={{ background: "var(--gradient-gold)", boxShadow: "var(--shadow-glow-gold)" }}
             aria-label={t("Add event", "إضافة موعد")}
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-primary px-4 text-body-sm font-bold text-primary-foreground shadow-sm transition active:scale-95"
           >
-            <Plus className="h-5 w-5" />
+            <Plus className="h-4 w-4" />
+            {t("Add", "إضافة")}
           </button>
         </div>
-
-        {dayEvents.length === 0 ? (
-          <div className="py-8 text-center text-xs text-foreground/50">
-            {t("No events for this day.", "لا توجد مواعيد في هذا اليوم.")}
-          </div>
+        {next.length === 0 ? (
+          <p className="py-6 text-center text-body-sm text-foreground/55">{t("No upcoming appointments.", "لا توجد مواعيد قادمة.")}</p>
         ) : (
-          <ul className="space-y-2">
-            {dayEvents.map((e) => (
-              <li
-                key={e.id}
-                className="flex items-start gap-3 rounded-xl border border-foreground/10 bg-background/40 px-3 py-2.5"
-              >
-                <span className="mt-0.5 h-9 w-9 shrink-0 rounded-lg grid place-items-center bg-accent/15 text-accent">
-                  <Clock className="h-4 w-4" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs font-bold text-elite-gold">{e.time}</span>
-                    <span className="truncate text-sm font-semibold">{e.title}</span>
-                  </div>
-                  {e.notes && <p className="mt-0.5 truncate text-[11px] text-foreground/60">{e.notes}</p>}
-                  <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[10px] text-foreground/50">
-                    {e.repeat !== "none" && (
-                      <span className="inline-flex items-center gap-1">
-                        <RepeatIcon className="h-3 w-3" />
-                        {repeatLabel(e.repeat)}
-                      </span>
-                    )}
-                    {e.remindMinutesBefore !== null && (
-                      <span className="inline-flex items-center gap-1">
-                        <Bell className="h-3 w-3" />
-                        {reminderLabel(e.remindMinutesBefore)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <button
-                  onClick={() => removeEvent(e.id)}
-                  className="text-foreground/40 transition hover:text-destructive"
-                  aria-label={t("Delete", "حذف")}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </li>
-            ))}
+          <ul className="divide-y divide-foreground/[0.07]" data-testid="upcoming-list">
+            {next.map(({ ev, when }) => renderRow(ev, relativeLabel(when, L, now)))}
           </ul>
         )}
       </div>
 
-      {/* Upcoming */}
-      {next.length > 0 && (
-        <div className="glass rounded-2xl p-3">
-          <div className="mb-2 text-sm font-semibold">{t("Upcoming", "المواعيد القادمة")}</div>
-          <ul className="space-y-1.5">
-            {next.map(({ ev, when }) => (
-              <li key={ev.id + when.toISOString()} className="flex items-center gap-2 text-xs">
-                <span className="font-mono text-elite-gold">{ev.time}</span>
-                <span className="truncate font-medium">{ev.title}</span>
-                <span className="ms-auto shrink-0 text-[11px] text-foreground/60">
-                  {relativeLabel(when, lang === "ar" ? "ar" : "en", now)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Add dialog */}
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent dir={dir} className="max-w-sm max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-elite-gold">{t("New Event", "موعد جديد")}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">{t("Title", "العنوان")}</Label>
-              <Input
-                value={draft.title}
-                onChange={(e) => setDraft((p) => ({ ...p, title: e.target.value }))}
-                placeholder={t("Meeting, doctor, study…", "اجتماع، طبيب، مذاكرة…")}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1.5">
-                <Label className="text-xs">{t("Date", "التاريخ")}</Label>
-                <Input
-                  type="date"
-                  value={ymd(draft.date)}
-                  onChange={(e) => {
-                    const [y, m, d] = e.target.value.split("-").map(Number);
-                    if (y && m && d) setDraft((p) => ({ ...p, date: new Date(y, m - 1, d) }));
-                  }}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">{t("Time", "الوقت")}</Label>
-                <Input
-                  type="time"
-                  value={draft.time}
-                  onChange={(e) => setDraft((p) => ({ ...p, time: e.target.value }))}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5 text-xs">
-                <RepeatIcon className="h-3.5 w-3.5" />
-                {t("Repeat", "التكرار")}
-              </Label>
-              <div className="flex flex-wrap gap-1.5">
-                {REPEAT_CHOICES.map((c) => (
-                  <button
-                    key={c.value}
-                    type="button"
-                    onClick={() => setDraft((p) => ({ ...p, repeat: c.value }))}
-                    className={cn(
-                      "rounded-full border px-2.5 py-1 text-[11px] transition",
-                      draft.repeat === c.value
-                        ? "border-primary bg-primary/15 text-primary"
-                        : "border-foreground/15 text-foreground/70 hover:border-foreground/30",
-                    )}
-                  >
-                    {lang === "ar" ? c.ar : c.en}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5 text-xs">
-                <Bell className="h-3.5 w-3.5" />
-                {t("Notification", "التنبيه")}
-              </Label>
-              <div className="flex flex-wrap gap-1.5">
-                {REMINDER_CHOICES.map((c) => (
-                  <button
-                    key={String(c.minutes)}
-                    type="button"
-                    onClick={() => setDraft((p) => ({ ...p, remindMinutesBefore: c.minutes }))}
-                    className={cn(
-                      "rounded-full border px-2.5 py-1 text-[11px] transition",
-                      draft.remindMinutesBefore === c.minutes
-                        ? "border-primary bg-primary/15 text-primary"
-                        : "border-foreground/15 text-foreground/70 hover:border-foreground/30",
-                    )}
-                  >
-                    {lang === "ar" ? c.ar : c.en}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5 text-xs">
-                <Music2 className="h-3.5 w-3.5" />
-                {t("Reminder sound", "صوت التنبيه")}
-              </Label>
-              <div className="space-y-1.5 rounded-xl border border-foreground/10 p-2">
-                {REMINDER_SOUNDS.map((s) => (
-                  <div
-                    key={s.id}
-                    className={cn(
-                      "flex items-center gap-2 rounded-lg border px-2 py-1.5 transition",
-                      draft.sound === s.id
-                        ? "border-primary bg-primary/10"
-                        : "border-transparent hover:bg-foreground/5",
-                    )}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setDraft((p) => ({ ...p, sound: s.id }))}
-                      className="min-w-0 flex-1 text-start text-[12px] font-medium"
-                    >
-                      {lang === "ar" ? s.ar : s.en}
-                    </button>
-                    {s.previewUrl && (
-                      <button
-                        type="button"
-                        onClick={() => previewSound(s.previewUrl)}
-                        aria-label={t("Preview", "استماع")}
-                        className="h-7 w-7 shrink-0 rounded-full grid place-items-center bg-accent/15 text-accent transition active:scale-95"
-                      >
-                        <Play className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs">{t("Notes", "ملاحظات")}</Label>
-              <Textarea
-                value={draft.notes}
-                onChange={(e) => setDraft((p) => ({ ...p, notes: e.target.value }))}
-                rows={2}
-                placeholder={t("Optional", "اختياري")}
-              />
-            </div>
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="ghost" onClick={() => setOpen(false)}>
-              <X className="h-4 w-4 me-1" />
-              {t("Cancel", "إلغاء")}
-            </Button>
-            <Button onClick={addEvent}>
-              <Plus className="h-4 w-4 me-1" />
-              {t("Add", "إضافة")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <EventForm
+        open={formOpen}
+        onOpenChange={(v) => {
+          setFormOpen(v);
+          if (!v) setEditingId(null);
+        }}
+        draft={draft}
+        setDraft={(fn) => { setFormError(null); setDraft(fn); }}
+        error={formError}
+        editing={!!editingId}
+        onSave={saveDraft}
+        onDelete={editingId ? () => removeEvent(editingId) : undefined}
+      />
     </div>
   );
 }

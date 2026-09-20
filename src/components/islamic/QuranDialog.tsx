@@ -274,10 +274,10 @@ export function QuranDialog({ open, onOpenChange }: { open: boolean; onOpenChang
               {filtered.map(s => (
                 <button key={s.number} onClick={() => setActive(s)}
                   className="text-right rounded-xl bg-secondary/50 hover:bg-secondary px-3 py-2 transition flex items-center justify-between gap-2">
-                  <span className="text-[10px] text-foreground/50 tabular-nums">{s.number}</span>
+                  <span className="text-xs text-foreground/50 tabular-nums">{s.number}</span>
                   <span>
                     <div className="font-arabic text-base">{s.name}</div>
-                    <div className="text-[10px] text-foreground/55">{s.englishName} · {s.numberOfAyahs}</div>
+                    <div className="text-xs text-foreground/55">{s.englishName} · {s.numberOfAyahs}</div>
                   </span>
                 </button>
               ))}
@@ -320,7 +320,7 @@ export function QuranDialog({ open, onOpenChange }: { open: boolean; onOpenChang
                   </span>
                 </div>
                 {!!firstJuz && (
-                  <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full border whitespace-nowrap" style={{ borderColor: strokeCol, color: textCol }}>
+                  <span className="shrink-0 text-xs px-1.5 py-0.5 rounded-full border whitespace-nowrap" style={{ borderColor: strokeCol, color: textCol }}>
                     الجزء {toArabicDigits(firstJuz)}
                   </span>
                 )}
@@ -352,7 +352,7 @@ export function QuranDialog({ open, onOpenChange }: { open: boolean; onOpenChang
                         className="flex items-center gap-1 text-xs font-arabic disabled:opacity-30 px-2 py-1" style={{ color: textCol }}>
                         <ChevronRight className="h-4 w-4" /> التالي
                       </button>
-                      <span className="text-[11px] font-arabic tabular-nums" style={{ color: textCol }}>
+                      <span className="text-xs font-arabic tabular-nums" style={{ color: textCol }}>
                         صفحة {toArabicDigits(currentPage)} — {toArabicDigits(pageIndex + 1)}/{toArabicDigits(pages.length)}
                       </span>
                       <button onClick={() => setPageIndex(i => Math.max(0, i - 1))} disabled={pageIndex <= 0}
@@ -364,14 +364,14 @@ export function QuranDialog({ open, onOpenChange }: { open: boolean; onOpenChang
                   {/* Reciter strip */}
                   <div className="flex items-center justify-between gap-2 px-2 pb-1.5 mb-1.5 border-b" style={{ borderColor: isNight ? "rgba(200,180,100,0.2)" : "rgba(20,80,40,0.2)" }}>
                     <button onClick={() => setReciterPickerOpen(true)}
-                      className="flex items-center gap-1.5 text-[11px] font-arabic px-2 py-1 rounded-md transition hover:bg-current/10"
+                      className="flex items-center gap-1.5 text-xs font-arabic px-2 py-1 rounded-md transition hover:bg-current/10"
                       style={{ color: textCol }}>
                       <Mic className="h-3.5 w-3.5" />
                       <span className="truncate max-w-[160px]">{reciter.name}</span>
                       <span className="opacity-60">▾</span>
                     </button>
                     <button onClick={downloadCurrentSurah} disabled={downloadingId === active.number || cachedNow}
-                      className="flex items-center gap-1 text-[11px] font-arabic px-2 py-1 rounded-md transition disabled:opacity-60 hover:bg-current/10"
+                      className="flex items-center gap-1 text-xs font-arabic px-2 py-1 rounded-md transition disabled:opacity-60 hover:bg-current/10"
                       style={{ color: textCol }}
                       title={cachedNow ? "محفوظة للاستماع دون إنترنت" : "تحميل للاستماع دون إنترنت"}>
                       {downloadingId === active.number
@@ -412,13 +412,13 @@ export function QuranDialog({ open, onOpenChange }: { open: boolean; onOpenChang
                   isSel ? "bg-emerald-700/15" : "hover:bg-secondary/60"
                 )}>
                   <button onClick={() => pickReciter(r.id)} className="flex-1 flex items-center gap-2 text-right">
-                    <span className={cn("inline-grid place-items-center h-7 w-7 rounded-full text-[10px]",
+                    <span className={cn("inline-grid place-items-center h-7 w-7 rounded-full text-xs",
                       isSel ? "bg-emerald-600 text-white" : "bg-secondary text-foreground/70")}>
                       {isSel ? <Check className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
                     </span>
                     <span className="flex-1">
                       <div className="font-arabic text-sm">{r.name}</div>
-                      <div className="text-[10px] text-foreground/55">{r.nameEn}{r.rewaya ? ` · ${r.rewaya}` : ""}</div>
+                      <div className="text-xs text-foreground/55">{r.nameEn}{r.rewaya ? ` · ${r.rewaya}` : ""}</div>
                     </span>
                   </button>
                   <button onClick={() => onToggleFav(r.id)} className="p-1.5 rounded-md hover:bg-current/10" aria-label="favorite">
@@ -428,7 +428,7 @@ export function QuranDialog({ open, onOpenChange }: { open: boolean; onOpenChang
               );
             })}
           </div>
-          <p className="text-[10px] text-foreground/50 text-center mt-1">
+          <p className="text-xs text-foreground/50 text-center mt-1">
             تُحفظ السور التي تستمع إليها تلقائياً للاستماع لاحقاً دون إنترنت.
           </p>
         </DialogContent>
@@ -528,7 +528,7 @@ function ContinuousTextView({ ayat, surahNumber, translations, showTranslation, 
           className={cn("h-7 w-7 grid place-items-center rounded-full border text-xs font-bold disabled:opacity-30",
             isNight ? "border-amber-300/50 text-amber-200 bg-black/20" : "border-emerald-700/50 text-emerald-900 bg-white/50")}
         >−</button>
-        <span className="text-[10px] px-1 opacity-70 tabular-nums" style={{ fontFamily: "inherit" }}>A</span>
+        <span className="text-xs px-1 opacity-70 tabular-nums" style={{ fontFamily: "inherit" }}>A</span>
         <button
           type="button"
           aria-label="تكبير النص"
@@ -652,7 +652,7 @@ function ToolBtn({ icon: Icon, label, onClick, href, active, isNight }: { icon: 
         : (isNight ? "text-amber-200 hover:bg-amber-900/20" : "text-emerald-900 hover:bg-emerald-700/10")
     )}>
       <Icon className="h-4 w-4" />
-      <span className="text-[10px] font-medium leading-none">{label}</span>
+      <span className="text-xs font-medium leading-none">{label}</span>
     </span>
   );
   if (href) return <a href={href} target="_blank" rel="noreferrer" className="block">{inner}</a>;

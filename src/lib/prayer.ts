@@ -86,7 +86,9 @@ export function getNextPrayer(entries: PrayerEntry[], now: Date = new Date()): {
   msUntilNext: number;
   progress: number; // 0..1 within current interval
 } {
-  const salah = entries; // include sunrise as part of the cycle
+  // Only the five obligatory prayers can be "next"/"current" — sunrise stays
+  // in `entries` as a display-only time but is never a countdown target.
+  const salah = entries.filter((e) => e.key !== "sunrise");
   const fajr = salah.find(e => e.key === "fajr")!;
   const isha = salah.find(e => e.key === "isha")!;
 

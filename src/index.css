@@ -16,46 +16,47 @@
 
 @layer base {
   :root {
-    /* Pure black night mode with white text */
-    --background: 0 0% 0%;
-    --foreground: 0 0% 100%;
+    /* Night: deep emerald-charcoal (not pure black) with soft off-white text —
+       easier on the eyes and consistent with the emerald brand. */
+    --background: 165 24% 7%;
+    --foreground: 40 20% 96%;
 
-    --card: 0 0% 4%;
-    --card-foreground: 0 0% 100%;
+    --card: 165 18% 11%;
+    --card-foreground: 40 20% 96%;
 
-    --popover: 0 0% 4%;
-    --popover-foreground: 0 0% 100%;
+    --popover: 165 18% 11%;
+    --popover-foreground: 40 20% 96%;
 
     --primary: 158 64% 42%;            /* emerald */
     --primary-foreground: 165 40% 6%;
     --primary-glow: 158 80% 55%;
 
-    --secondary: 0 0% 8%;
-    --secondary-foreground: 0 0% 100%;
+    --secondary: 165 14% 15%;
+    --secondary-foreground: 40 20% 96%;
 
-    --muted: 0 0% 10%;
-    --muted-foreground: 0 0% 80%;
+    --muted: 165 12% 16%;
+    --muted-foreground: 160 8% 74%;
 
-    --accent: 0 0% 12%;
-    --accent-foreground: 0 0% 100%;
-    --accent-glow: 0 0% 20%;
+    --accent: 165 14% 17%;
+    --accent-foreground: 40 20% 96%;
+    --accent-glow: 165 14% 24%;
 
     --destructive: 0 70% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 18%;
-    --input: 0 0% 12%;
-    --ring: 0 0% 50%;
+    --border: 165 12% 21%;
+    --input: 165 14% 15%;
+    --ring: 158 40% 50%;
 
     --radius: 1.25rem;
 
     /* Glassmorphism tokens */
-    --glass-bg: 0 0% 6% / 0.65;
+    --glass-bg: 165 18% 12% / 0.72;
     --glass-border: 0 0% 100% / 0.10;
     --glass-highlight: 0 0% 100% / 0.06;
 
     /* Gradients */
-    --gradient-night: radial-gradient(ellipse at top, hsl(0 0% 4%) 0%, hsl(0 0% 0%) 60%, hsl(0 0% 0%) 100%);
+    --gradient-night: radial-gradient(ellipse at top, hsl(var(--card)) 0%, hsl(var(--background)) 60%, hsl(var(--background)) 100%);
     --gradient-fajr: linear-gradient(135deg, hsl(230 50% 18%), hsl(280 40% 22%), hsl(20 60% 30%));
     --gradient-dhuhr: linear-gradient(135deg, hsl(200 70% 45%), hsl(195 80% 60%), hsl(45 90% 70%));
     --gradient-asr: linear-gradient(135deg, hsl(35 75% 55%), hsl(20 70% 50%), hsl(340 50% 35%));
@@ -74,6 +75,10 @@
      * green used for buttons/active states) — same hue family, darker. */
     --elite-deep-green-a: 160 45% 14%;
     --elite-deep-green-b: 165 42% 21%;
+    /* App header / hero block — deep emerald with a faint Islamic geometric pattern */
+    --header-a: 162 55% 15%;
+    --header-b: 160 45% 24%;
+    --gradient-header: linear-gradient(135deg, hsl(var(--header-a)), hsl(var(--header-b)));
     --gradient-hero: linear-gradient(135deg, hsl(var(--elite-deep-green-a)), hsl(var(--elite-deep-green-b)));
 
     /* Shadows */
@@ -129,20 +134,30 @@
      dark brown headings, white/light-gray cards & backgrounds — replacing
      the previous teal-tinted neutral scale with a warm, brown-tinted one. */
   .light {
-    --background: 30 20% 97%;
-    --foreground: 25 35% 15%;
+    --background: 42 38% 95%;            /* cream */
+    --foreground: 160 32% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 25 35% 15%;
-    --primary: 158 64% 35%;
+    --card-foreground: 160 32% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 160 32% 12%;
+    --primary: 160 62% 24%;              /* deep emerald */
     --primary-foreground: 45 38% 98%;
-    --accent: 38 80% 48%;
-    --border: 30 12% 88%;
-    --muted-foreground: 25 12% 42%;
-    --glass-bg: 0 0% 100% / 0.55;
-    --glass-border: 25 25% 25% / 0.10;
+    --secondary: 42 30% 92%;
+    --secondary-foreground: 160 32% 12%;
+    --muted: 42 28% 92%;
+    --muted-foreground: 160 10% 40%;
+    --accent: 40 72% 46%;                /* calm gold */
+    --accent-foreground: 160 40% 8%;
+    --border: 40 18% 87%;
+    --input: 40 20% 90%;
+    --ring: 160 55% 30%;
+    --glass-bg: 0 0% 100% / 1;
+    --glass-border: 40 18% 87% / 1;
+    --elite-gold-start: 40 66% 44%;
+    --shadow-glass: 0 1px 3px hsl(160 40% 20% / 0.07), 0 4px 14px hsl(160 40% 20% / 0.05);
 
     /* === Qibla compass tokens (LIGHT / day) === (see dark-mode comment above) */
-    --qibla-page-bg: 0 0% 96%;
+    --qibla-page-bg: 42 38% 95%;
     --qibla-page-fg: 220 15% 15%;
     --qibla-header-top: 158 55% 38%;
     --qibla-header-mid: 165 40% 22%;
@@ -193,7 +208,7 @@
     background-attachment: fixed;
     min-height: 100dvh;
   }
-  html.light { background-color: hsl(30 20% 96%); background: hsl(30 20% 96%); }
+  html.light { background-color: hsl(var(--background)); background: hsl(var(--background)); }
   body { min-height: 100dvh; }
   /* No black flash on iOS rubber-band overscroll: html paints an opaque colour
      that matches the theme, so anything revealed past the edges blends in. */
@@ -246,7 +261,7 @@
     background-attachment: fixed;
   }
   html.light body {
-    background: radial-gradient(ellipse at top, hsl(30 25% 99%) 0%, hsl(30 20% 96%) 60%, hsl(28 15% 93%) 100%);
+    background: radial-gradient(ellipse at top, hsl(var(--card)) 0%, hsl(var(--background)) 60%, hsl(var(--background)) 100%);
   }
   [dir="rtl"] body { font-family: 'Cairo', 'Nunito', system-ui, sans-serif; font-weight: 700; }
   .font-arabic { font-family: 'Amiri', 'Cairo', serif; font-weight: 700; }
@@ -315,7 +330,7 @@
     bottom: 0;
     width: 100%;
     max-width: 100vw;
-    z-index: 100;
+    z-index: 40; /* below dialogs/sheets (z-50) so full-screen tools cover it */
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   .wrap-anywhere {
@@ -325,19 +340,20 @@
 }
 
 @layer components {
-  .glass {
-    background: hsl(var(--glass-bg));
-    backdrop-filter: blur(24px) saturate(160%);
-    -webkit-backdrop-filter: blur(24px) saturate(160%);
-    border: 1px solid hsl(var(--glass-border));
-    box-shadow: var(--shadow-glass), inset 0 1px 0 hsl(var(--glass-highlight));
+  /* Surfaces: solid card colour + hairline border + very soft shadow (no blur) */
+  .glass, .glass-strong {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border) / 0.7);
+    box-shadow: var(--shadow-glass);
   }
-  .glass-strong {
-    background: hsl(var(--glass-bg));
-    backdrop-filter: blur(40px) saturate(180%);
-    -webkit-backdrop-filter: blur(40px) saturate(180%);
-    border: 1px solid hsl(var(--glass-border));
-    box-shadow: var(--shadow-elevated), inset 0 1px 0 hsl(var(--glass-highlight));
+  /* Deep-emerald header block with a faint 8-point-star pattern (Home + inner pages) */
+  .bg-header {
+    background-color: hsl(var(--header-a));
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56' viewBox='0 0 56 56'%3E%3Cg fill='none' stroke='white' stroke-opacity='0.07' stroke-width='1'%3E%3Crect x='14' y='14' width='28' height='28'/%3E%3Crect x='14' y='14' width='28' height='28' transform='rotate(45 28 28)'/%3E%3Ccircle cx='28' cy='28' r='4'/%3E%3C/g%3E%3C/svg%3E"),
+      var(--gradient-header);
+    background-size: 56px 56px, auto;
+    color: hsl(42 40% 97%);
   }
   .glow-emerald { box-shadow: var(--shadow-glow-emerald); }
   .glow-gold { box-shadow: var(--shadow-glow-gold); }
@@ -406,3 +422,32 @@
   50% { transform: translate(10px, -15px); }
 }
 .animate-float { animation: float-slow 8s ease-in-out infinite; }
+
+/* Night theme: --accent is a near-black surface tone there (used by shadcn for
+   hover/selected backgrounds), so text/ring uses of `accent` were invisible on
+   the black background. Map just those foreground uses to the brand gold. */
+html:not(.light) .text-accent { color: hsl(var(--elite-gold-start)); }
+html:not(.light) .ring-accent { --tw-ring-color: hsl(var(--elite-gold-start)); }
+
+@keyframes splash-load {
+  0% { transform: scaleX(0.06); }
+  60% { transform: scaleX(0.82); }
+  100% { transform: scaleX(1); }
+}
+[dir="rtl"] .splash-bar { transform-origin: right; }
+
+/* ---------- Home motion: calm, GPU-only, off for reduced-motion ---------- */
+@keyframes scene-drift-slow { from { transform: translate3d(-1.5%, 0, 0); } to { transform: translate3d(1.5%, 0, 0); } }
+@keyframes scene-drift-mid { from { transform: translate3d(1.2%, 0, 0); } to { transform: translate3d(-1.2%, 0, 0); } }
+@keyframes scene-twinkle { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.95; } }
+@keyframes rise-in { from { opacity: 0; transform: translate3d(0, 14px, 0); } to { opacity: 1; transform: none; } }
+/* End state is `transform: none` and fill-mode is `backwards`: a leftover transform would turn the wrapper into the containing block of every position:fixed screen inside it (Mushaf reader, install tip). */
+@keyframes page-in { from { opacity: 0; transform: translate3d(0, 6px, 0); } to { opacity: 1; transform: none; } }
+.scene-layer-slow { animation: scene-drift-slow 70s ease-in-out infinite alternate; will-change: transform; }
+.scene-layer-mid { animation: scene-drift-mid 55s ease-in-out infinite alternate; will-change: transform; }
+.scene-star { animation: scene-twinkle 6s ease-in-out infinite; }
+.rise-in { animation: rise-in 520ms cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+.page-enter { animation: page-in 240ms ease-out backwards; }
+@media (prefers-reduced-motion: reduce) {
+  .scene-layer-slow, .scene-layer-mid, .scene-star, .rise-in, .page-enter, .animate-pulse { animation: none !important; }
+}

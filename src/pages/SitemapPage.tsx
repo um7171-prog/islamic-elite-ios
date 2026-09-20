@@ -25,6 +25,7 @@ export default function SitemapPage() {
     {
       title: t("Islamic tools", "الأدوات الإسلامية"),
       links: [
+        { to: "/prayer-times", label: t("Prayer Times", "مواقيت الصلاة") },
         { to: "/qibla", label: t("Qibla", "القبلة") },
         { to: "/athkar", label: t("Athkar", "الأذكار") },
         { to: "/quran", label: t("Quran", "القرآن") },
@@ -40,7 +41,6 @@ export default function SitemapPage() {
         { to: "/translate", label: t("Smart Translator", "المترجم الذكي") },
         { to: "/qr-scanner", label: t("QR Scanner", "ماسح QR") },
         { to: "/document-scanner", label: t("Document Scanner", "ماسح المستندات") },
-        { to: "/weather", label: t("Weather", "الطقس") },
         { to: "/notifications", label: t("Notifications", "الإشعارات") },
       ],
     },

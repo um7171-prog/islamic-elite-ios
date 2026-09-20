@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Sunrise, Sunset, Play, Music2 } from "lucide-react";
+import { Sunrise, Sunset, Play, Music2, Check } from "lucide-react";
+import { ChipPicker, SettingsGroup, SettingsRow } from "@/components/site/SettingsUI";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useCity } from "@/contexts/CityContext";
 import { usePrayerCalc } from "@/contexts/PrayerCalcContext";
@@ -60,123 +61,94 @@ export function AthkarRemindersCard() {
   const morningAt = today ? new Date(today.sunrise.getTime() + settings.morningAfterSunrise * 60_000) : null;
   const eveningAt = today ? new Date(today.maghrib.getTime() - settings.eveningBeforeMaghrib * 60_000) : null;
 
-  const Chips = ({
-    value,
-    onSelect,
-  }: {
-    value: number;
-    onSelect: (v: number) => void;
-  }) => (
-    <div className="flex flex-wrap gap-1.5">
-      {OFFSETS.map((m) => (
-        <button
-          key={m}
-          type="button"
-          onClick={() => onSelect(m)}
-          className={cn(
-            "rounded-full border px-2.5 py-1 text-caption transition",
-            value === m
-              ? "border-primary bg-primary/15 text-primary"
-              : "border-foreground/15 text-foreground/70 hover:border-foreground/30",
-          )}
-        >
-          {lang === "ar" ? `${m} د` : `${m} min`}
-        </button>
-      ))}
-    </div>
-  );
+  const offsetOptions = OFFSETS.map((m) => ({ value: m, label: lang === "ar" ? `${m} د` : `${m} min` }));
 
   return (
-    <div className="space-y-3">
-      {/* Morning */}
-      <div className="rounded-xl border border-foreground/10 p-3 space-y-2.5">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <Sunrise className="h-4 w-4 text-accent shrink-0" />
-            <div className="min-w-0">
-              <div className="text-body font-medium">{t("Morning Athkar", "أذكار الصباح")}</div>
-              <div className="text-caption text-foreground/60">
-                {morningAt
-                  ? t(`After sunrise · today ${fmt(morningAt)}`, `بعد الشروق · اليوم ${fmt(morningAt)}`)
-                  : t("After sunrise", "بعد الشروق")}
-              </div>
-            </div>
-          </div>
+    <div className="space-y-4">
+      <SettingsGroup>
+        <SettingsRow
+          icon={Sunrise}
+          label={t("Morning Athkar", "أذكار الصباح")}
+          description={
+            morningAt
+              ? t(`After sunrise · today ${fmt(morningAt)}`, `بعد الشروق · اليوم ${fmt(morningAt)}`)
+              : t("After sunrise", "بعد الشروق")
+          }
+        >
           <Switch
+            aria-label={t("Morning Athkar", "أذكار الصباح")}
             checked={settings.morningEnabled}
             onCheckedChange={(v) => update({ morningEnabled: v })}
           />
-        </div>
+        </SettingsRow>
         {settings.morningEnabled && (
-          <Chips value={settings.morningAfterSunrise} onSelect={(v) => update({ morningAfterSunrise: v })} />
-        )}
-      </div>
-
-      {/* Evening */}
-      <div className="rounded-xl border border-foreground/10 p-3 space-y-2.5">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <Sunset className="h-4 w-4 text-accent shrink-0" />
-            <div className="min-w-0">
-              <div className="text-body font-medium">{t("Evening Athkar", "أذكار المساء")}</div>
-              <div className="text-caption text-foreground/60">
-                {eveningAt
-                  ? t(`Before Maghrib · today ${fmt(eveningAt)}`, `قبل المغرب · اليوم ${fmt(eveningAt)}`)
-                  : t("Before Maghrib", "قبل المغرب")}
-              </div>
-            </div>
+          <div className="pt-3">
+            <p className="px-4 pb-2 text-caption text-foreground/60">{t("Minutes after sunrise", "بعد الشروق بـ")}</p>
+            <ChipPicker value={settings.morningAfterSunrise} options={offsetOptions} onChange={(v) => update({ morningAfterSunrise: v })} />
           </div>
+        )}
+        <SettingsRow
+          icon={Sunset}
+          label={t("Evening Athkar", "أذكار المساء")}
+          description={
+            eveningAt
+              ? t(`Before Maghrib · today ${fmt(eveningAt)}`, `قبل المغرب · اليوم ${fmt(eveningAt)}`)
+              : t("Before Maghrib", "قبل المغرب")
+          }
+        >
           <Switch
+            aria-label={t("Evening Athkar", "أذكار المساء")}
             checked={settings.eveningEnabled}
             onCheckedChange={(v) => update({ eveningEnabled: v })}
           />
-        </div>
+        </SettingsRow>
         {settings.eveningEnabled && (
-          <Chips value={settings.eveningBeforeMaghrib} onSelect={(v) => update({ eveningBeforeMaghrib: v })} />
+          <div className="pt-3">
+            <p className="px-4 pb-2 text-caption text-foreground/60">{t("Minutes before Maghrib", "قبل المغرب بـ")}</p>
+            <ChipPicker value={settings.eveningBeforeMaghrib} options={offsetOptions} onChange={(v) => update({ eveningBeforeMaghrib: v })} />
+          </div>
         )}
-      </div>
+      </SettingsGroup>
 
-      {/* Sound */}
-      <div className="rounded-xl border border-foreground/10 p-3 space-y-2">
-        <div className="flex items-center gap-2">
-          <Music2 className="h-4 w-4 text-accent" />
-          <div className="text-body font-medium">{t("Athkar reminder sound", "صوت تنبيه الأذكار")}</div>
+      <SettingsGroup>
+        <div className="space-y-2 px-4 py-3.5">
+          <div className="flex items-center gap-2">
+            <Music2 className="h-4 w-4 text-primary" />
+            <div className="text-body font-medium">{t("Athkar reminder sound", "صوت تنبيه الأذكار")}</div>
+          </div>
+          <p className="text-caption text-foreground/60">
+            {t("Short bell tone — never the adhan.", "نغمة جرس قصيرة — ليست أذاناً.")}
+          </p>
         </div>
-        <p className="text-caption text-foreground/60">
-          {t("Short bell tone — never the adhan.", "نغمة جرس قصيرة — ليست أذاناً.")}
-        </p>
-        <div className="space-y-1.5">
-          {REMINDER_SOUNDS.filter((s) => s.id !== "notif_calm").map((s) => (
-            <div
-              key={s.id}
+        {REMINDER_SOUNDS.filter((s) => s.id !== "notif_calm").map((s) => (
+          <div key={s.id} className="flex items-center gap-2 px-2">
+            <button
+              type="button"
+              aria-pressed={settings.sound === s.id}
+              onClick={() => update({ sound: s.id as ReminderSoundId })}
               className={cn(
-                "flex items-center gap-2 rounded-lg border px-2 py-1.5 transition",
-                settings.sound === s.id
-                  ? "border-primary bg-primary/10"
-                  : "border-transparent hover:bg-foreground/5",
+                "flex min-h-[48px] min-w-0 flex-1 items-center gap-2 px-2 text-start text-body-sm",
+                settings.sound === s.id ? "font-semibold text-primary" : "text-foreground/80",
               )}
             >
+              <span className="grid h-5 w-5 shrink-0 place-items-center">
+                {settings.sound === s.id && <Check className="h-4 w-4" />}
+              </span>
+              {lang === "ar" ? s.ar : s.en}
+            </button>
+            {s.previewUrl && (
               <button
                 type="button"
-                onClick={() => update({ sound: s.id as ReminderSoundId })}
-                className="min-w-0 flex-1 text-start text-caption font-medium"
+                onClick={() => previewSound(s.previewUrl)}
+                aria-label={t("Preview", "استماع")}
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary/10 text-primary transition active:scale-95"
               >
-                {lang === "ar" ? s.ar : s.en}
+                <Play className="h-4 w-4" />
               </button>
-              {s.previewUrl && (
-                <button
-                  type="button"
-                  onClick={() => previewSound(s.previewUrl)}
-                  aria-label={t("Preview", "استماع")}
-                  className="h-7 w-7 shrink-0 rounded-full grid place-items-center bg-accent/15 text-accent transition active:scale-95"
-                >
-                  <Play className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
+            )}
+          </div>
+        ))}
+      </SettingsGroup>
     </div>
   );
 }

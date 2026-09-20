@@ -35,3 +35,9 @@ export function useLocale() {
   if (!ctx) throw new Error("useLocale must be inside LocaleProvider");
   return ctx;
 }
+
+/** Like useLocale, but returns null outside a LocaleProvider instead of throwing
+ * (for low-level UI primitives that may render before/without one). */
+export function useOptionalLocale() {
+  return useContext(LocaleCtx);
+}

@@ -224,7 +224,7 @@ async function pdfToImages(file: File, mime: "image/jpeg" | "image/png") {
 }
 
 // ---------- catalog ----------
-type Conversion = {
+export type Conversion = {
   id: string;
   labelEn: string;
   labelAr: string;
@@ -236,7 +236,7 @@ type Conversion = {
   runMany?: (files: File[]) => Promise<void>;
 };
 
-const CONVERSIONS: Conversion[] = [
+export const CONVERSIONS: Conversion[] = [
   { id: "img-to-pdf", labelEn: "Images → PDF", labelAr: "صور إلى PDF", accept: "image/*", badge: "PDF", badgeBg: "#E53935", multi: true, run: (f) => imageToPdf(f), runMany: (files) => imagesToPdf(files) },
   { id: "merge-pdf", labelEn: "Merge PDFs", labelAr: "دمج ملفات PDF", accept: "application/pdf", badge: "PDF", badgeBg: "#2E7D32", multi: true, run: (f) => mergePdfs([f]), runMany: (files) => mergePdfs(files) },
   { id: "compress-img", labelEn: "Compress Image", labelAr: "ضغط الصور", accept: "image/*", badge: "ZIP", badgeBg: "#FB8C00", multi: true, run: (f) => compressImage(f) },
@@ -256,7 +256,7 @@ const CONVERSIONS: Conversion[] = [
 ];
 
 // ---------- card icon ----------
-function FileBadge({ label, color }: { label: string; color: string }) {
+export function FileBadge({ label, color }: { label: string; color: string }) {
   return (
     <div className="relative h-12 w-10 shrink-0 grid place-items-end pb-1.5 rounded-md text-[10px] font-bold text-white shadow-md"
          style={{ background: color }}>
@@ -285,9 +285,15 @@ function ImagePreview({ file }: { file: File }) {
   return <img src={url} alt={file.name} className="h-full w-full object-cover" />;
 }
 
-function ConversionDialog({ conv, onClose }: { conv: Conversion | null; onClose: () => void }) {
+export function ConversionDialog({ conv, onClose, initialFiles }: { conv: Conversion | null; onClose: () => void; initialFiles?: File[] }) {
   const { t, dir, lang } = useLocale();
   const [files, setFiles] = useState<File[]>([]);
+  // Files dropped/picked on the converter page are handed over when a
+  // conversion is chosen (UI plumbing only; the conversion code is untouched).
+  useEffect(() => {
+    if (conv && initialFiles?.length) setFiles(conv.multi ? initialFiles : initialFiles.slice(0, 1));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conv?.id]);
   const [busy, setBusy] = useState(false);
   const [results, setResults] = useState<Result[]>([]);
 

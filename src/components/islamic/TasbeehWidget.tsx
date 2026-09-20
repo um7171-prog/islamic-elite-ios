@@ -43,7 +43,7 @@ export function TasbeehWidget() {
         <div className="mt-3 font-arabic text-4xl text-center text-gradient-emerald">
           {phrase.ar}
         </div>
-        <div className="text-center text-xs text-foreground/60 mt-1">{phrase.en} · {phrase.target}</div>
+        <div className="text-center text-xs text-foreground/60 mt-1">{t(phrase.en, `المطلوب`)} · {phrase.target}</div>
 
         <button
           onClick={tap}
