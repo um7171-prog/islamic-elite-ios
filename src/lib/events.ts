@@ -1,12 +1,14 @@
 /**
  * Calendar events ("التقويم والمواعيد").
  * Stored permanently in localStorage; each event can schedule an iOS local
- * notification. Notification IDs live in the 20000–29999 range so they never clash
- * with the prayer scheduler (10000–19999) or test notifications.
+ * notification. Notification IDs live in the "calendar" range (see
+ * lib/notifications/ranges.ts) so they never clash with prayer or athkar
+ * notifications.
  */
 
-import { reminderSoundFile, type ReminderSoundId } from "@/lib/reminderSounds";
-import { scheduleNativeGroup } from "@/lib/nativeNotify";
+import { reminderNativeSound as reminderSoundFile, type ReminderSoundId } from "@/lib/notifications/sounds";
+import { scheduleGroup } from "@/lib/notifications/scheduler";
+import { NOTIFICATION_RANGES } from "@/lib/notifications/ranges";
 
 export type Repeat = "none" | "daily" | "weekly" | "monthly" | "yearly";
 
@@ -28,8 +30,8 @@ export interface CalEvent {
 
 const STORAGE_KEY = "elite.calendar.events.v1";
 
-export const EVENT_ID_MIN = 20000;
-export const EVENT_ID_MAX = 29999;
+export const EVENT_ID_MIN = NOTIFICATION_RANGES.calendar.min;
+export const EVENT_ID_MAX = NOTIFICATION_RANGES.calendar.max;
 
 export function pad2(n: number) {
   return String(n).padStart(2, "0");
@@ -220,5 +222,5 @@ export async function syncEventNotifications(events: CalEvent[], lang: "ar" | "e
     }
   }
 
-  return scheduleNativeGroup("events", items);
+  return scheduleGroup("calendar", items);
 }

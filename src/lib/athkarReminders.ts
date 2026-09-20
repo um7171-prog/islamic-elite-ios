@@ -1,20 +1,21 @@
 /**
  * Morning / Evening Athkar reminders.
  *
- * Completely independent from the athan scheduler: notification IDs live in
- * the 30000–30999 range, and the sound is always a short bell — never an
- * adhan. Nothing here touches prayer notification logic.
+ * Completely independent from the prayer scheduler: notification IDs live in
+ * the "athkar" range (see lib/notifications/ranges.ts), and the sound is
+ * always a short bell/chime — never an adhan. Nothing here touches prayer
+ * notification logic.
  */
 
-import { scheduleNativeGroup } from "@/lib/nativeNotify";
+import { scheduleGroup } from "@/lib/notifications/scheduler";
+import { NOTIFICATION_RANGES } from "@/lib/notifications/ranges";
 import {
-  ATHKAR_DEFAULT_SOUND,
-  reminderSoundFile,
+  DEFAULT_ATHKAR_SOUND as ATHKAR_DEFAULT_SOUND,
+  reminderNativeSound as reminderSoundFile,
   type ReminderSoundId,
-} from "@/lib/reminderSounds";
+} from "@/lib/notifications/sounds";
 
-export const ATHKAR_ID_MIN = 30000;
-export const ATHKAR_ID_MAX = 30999;
+const ATHKAR_ID_MIN = NOTIFICATION_RANGES.athkar.min;
 
 export interface AthkarReminderSettings {
   morningEnabled: boolean;
@@ -73,8 +74,8 @@ const TEXTS = {
 };
 
 /**
- * Rebuild all Athkar notifications for the next `days` days.
- * Only the 30000–30999 range is rebuilt — prayer notifications untouched.
+ * Rebuild all Athkar notifications for the next few days.
+ * Only the "athkar" range is rebuilt — prayer/calendar notifications untouched.
  */
 export async function syncAthkarReminders(
   settings: AthkarReminderSettings,
@@ -116,6 +117,6 @@ export async function syncAthkarReminders(
     }
   });
 
-  const res = await scheduleNativeGroup("athkar", items);
+  const res = await scheduleGroup("athkar", items);
   return res.scheduled;
 }

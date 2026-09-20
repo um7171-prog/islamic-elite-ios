@@ -15,9 +15,9 @@ import { cn } from "@/lib/utils";
 import {
   DEFAULT_REMINDER_SOUND,
   REMINDER_SOUNDS,
-  previewReminderSound,
+  previewSound,
   type ReminderSoundId,
-} from "@/lib/reminderSounds";
+} from "@/lib/notifications/sounds";
 import {
   CalEvent,
   REMINDER_CHOICES,
@@ -33,7 +33,7 @@ import {
   upcoming,
   ymd,
 } from "@/lib/events";
-import { requestNativeNotificationRebuild } from "@/lib/nativeNotificationCoordinator";
+import { requestNotificationRebuild } from "@/lib/notifications/coordinator";
 
 function fmtGregorian(d: Date) {
   return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
@@ -74,7 +74,7 @@ export function EventsCalendar() {
 
   useEffect(() => {
     saveEvents(events);
-    requestNativeNotificationRebuild();
+    requestNotificationRebuild();
   }, [events, lang]);
 
   // Opened from a notification tap: /calendar?event=<id>
@@ -421,10 +421,10 @@ export function EventsCalendar() {
                     >
                       {lang === "ar" ? s.ar : s.en}
                     </button>
-                    {s.preview && (
+                    {s.previewUrl && (
                       <button
                         type="button"
-                        onClick={() => previewReminderSound(s.id)}
+                        onClick={() => previewSound(s.previewUrl)}
                         aria-label={t("Preview", "استماع")}
                         className="h-7 w-7 shrink-0 rounded-full grid place-items-center bg-accent/15 text-accent transition active:scale-95"
                       >

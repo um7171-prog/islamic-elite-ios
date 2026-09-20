@@ -4,7 +4,7 @@ import { useLocale } from "@/contexts/LocaleContext";
 import { BrowserMultiFormatReader, IScannerControls } from "@zxing/browser";
 import { Flashlight, FlashlightOff, Copy, ExternalLink, RotateCcw, X, Camera, SearchX } from "lucide-react";
 import { toast } from "sonner";
-import { openNativeAppSettings } from "@/lib/nativeAthan";
+import { openNativeAppSettings } from "@/lib/platform";
 
 interface Props {
   open: boolean;

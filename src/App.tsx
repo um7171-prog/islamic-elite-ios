@@ -13,10 +13,9 @@ import { PrayerCalcProvider } from "@/contexts/PrayerCalcContext";
 import Index from "./pages/Index.tsx";
 import ResetPassword from "./pages/ResetPassword.tsx";
 import Settings from "./pages/Settings.tsx";
-import NotificationDiagnostics from "./pages/NotificationDiagnostics.tsx";
-import { NativeNotificationRouter } from "./components/NativeNotificationRouter";
-import { NativeAthanScheduler } from "./components/NativeAthanScheduler";
-import { NotificationPermissionPrompt } from "./components/islamic/NotificationPermissionPrompt";
+import { NotificationRouter } from "./components/notifications/NotificationRouter";
+import { NotificationsProvider } from "./components/notifications/NotificationsProvider";
+import { NotificationOnboardingCard } from "./components/notifications/NotificationOnboardingCard";
 // FileConverterPage is intentionally kept as a static (non-lazy) import —
 // the file/document conversion tool must not be touched in any way,
 // including how its chunk loads.
@@ -118,10 +117,6 @@ const AppShell = () => {
           <Route path="/government-jobs" element={<GovernmentJobs />} />
           <Route path="/sitemap" element={<SitemapPage />} />
           <Route path="/settings" element={<Settings />} />
-          {/* Not linked from any user-facing nav — reachable only via the
-              collapsed "Advanced Settings" section in Settings, for developer
-              use. Kept as its own route instead of deleting the page/logic. */}
-          <Route path="/notification-diagnostics" element={<NotificationDiagnostics />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
@@ -142,15 +137,15 @@ const App = () => (
         <LocaleProvider>
           <CityProvider>
             <PrayerCalcProvider>
-              <NativeAthanScheduler>
+              <NotificationsProvider>
                 <BrowserRouter>
-                  <NativeNotificationRouter />
-                  <NotificationPermissionPrompt />
+                  <NotificationRouter />
+                  <NotificationOnboardingCard />
                   <ScrollToTop />
 
                   <AppShell />
                 </BrowserRouter>
-              </NativeAthanScheduler>
+              </NotificationsProvider>
             </PrayerCalcProvider>
           </CityProvider>
         </LocaleProvider>

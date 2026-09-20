@@ -1,7 +1,7 @@
 // Remote (APNs) push notifications — admin announcements & updates ONLY.
 // Athan / prayer alerts are LOCAL notifications and live in `nativeAthan.ts`.
 import { supabase } from "@/integrations/supabase/client";
-import { isNativeApp } from "./nativeAthan";
+import { isNativeApp } from "./platform";
 
 const TOKEN_KEY = "push.deviceToken";
 const ANNOUNCEMENT_PUSH_KEY = "elite.push.announcements.enabled.v1";

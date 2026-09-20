@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
-import { openNativeAppSettings } from "@/lib/nativeAthan";
+import { openNativeAppSettings } from "@/lib/platform";
 import { isIOSNativeApp } from "@/lib/platform";
 
 interface Props {

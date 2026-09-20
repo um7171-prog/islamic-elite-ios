@@ -8,16 +8,16 @@ import { cn } from "@/lib/utils";
 import { getPrayerTimes } from "@/lib/prayer";
 import {
   REMINDER_SOUNDS,
-  previewReminderSound,
+  previewSound,
   type ReminderSoundId,
-} from "@/lib/reminderSounds";
+} from "@/lib/notifications/sounds";
 import {
   loadAthkarSettings,
   saveAthkarSettings,
   type AthkarDayTimes,
   type AthkarReminderSettings,
 } from "@/lib/athkarReminders";
-import { requestNativeNotificationRebuild } from "@/lib/nativeNotificationCoordinator";
+import { requestNotificationRebuild } from "@/lib/notifications/coordinator";
 
 const OFFSETS = [15, 30, 45, 60, 90, 120];
 
@@ -50,7 +50,7 @@ export function AthkarRemindersCard() {
 
   useEffect(() => {
     saveAthkarSettings(settings);
-    requestNativeNotificationRebuild();
+    requestNotificationRebuild();
   }, [settings, days, lang]);
 
   const update = (patch: Partial<AthkarReminderSettings>) =>
@@ -163,10 +163,10 @@ export function AthkarRemindersCard() {
               >
                 {lang === "ar" ? s.ar : s.en}
               </button>
-              {s.preview && (
+              {s.previewUrl && (
                 <button
                   type="button"
-                  onClick={() => previewReminderSound(s.id)}
+                  onClick={() => previewSound(s.previewUrl)}
                   aria-label={t("Preview", "استماع")}
                   className="h-7 w-7 shrink-0 rounded-full grid place-items-center bg-accent/15 text-accent transition active:scale-95"
                 >

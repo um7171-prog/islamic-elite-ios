@@ -10,7 +10,7 @@ import {
   angleDiff,
 } from "@/lib/qibla";
 import { useQiblaCompass, useUserLocation } from "@/hooks/useQiblaCompass";
-import { isNativeApp, openNativeAppSettings } from "@/lib/nativeAthan";
+import { isNativeApp, openNativeAppSettings } from "@/lib/platform";
 import { hapticQiblaAligned, hapticTick, unlockAudio } from "@/lib/haptics";
 import { toast } from "sonner";
 

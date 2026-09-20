@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import {
   ArrowLeft,
   Globe,
@@ -18,18 +17,17 @@ import {
   Send,
   Wrench,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useTheme, type ThemeMode } from "@/contexts/ThemeContext";
 import { useCity } from "@/contexts/CityContext";
 import { usePrayerCalc, type MadhabId } from "@/contexts/PrayerCalcContext";
 import { CitySelector } from "@/components/islamic/CitySelector";
-import { AthanSettingsCard } from "@/components/islamic/AthanSettingsCard";
-import { AthkarRemindersCard } from "@/components/islamic/AthkarRemindersCard";
-import { useNativeAthanScheduler } from "@/components/NativeAthanScheduler";
+import { NotificationSettingsSection } from "@/components/notifications/NotificationSettingsSection";
 import { SEO } from "@/components/SEO";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Switch } from "@/components/ui/switch";
-import { isNativeApp, runNotificationDeliveryTest } from "@/lib/nativeNotify";
+import { isIOSNativeApp } from "@/lib/platform";
 import { getAnnouncementPushEnabled, setAnnouncementPushEnabled } from "@/lib/pushDevice";
 import { getAppVersion, type AppVersionInfo } from "@/lib/appVersion";
 
@@ -104,48 +102,13 @@ export default function Settings() {
   const { mode, setMode, theme } = useTheme();
   const { city } = useCity();
   const { madhab, setMadhab } = usePrayerCalc();
-  const { settings: athan, setSettings: updateAthan, scheduledCount, reschedule } = useNativeAthanScheduler();
-  const [notificationTest, setNotificationTest] = useState<"idle" | "running" | "scheduled" | "failed">("idle");
-  const [notificationTestMessage, setNotificationTestMessage] = useState("");
   const [announcementPush, setAnnouncementPush] = useState(() => getAnnouncementPushEnabled());
   const [versionInfo, setVersionInfo] = useState<AppVersionInfo | null>(null);
-  const nativeApp = isNativeApp();
+  const nativeApp = isIOSNativeApp();
 
   useEffect(() => {
     void getAppVersion().then(setVersionInfo);
   }, []);
-
-  const runNotificationTest = async () => {
-    setNotificationTest("running");
-    setNotificationTestMessage("");
-    try {
-      const result = await runNotificationDeliveryTest(lang === "ar" ? "ar" : "en", 12);
-      if (!result.granted) {
-        setNotificationTest("failed");
-        setNotificationTestMessage(t("Notification permission is disabled.", "صلاحية الإشعارات غير مفعلة."));
-        return;
-      }
-      if (!result.scheduled) {
-        setNotificationTest("failed");
-        setNotificationTestMessage(
-          result.errors.length
-            ? result.errors.join(" · ")
-            : t("iPhone did not accept the test notification.", "لم يقبل iPhone جدولة إشعار الاختبار."),
-        );
-        return;
-      }
-      setNotificationTest("scheduled");
-      setNotificationTestMessage(
-        t(
-          "Scheduled. Lock the iPhone now and wait about 12 seconds.",
-          "تمت الجدولة. اقفل شاشة الآيفون الآن وانتظر حوالي 12 ثانية.",
-        ),
-      );
-    } catch (error) {
-      setNotificationTest("failed");
-      setNotificationTestMessage(String((error as Error)?.message || error));
-    }
-  };
 
   const themeModes: { id: ThemeMode; label: string; Icon: React.ElementType }[] = [
     { id: "system", label: t("System", "تلقائي"), Icon: Monitor },
@@ -268,33 +231,19 @@ export default function Settings() {
           </div>
         </Section>
 
-        {/* AthanSettingsCard already covers per-prayer toggles, sounds, and
-            the pre-prayer reminder offset internally — unchanged, just
-            grouped under "Prayer" now instead of "Prayer & Times". */}
+        {/* Built fresh for the new notification system (src/lib/notifications/)
+            — status, per-prayer toggles, pre-prayer reminder, Athan sound,
+            Athkar (Morning/Evening), calendar reminders note, and a real
+            test button, all in one place per the current design. */}
         <Section
           icon={Bell}
-          title={t("Athan Notifications", "إشعارات الأذان")}
-          subtitle={t("Local, on-device alerts based on prayer times", "تنبيهات محلية من الجهاز حسب مواقيت الصلاة")}
+          title={t("Notifications", "الإشعارات")}
+          subtitle={t("Prayer, Athkar and appointment alerts — all local, on-device", "تنبيهات الصلاة والأذكار والمواعيد — جميعها محلية من الجهاز")}
         >
-          <AthanSettingsCard
-            settings={athan}
-            onChange={updateAthan}
-            scheduledCount={scheduledCount}
-            onReschedule={reschedule}
-          />
+          <NotificationSettingsSection />
         </Section>
 
-        {/* ===== 3. Athkar ===== */}
-        <GroupLabel>{t("Athkar", "الأذكار")}</GroupLabel>
-        <Section
-          icon={Bell}
-          title={t("Athkar Reminders", "تذكير الأذكار")}
-          subtitle={t("Morning & evening Athkar notifications", "تنبيهات أذكار الصباح والمساء")}
-        >
-          <AthkarRemindersCard />
-        </Section>
-
-        {/* ===== 4. App — real app-behavior settings only (native-only today) ===== */}
+        {/* ===== 3. App — real app-behavior settings only (native-only today) ===== */}
         {nativeApp && (
           <>
             <GroupLabel>{t("App", "التطبيق")}</GroupLabel>
@@ -322,7 +271,7 @@ export default function Settings() {
           </>
         )}
 
-        {/* ===== 5. Support & info ===== */}
+        {/* ===== 4. Support & info ===== */}
         <GroupLabel>{t("Support & Info", "الدعم والمعلومات")}</GroupLabel>
         {/* Contact Us */}
         <Section
@@ -424,46 +373,9 @@ export default function Settings() {
                   <div>commit {versionInfo.commit} · branch {versionInfo.branch}</div>
                 </div>
               )}
-              {nativeApp && (
-                <>
-                  <button
-                    type="button"
-                    onClick={runNotificationTest}
-                    disabled={notificationTest === "running"}
-                    className="flex w-full items-center justify-between rounded-xl border border-foreground/10 p-3 transition hover:bg-foreground/5 active:scale-[0.99] disabled:opacity-60"
-                  >
-                    <div className="text-start">
-                      <div className="text-body font-medium">
-                        {notificationTest === "running"
-                          ? t("Scheduling…", "جارٍ الجدولة…")
-                          : t("Test after 12 seconds", "اختبار بعد 12 ثانية")}
-                      </div>
-                      <div className="text-caption text-foreground/60">
-                        {t("Schedules one isolated test without touching prayer reminders", "يجدول إشعار اختبار مستقل بدون لمس تنبيهات الصلاة")}
-                      </div>
-                    </div>
-                    <Bell className="h-5 w-5 text-accent" />
-                  </button>
-                  {notificationTestMessage && (
-                    <div
-                      className={`rounded-xl border p-3 text-body-sm leading-relaxed ${
-                        notificationTest === "scheduled"
-                          ? "border-emerald-500/30 bg-emerald-500/10"
-                          : "border-destructive/30 bg-destructive/10"
-                      }`}
-                    >
-                      {notificationTestMessage}
-                    </div>
-                  )}
-                  <Link
-                    to="/notification-diagnostics"
-                    className="flex items-center justify-between rounded-xl border border-foreground/10 p-3 text-body hover:bg-foreground/5 transition"
-                  >
-                    <span>{t("Notification Diagnostics", "تشخيص الإشعارات")}</span>
-                    <ArrowLeft className={`h-4 w-4 text-foreground/40 ${dir === "rtl" ? "" : "rotate-180"}`} />
-                  </Link>
-                </>
-              )}
+              {/* The real notification test button now lives in the
+                  "Notifications" section above (new system) — not duplicated
+                  here. */}
             </CollapsibleContent>
           </Collapsible>
       </div>
