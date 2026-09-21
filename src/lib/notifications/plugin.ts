@@ -30,7 +30,6 @@ export interface NativeScheduleResult {
 }
 
 interface NativeNotificationPlugin {
-  ensurePermission(): Promise<{ granted: boolean; status: string }>;
   scheduleGroup(options: { minId: number; maxId: number; items: NativeScheduleItem[] }): Promise<NativeScheduleResult>;
   pendingGroup(options: { minId: number; maxId: number }): Promise<{ ids: number[] }>;
   cancelGroup(options: { minId: number; maxId: number }): Promise<void>;
@@ -43,15 +42,6 @@ async function getPlugin(): Promise<NativeNotificationPlugin> {
   const { registerPlugin } = await import("@capacitor/core");
   cached = registerPlugin<NativeNotificationPlugin>("NativeNotification");
   return cached;
-}
-
-export async function pluginEnsurePermission(): Promise<{ granted: boolean; status: string }> {
-  try {
-    const plugin = await getPlugin();
-    return await plugin.ensurePermission();
-  } catch {
-    return { granted: false, status: "unavailable" };
-  }
 }
 
 export async function pluginScheduleGroup(minId: number, maxId: number, items: NativeScheduleItem[]): Promise<NativeScheduleResult> {

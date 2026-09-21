@@ -1,4 +1,4 @@
-import { Menu, Home, LayoutGrid, Download, Bot, BookOpen, Settings as SettingsIcon, Info, Shield, FileText, Mail, Cookie, AlertTriangle, HelpCircle, Map, Briefcase, Landmark, Repeat, Sparkles } from "lucide-react";
+import { Menu, Home, LayoutGrid, Download, Bot, BookOpen, Settings as SettingsIcon, Info, Shield, FileText, Mail, Cookie, AlertTriangle, HelpCircle, Map, Repeat, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -23,8 +23,6 @@ export function SideMenu() {
         { to: "/ai", label: t("AI Tools", "أدوات الذكاء"), Icon: Bot },
         { to: "/mushaf", label: t("Mushaf", "المصحف"), Icon: BookOpen },
         { to: "/asma-al-husna", label: t("99 Names of Allah", "أسماء الله الحسنى"), Icon: Sparkles },
-        { to: "/saudi-jobs", label: t("Saudi Jobs", "وظائف السعودية"), Icon: Briefcase },
-        { to: "/government-jobs", label: t("Government Jobs", "الوظائف الحكومية"), Icon: Landmark },
         { to: "/settings", label: t("Settings", "الإعدادات"), Icon: SettingsIcon },
       ],
     },

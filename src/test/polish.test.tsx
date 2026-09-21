@@ -13,7 +13,6 @@ vi.mock("@/lib/notifications/plugin", () => ({
   },
   pluginPendingGroup: async () => [],
   pluginCancelGroup: async () => undefined,
-  pluginEnsurePermission: async () => ({ granted: true, status: "granted" }),
 }));
 const rebuildSpy = vi.fn();
 vi.mock("@/lib/notifications/coordinator", () => ({

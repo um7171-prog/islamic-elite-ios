@@ -429,25 +429,20 @@
 html:not(.light) .text-accent { color: hsl(var(--elite-gold-start)); }
 html:not(.light) .ring-accent { --tw-ring-color: hsl(var(--elite-gold-start)); }
 
-@keyframes splash-load {
-  0% { transform: scaleX(0.06); }
-  60% { transform: scaleX(0.82); }
-  100% { transform: scaleX(1); }
-}
-[dir="rtl"] .splash-bar { transform-origin: right; }
-
 /* ---------- Home motion: calm, GPU-only, off for reduced-motion ---------- */
-@keyframes scene-drift-slow { from { transform: translate3d(-1.5%, 0, 0); } to { transform: translate3d(1.5%, 0, 0); } }
-@keyframes scene-drift-mid { from { transform: translate3d(1.2%, 0, 0); } to { transform: translate3d(-1.2%, 0, 0); } }
 @keyframes scene-twinkle { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.95; } }
 @keyframes rise-in { from { opacity: 0; transform: translate3d(0, 14px, 0); } to { opacity: 1; transform: none; } }
 /* End state is `transform: none` and fill-mode is `backwards`: a leftover transform would turn the wrapper into the containing block of every position:fixed screen inside it (Mushaf reader, install tip). */
 @keyframes page-in { from { opacity: 0; transform: translate3d(0, 6px, 0); } to { opacity: 1; transform: none; } }
-.scene-layer-slow { animation: scene-drift-slow 70s ease-in-out infinite alternate; will-change: transform; }
-.scene-layer-mid { animation: scene-drift-mid 55s ease-in-out infinite alternate; will-change: transform; }
 .scene-star { animation: scene-twinkle 6s ease-in-out infinite; }
 .rise-in { animation: rise-in 520ms cubic-bezier(0.22, 1, 0.36, 1) backwards; }
 .page-enter { animation: page-in 240ms ease-out backwards; }
 @media (prefers-reduced-motion: reduce) {
-  .scene-layer-slow, .scene-layer-mid, .scene-star, .rise-in, .page-enter, .animate-pulse { animation: none !important; }
+  .scene-star, .rise-in, .page-enter, .animate-pulse { animation: none !important; }
+}
+/* Home hero video: fades into the header at the top/bottom; on wide screens the ends fade too.
+   Nested masks (the wrapper carries the horizontal one) so no mask-composite support is needed. */
+.haram-hero-video { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 26%, #000 84%, transparent 100%); mask-image: linear-gradient(to bottom, transparent 0, #000 26%, #000 84%, transparent 100%); }
+@media (min-width: 461px) {
+  .haram-hero-wrap { -webkit-mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent); mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent); }
 }

@@ -14,7 +14,6 @@ vi.mock("@/lib/notifications/plugin", () => ({
   },
   pluginPendingGroup: async () => [],
   pluginCancelGroup: async () => undefined,
-  pluginEnsurePermission: async () => ({ granted: true, status: "granted" }),
 }));
 
 import { NOTIFICATION_RANGES } from "@/lib/notifications/ranges";
@@ -173,3 +172,49 @@ describe("calendar reminders master switch", () => {
   });
 });
 
+
+describe("appointment lifecycle (native request payloads)", () => {
+  const mk = (id: string, date: string, time: string, remind: number | null = 10): CalEvent =>
+    ({ id, title: `Event ${id}`, date, time, repeat: "none", remindMinutesBefore: remind, sound: "default", createdAt: 1 }) as unknown as CalEvent;
+  const last = () => scheduleCalls.at(-1)!;
+  const byTitle = (t: string) => last().items.find((i) => i.title === t);
+
+  it("create -> edit -> delete: the native group always carries exactly the live appointments; B is untouched by A", async () => {
+    localStorage.clear();
+    const A = mk("a", "2026-09-25", "10:00");
+    const B = mk("b", "2026-09-26", "18:30");
+    await syncEventNotifications([A, B], "en");
+    expect(last().minId).toBe(NOTIFICATION_RANGES.calendar.min);
+    expect(last().items.length).toBe(2);
+    const a1 = byTitle("Event a")!, b1 = byTitle("Event b")!;
+    expect(a1.id).not.toBe(b1.id);
+    for (const i of last().items) {
+      expect(i.id).toBeGreaterThanOrEqual(NOTIFICATION_RANGES.calendar.min);
+      expect(i.id).toBeLessThanOrEqual(NOTIFICATION_RANGES.calendar.max);
+    }
+    // 10 minutes before, in the device's local time zone
+    expect(a1.atMs).toBe(new Date(2026, 8, 25, 9, 50).getTime());
+
+    // EDIT A (new time): A's request changes, B's is byte-identical
+    await syncEventNotifications([{ ...A, time: "11:15" }, B], "en");
+    const a2 = byTitle("Event a")!, b2 = byTitle("Event b")!;
+    expect(a2.atMs).toBe(new Date(2026, 8, 25, 11, 5).getTime());
+    expect(a2.atMs).not.toBe(a1.atMs);
+    expect(b2).toEqual(b1);
+
+    // DELETE A: the rebuilt list no longer contains it (native removes stale ids in range)
+    await syncEventNotifications([B], "en");
+    expect(last().items.map((i) => i.title)).toEqual(["Event b"]);
+    expect(byTitle("Event b")).toEqual(b1);
+
+    // "Restart": rebuilding from persisted storage yields the same ids/times
+    const persisted = [B];
+    await syncEventNotifications(JSON.parse(JSON.stringify(persisted)), "en");
+    expect(byTitle("Event b")).toEqual(b1);
+  });
+
+  it("an appointment with no reminder schedules nothing; past ones are never sent", async () => {
+    await syncEventNotifications([mk("n", "2026-09-25", "10:00", null), mk("p", "2026-09-19", "10:00")], "en");
+    expect(last().items.length).toBe(0);
+  });
+});

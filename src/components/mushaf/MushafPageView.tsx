@@ -59,6 +59,11 @@ export const MushafPageView = memo(function MushafPageView({
     return () => ro.disconnect();
   }, []);
 
+  // Re-centre the fitted page when the viewport (and so the page box) changes size.
+  useEffect(() => {
+    if (box) apiRef.current?.centerView(1, 0);
+  }, [box]);
+
   useEffect(() => {
     const next = pageImageUrl(page);
     setSrc((cur) => (cur === next ? cur : next));
@@ -141,15 +146,18 @@ export const MushafPageView = memo(function MushafPageView({
           return (
             <TransformComponent
               wrapperStyle={{ width: "100%", height: "100%", overflow: "hidden" }}
-              contentStyle={{ width: "100%", height: "100%", display: "grid", placeItems: "center" }}
+              // The pan/zoom content is exactly the page box (not the whole viewport), so
+              // the pan bounds are the page's own edges: zoomed in, every edge of the page
+              // can be brought fully into view, and no letterbox margin is ever dragged along.
+              contentStyle={{
+                width: box ? `${box.w}px` : "100%",
+                height: box ? `${box.h}px` : "100%",
+              }}
             >
               <div
                 onClick={handleClick}
                 onDoubleClick={handleDoubleClick}
-                style={{
-                  width: box ? `${box.w}px` : "100%",
-                  height: box ? `${box.h}px` : "100%",
-                }}
+                style={{ width: "100%", height: "100%" }}
               >
                 <img
                   ref={(el) => { imgRef.current = el; if (el?.complete && el.naturalWidth > 0) setLoaded(true); }}

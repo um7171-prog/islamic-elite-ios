@@ -6,6 +6,7 @@ import { getGregorianDate, getHijriDate } from "@/lib/prayer";
 import { AnnouncementsBell } from "@/components/islamic/AnnouncementsBell";
 import { CitySelector } from "@/components/islamic/CitySelector";
 import { MosqueScene } from "@/components/site/MosqueScene";
+import { HaramHero } from "@/components/site/HaramHero";
 import { TemperaturePill } from "@/components/islamic/TemperaturePill";
 
 /** Home's emerald header: brand, EN/AR switch, notifications bell, settings,
@@ -74,6 +75,8 @@ export function HomeHeader() {
           </div>
         </div>
       </div>
+      {/* decorative hero: real (licensed) tawaf footage, full-bleed, never intercepts touches */}
+      <HaramHero className="-mx-4 mt-1 !w-[calc(100%+2rem)] md:-mx-8 md:!w-[calc(100%+4rem)]" />
     </header>
   );
 }

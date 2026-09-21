@@ -119,6 +119,15 @@ export default function About() {
           {t("Build", "رقم البناء")} {appInfo?.build ?? "—"}
         </p>
       </InfoCard>
+      <InfoCard icon={Info} title={t("Credits", "شكر وتقدير")}>
+        <p>
+          {t(
+            "Home header video: “Tawaf Ifadha 2016 with Amm Salim” by Amm Salim (via Wikimedia Commons), licensed CC BY 3.0. Cropped, stabilised and looped for this app.",
+            "فيديو رأس الصفحة الرئيسية: «Tawaf Ifadha 2016 with Amm Salim» للمصوّر Amm Salim (عبر ويكيميديا كومنز) بترخيص CC BY 3.0. قُصّ وثُبّت وكُرّر لهذا التطبيق.",
+          )}{" "}
+          <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener noreferrer" className="underline">CC BY 3.0</a>
+        </p>
+      </InfoCard>
     </StaticPageShell>
 
   );

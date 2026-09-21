@@ -22,8 +22,8 @@ describe("useQiblaCompass — no-signal watchdog", () => {
 
   afterEach(() => {
     vi.useRealTimers();
-    // @ts-expect-error test cleanup of a test-only global shim
-    delete window.DeviceOrientationEvent;
+    // test cleanup of a test-only global shim
+    delete (window as unknown as { DeviceOrientationEvent?: unknown }).DeviceOrientationEvent;
   });
 
   it("transitions to 'unsupported' after 4s when no sensor frame ever arrives", async () => {

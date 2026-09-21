@@ -11,7 +11,9 @@ import {
   TOTAL_PAGES, clampPage, getPageInfo, preloadWindow, loadPosition, savePosition,
   loadBookmarks, toggleBookmark, removeBookmark, toArabicDigits, type MushafBookmark,
 } from "@/lib/mushaf";
-import { getReciter, getSelectedReciterId, setSelectedReciterId, getPlayableUrl, setMediaSession } from "@/lib/reciters";
+import { getReciter, getSelectedReciterId, setSelectedReciterId, ayahUrl, setMediaSession } from "@/lib/reciters";
+import { SURAHS } from "@/lib/mushaf";
+import { pageStartAyah, pageOfAyah, nextAyah, prevAyah, type AyahRef } from "@/lib/quranAudio";
 
 const SWIPE_PX = 55;
 
@@ -137,54 +139,104 @@ export function MushafReader() {
     return () => window.removeEventListener("keydown", onKey);
   }, [nextPage, prevPage, navigate]);
 
-  /* ---------- audio ---------- */
+  /* ---------- audio (page-aware, ayah by ayah) ---------- */
+  // Playback always starts at the first ayah printed on the CURRENT page
+  // (never the start of the surah), then walks ayah by ayah, turning the page
+  // when the recitation crosses into the next one.
+  const [audioState, setAudioState] = useState<"idle" | "playing" | "paused">("idle");
+  const [nowAyah, setNowAyah] = useState<AyahRef | null>(null);
+  const cursorRef = useRef<AyahRef | null>(null);
+  const reciterRef = useRef(reciterId);
+  reciterRef.current = reciterId;
+  const pageRef = useRef(page);
+  pageRef.current = page;
+  const playAyahRef = useRef<(ref: AyahRef) => Promise<void>>(async () => undefined);
+
   const stopAudio = useCallback(() => {
-    audioRef.current?.pause();
+    const el = audioRef.current;
+    if (el) { el.pause(); el.removeAttribute("src"); el.load(); }
+    cursorRef.current = null;
+    setNowAyah(null);
+    setAudioState("idle");
     setPlaying(false);
   }, []);
 
-  const playSurah = useCallback(async (surahNumber: number) => {
-    const reciter = getReciter(reciterId);
+  const playAyah = useCallback(async (ref: AyahRef) => {
+    const reciter = getReciter(reciterRef.current);
     const el = audioRef.current ?? new Audio();
     audioRef.current = el;
-    el.crossOrigin = "anonymous";
+    cursorRef.current = ref;
+    setNowAyah(ref);
     try {
-      const url = await getPlayableUrl(reciter, surahNumber);
-      el.src = url;
+      el.src = ayahUrl(reciter, ref.surah, ref.ayah);
       await el.play();
+      setAudioState("playing");
       setPlaying(true);
-      const meta = getPageInfo(page).mainSurah;
+      // Keep the reader on the page being recited.
+      const target = pageOfAyah(ref);
+      if (target !== pageRef.current) goTo(target, { silent: true });
+      const meta = SURAHS[ref.surah - 1];
       setMediaSession({
-        title: meta.ar, artist: reciter.name,
-        onPlay: () => { void el.play(); setPlaying(true); },
-        onPause: () => { el.pause(); setPlaying(false); },
-        onNext: () => void playSurah(Math.min(114, surahNumber + 1)),
-        onPrev: () => void playSurah(Math.max(1, surahNumber - 1)),
+        title: `${meta.ar} · ${ref.ayah}`, artist: reciter.name,
+        onPlay: () => resumeAudioRef.current(),
+        onPause: () => pauseAudioRef.current(),
+        onNext: () => stepAyahRef.current(1),
+        onPrev: () => stepAyahRef.current(-1),
       });
     } catch {
+      // A newer play() interrupting this one is not an error.
+      if (cursorRef.current !== ref) return;
+      setAudioState("idle");
       setPlaying(false);
       toast.error(t("Couldn't play the recitation — check your connection", "تعذّر تشغيل التلاوة، تحقّق من الاتصال"));
     }
-  }, [reciterId, page]);
+  }, [goTo, t]);
+  playAyahRef.current = playAyah;
 
-  // Auto-continue to the next surah when one finishes.
-  useEffect(() => {
+  const pauseAudio = useCallback(() => {
+    audioRef.current?.pause();
+    setAudioState("paused");
+    setPlaying(false);
+  }, []);
+  const resumeAudio = useCallback(() => {
     const el = audioRef.current;
-    if (!el) return;
+    if (!el || !cursorRef.current) return;
+    void el.play().then(() => { setAudioState("playing"); setPlaying(true); }).catch(() => undefined);
+  }, []);
+  const stepAyah = useCallback((dir: 1 | -1) => {
+    const cur = cursorRef.current;
+    if (!cur) return;
+    const to = dir === 1 ? nextAyah(cur) : prevAyah(cur);
+    if (to) void playAyahRef.current(to);
+    else stopAudio();
+  }, [stopAudio]);
+  const pauseAudioRef = useRef(pauseAudio); pauseAudioRef.current = pauseAudio;
+  const resumeAudioRef = useRef(resumeAudio); resumeAudioRef.current = resumeAudio;
+  const stepAyahRef = useRef(stepAyah); stepAyahRef.current = stepAyah;
+
+  // Continue with the next ayah when one finishes.
+  useEffect(() => {
+    const el = audioRef.current ?? new Audio();
+    audioRef.current = el;
     const onEnded = () => {
-      const cur = getPageInfo(page).mainSurah.n;
-      if (cur < 114) void playSurah(cur + 1);
-      else setPlaying(false);
+      const cur = cursorRef.current;
+      const nxt = cur ? nextAyah(cur) : null;
+      if (nxt) void playAyahRef.current(nxt);
+      else stopAudio();
     };
     el.addEventListener("ended", onEnded);
     return () => el.removeEventListener("ended", onEnded);
-  }, [page, playSurah]);
+  }, [stopAudio]);
 
   useEffect(() => () => { audioRef.current?.pause(); audioRef.current = null; }, []);
 
   const onAudio = () => {
-    if (playing) return stopAudio();
-    void playSurah(info.mainSurah.n);
+    if (audioState === "playing") return pauseAudio();
+    const cur = cursorRef.current;
+    // Paused on this page: resume. Otherwise (idle, or the reader was moved to a
+    // different page while paused) start from the first ayah of the current page.
+    if (audioState === "paused" && cur && pageOfAyah(cur) === page) return resumeAudio();
+    void playAyah(pageStartAyah(page));
   };
 
   /* ---------- actions ---------- */
@@ -267,7 +319,12 @@ export function MushafReader() {
         visible={bars}
         info={info}
         playing={playing}
+        audioActive={audioState !== "idle"}
+        nowAyah={nowAyah}
         onAudio={onAudio}
+        onStop={stopAudio}
+        onPrevAyah={() => stepAyah(-1)}
+        onNextAyah={() => stepAyah(1)}
         onTranslation={() => setExtras("translation")}
         onTafsir={() => setExtras("tafsir")}
         onCopy={onCopy}

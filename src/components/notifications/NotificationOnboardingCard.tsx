@@ -37,10 +37,15 @@ function writeFlag(v: "accepted" | "deferred") {
 }
 
 /**
- * "فعّل إشعارات التطبيق" — explains what notifications are for BEFORE ever
- * touching the real iOS permission API. Apple's system dialog only ever
- * appears from the button below, or the equivalent button in Settings —
- * never automatically.
+ * First-run notification permission.
+ *
+ * iOS app: on first launch (status still "notDetermined") this asks iOS
+ * directly, so the user sees Apple's own "Would Like to Send You Notifications"
+ * dialog. No in-app card stands in for it. After the user answers, iOS never
+ * shows the dialog again, so we only ever ask once (checked via the real status,
+ * not just a flag); later changes happen in iOS Settings.
+ *
+ * Browser: there is no OS permission, so the card just records the preference.
  */
 export function NotificationOnboardingCard() {
   const { t, dir } = useLocale();
@@ -49,24 +54,31 @@ export function NotificationOnboardingCard() {
   const [requesting, setRequesting] = useState(false);
   const startedRef = useRef(false);
 
+  /** Ask iOS for real (Apple's system dialog) and react to the answer. */
+  const askIOS = async () => {
+    const status = await requestPermission();
+    writeFlag("accepted");
+    await refreshPermission();
+    if (status === "granted") await rebuildAll();
+  };
+
   useEffect(() => {
     if (startedRef.current) return;
     startedRef.current = true;
     if (readFlag()) return; // answered/deferred before: never nag on later launches
 
     let cancelled = false;
-    const timer = window.setTimeout(async () => {
-      // Let the launch screen finish first.
-      if (document.querySelector('[data-testid="splash"]')) {
-        window.setTimeout(() => !cancelled && setOpen(true), 1500);
-        return;
-      }
+    const decide = async () => {
+      if (cancelled) return;
       if (!isIOSNativeApp()) { setOpen(true); return; }
       const status = await checkPermissionStatus();
       if (cancelled) return;
-      if (status === "notDetermined") setOpen(true);
+      if (status === "notDetermined") void askIOS();
       else writeFlag("accepted");
-    }, SHOW_DELAY_MS);
+    };
+    // The native iOS launch screen is already gone by the time React runs; the short delay
+    // only lets Home paint before the system permission dialog appears.
+    const timer = window.setTimeout(() => void decide(), SHOW_DELAY_MS);
 
     return () => {
       cancelled = true;
@@ -78,7 +90,7 @@ export function NotificationOnboardingCard() {
     const onReopen = () => {
       if (!isIOSNativeApp()) return;
       void checkPermissionStatus().then((status) => {
-        if (status === "notDetermined") setOpen(true);
+        if (status === "notDetermined") void askIOS();
       });
     };
     window.addEventListener(REOPEN_NOTIFICATION_ONBOARDING_EVENT, onReopen);

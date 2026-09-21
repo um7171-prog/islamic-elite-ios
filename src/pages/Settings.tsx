@@ -5,7 +5,6 @@ import {
   BookOpen,
   CalendarClock,
   CalendarDays,
-  ChevronDown,
   Clock,
   FileText,
   HelpCircle,
@@ -23,7 +22,6 @@ import {
   Sunset,
   Timer,
   Volume2,
-  Wrench,
   Calculator,
 } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -31,7 +29,6 @@ import { useTheme, type ThemeMode } from "@/contexts/ThemeContext";
 import { useCity } from "@/contexts/CityContext";
 import { usePrayerCalc, type MadhabId } from "@/contexts/PrayerCalcContext";
 import { useNotifications } from "@/components/notifications/NotificationsProvider";
-import { NotificationTestGroup } from "@/components/notifications/NotificationSettingsSection";
 import { PageShell } from "@/components/site/PageHeader";
 import { IconBadge } from "@/components/site/IconBadge";
 import { OptionSheet, SettingsGroup, SettingsRow, SettingsSection } from "@/components/site/SettingsUI";
@@ -39,7 +36,6 @@ import { ThemePicker } from "@/components/site/ThemePicker";
 import { SocialRows } from "@/components/site/SocialRows";
 import { shareApp } from "@/pages/MorePage";
 import { SEO } from "@/components/SEO";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Switch } from "@/components/ui/switch";
 import { PRAYER_METHODS, methodOption, type MethodId } from "@/lib/prayerMethods";
 import { themeById } from "@/lib/themes";
@@ -234,26 +230,6 @@ export default function Settings() {
             <SettingsRow icon={Share2} onClick={() => void shareApp(t)} label={t("Share the App", "مشاركة التطبيق")} />
             <SettingsRow icon={Tag} label={t("Version", "الإصدار")} value={versionInfo ? versionInfo.version : "…"} />
           </SettingsGroup>
-
-          <Collapsible className="overflow-hidden rounded-2xl border border-foreground/[0.07] bg-card shadow-sm">
-            <CollapsibleTrigger className="flex min-h-[56px] w-full items-center gap-3 px-4 py-3 text-start [&[data-state=open]>svg]:rotate-180">
-              <IconBadge icon={Wrench} size="sm" tone="soft" />
-              <span className="min-w-0 flex-1">
-                <span className="block text-body font-medium">{t("Advanced & Diagnostics", "متقدم وتشخيص")}</span>
-                <span className="block text-caption text-foreground/60">{t("Not needed for everyday use", "غير مطلوب للاستخدام اليومي")}</span>
-              </span>
-              <ChevronDown className="h-4 w-4 shrink-0 text-foreground/50 transition-transform" />
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-3 border-t border-foreground/[0.07] p-4">
-              {versionInfo && (
-                <div className="rounded-xl bg-foreground/[0.05] p-3 font-mono text-caption leading-relaxed" dir="ltr">
-                  <div>version {versionInfo.version} · build {versionInfo.build}</div>
-                  <div>commit {versionInfo.commit} · branch {versionInfo.branch}</div>
-                </div>
-              )}
-              <NotificationTestGroup />
-            </CollapsibleContent>
-          </Collapsible>
         </SettingsSection>
       </div>
 

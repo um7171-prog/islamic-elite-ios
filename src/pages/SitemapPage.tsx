@@ -17,8 +17,6 @@ export default function SitemapPage() {
         ...(!iosNative ? [{ to: "/media", label: t("Media", "الوسائط") }] : []),
         { to: "/ai", label: t("AI Tools", "أدوات الذكاء") },
         { to: "/mushaf", label: t("Mushaf", "المصحف") },
-        { to: "/saudi-jobs", label: t("Saudi Jobs", "وظائف السعودية") },
-        { to: "/government-jobs", label: t("Government Jobs", "الوظائف الحكومية") },
         { to: "/settings", label: t("Settings", "الإعدادات") },
       ],
     },

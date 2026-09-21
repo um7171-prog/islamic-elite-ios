@@ -7,25 +7,32 @@ export interface Reciter {
   nameEn: string;
   server: string;      // base URL, e.g. https://server8.mp3quran.net/afs/
   rewaya?: string;     // optional note (e.g. "مجود")
+  /** everyayah.com folder holding this reciter's per-ayah files (SSSAAA.mp3). */
+  ayahFolder: string;
 }
 
 // Default 10 reciters (verified mp3quran.net server paths)
 export const RECITERS: Reciter[] = [
-  { id: "sudais",   name: "عبد الرحمن السديس",    nameEn: "Abdul Rahman Al-Sudais",        server: "https://server11.mp3quran.net/sds/" },
-  { id: "shuraim",  name: "سعود الشريم",            nameEn: "Saud Al-Shuraim",               server: "https://server7.mp3quran.net/shur/" },
-  { id: "afasy",    name: "مشاري العفاسي",          nameEn: "Mishary Rashid Al-Afasy",       server: "https://server8.mp3quran.net/afs/" },
-  { id: "maher",    name: "ماهر المعيقلي",          nameEn: "Maher Al-Muaiqly",              server: "https://server12.mp3quran.net/maher/" },
-  { id: "dossari",  name: "ياسر الدوسري",           nameEn: "Yasser Al-Dossari",             server: "https://server11.mp3quran.net/yasser/" },
-  { id: "ghamdi",   name: "سعد الغامدي",            nameEn: "Saad Al-Ghamdi",                server: "https://server7.mp3quran.net/s_gmd/" },
-  { id: "basit",    name: "عبد الباسط عبد الصمد",  nameEn: "Abdul Basit Abdul Samad",       server: "https://server7.mp3quran.net/basit/", rewaya: "مرتل" },
-  { id: "husary",   name: "محمود خليل الحصري",     nameEn: "Mahmoud Khalil Al-Husary",      server: "https://server13.mp3quran.net/husr/" },
-  { id: "minshawi", name: "محمد صديق المنشاوي",    nameEn: "Mohammed Siddiq Al-Minshawi",   server: "https://server10.mp3quran.net/minsh/" },
-  { id: "qatami",   name: "ناصر القطامي",           nameEn: "Nasser Al-Qatami",              server: "https://server6.mp3quran.net/qtm/" },
+  { id: "sudais",   name: "عبد الرحمن السديس",    nameEn: "Abdul Rahman Al-Sudais",        server: "https://server11.mp3quran.net/sds/", ayahFolder: "Abdurrahmaan_As-Sudais_192kbps" },
+  { id: "shuraim",  name: "سعود الشريم",            nameEn: "Saud Al-Shuraim",               server: "https://server7.mp3quran.net/shur/", ayahFolder: "Saood_ash-Shuraym_128kbps" },
+  { id: "afasy",    name: "مشاري العفاسي",          nameEn: "Mishary Rashid Al-Afasy",       server: "https://server8.mp3quran.net/afs/", ayahFolder: "Alafasy_128kbps" },
+  { id: "maher",    name: "ماهر المعيقلي",          nameEn: "Maher Al-Muaiqly",              server: "https://server12.mp3quran.net/maher/", ayahFolder: "MaherAlMuaiqly128kbps" },
+  { id: "dossari",  name: "ياسر الدوسري",           nameEn: "Yasser Al-Dossari",             server: "https://server11.mp3quran.net/yasser/", ayahFolder: "Yasser_Ad-Dussary_128kbps" },
+  { id: "ghamdi",   name: "سعد الغامدي",            nameEn: "Saad Al-Ghamdi",                server: "https://server7.mp3quran.net/s_gmd/", ayahFolder: "Ghamadi_40kbps" },
+  { id: "basit",    name: "عبد الباسط عبد الصمد",  nameEn: "Abdul Basit Abdul Samad",       server: "https://server7.mp3quran.net/basit/", rewaya: "مرتل", ayahFolder: "Abdul_Basit_Murattal_192kbps" },
+  { id: "husary",   name: "محمود خليل الحصري",     nameEn: "Mahmoud Khalil Al-Husary",      server: "https://server13.mp3quran.net/husr/", ayahFolder: "Husary_128kbps" },
+  { id: "minshawi", name: "محمد صديق المنشاوي",    nameEn: "Mohammed Siddiq Al-Minshawi",   server: "https://server10.mp3quran.net/minsh/", ayahFolder: "Minshawy_Murattal_128kbps" },
+  { id: "qatami",   name: "ناصر القطامي",           nameEn: "Nasser Al-Qatami",              server: "https://server6.mp3quran.net/qtm/", ayahFolder: "Nasser_Alqatami_128kbps" },
 ];
 
 export function surahUrl(reciter: Reciter, surahNumber: number) {
   const s = String(surahNumber).padStart(3, "0");
   return `${reciter.server}${s}.mp3`;
+}
+
+/** Per-ayah recitation file — lets playback start at any ayah. */
+export function ayahUrl(reciter: Reciter, surah: number, ayah: number) {
+  return `https://everyayah.com/data/${reciter.ayahFolder}/${String(surah).padStart(3, "0")}${String(ayah).padStart(3, "0")}.mp3`;
 }
 
 /* ------------ Favorites (localStorage) ------------ */

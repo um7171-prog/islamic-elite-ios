@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
-  Baby, BadgeDollarSign, Bookmark, BookOpen, Briefcase, CalendarDays, CalendarHeart, CalendarRange,
+  Baby, BadgeDollarSign, Bookmark, BookOpen, CalendarDays, CalendarHeart, CalendarRange,
   Clock4, Coins, Compass, Download, Flag, GraduationCap, Heart, Landmark, Languages, Moon,
   PiggyBank, Repeat, Ruler, Scale, ScanLine, ScanText, Search, Sparkles, Star, Sun, Timer, X,
 } from "lucide-react";
@@ -31,13 +31,12 @@ import { TasbeehWidget } from "@/components/islamic/TasbeehWidget";
 import { isIOSNativeApp } from "@/lib/platform";
 import { IconBadge } from "@/components/site/IconBadge";
 
-type CategoryKey = "religious" | "docs" | "calc" | "jobs" | "events";
+type CategoryKey = "religious" | "docs" | "calc" | "events";
 
 const CATEGORIES: { key: CategoryKey; en: string; ar: string; emoji: string }[] = [
   { key: "religious", en: "Prayer & Worship", ar: "الصلاة والعبادة", emoji: "🕌" },
   { key: "docs", en: "Documents & Files", ar: "المستندات والملفات", emoji: "📄" },
   { key: "calc", en: "Calculators", ar: "الحاسبات", emoji: "🧮" },
-  { key: "jobs", en: "Jobs", ar: "الوظائف", emoji: "💼" },
   { key: "events", en: "Occasions & Countdowns", ar: "المناسبات والعدادات", emoji: "📅" },
 ];
 
@@ -93,13 +92,11 @@ const TOOLS: Tool[] = [
   { id: "asmaAlHusna", en: "99 Names of Allah", ar: "أسماء الله الحسنى", descEn: "Names, transliteration & meaning", descAr: "الأسماء واللفظ والمعنى", category: "religious", Icon: Sparkles, gradient: GOLD, keywords: "أسماء الله الحسنى names of allah asma husna", action: { kind: "dialog" } },
   { id: "tasbeeh", en: "Tasbeeh", ar: "السبحة الرقمية", descEn: "Digital dhikr counter", descAr: "عداد ذكر رقمي", category: "religious", Icon: Bookmark, gradient: GOLD, keywords: "سبحة تسبيح ذكر tasbeeh dhikr", action: { kind: "dialog" } },
 
-  // 🗂️ Calendar & documents — calendar, scanners, converters, jobs, media.
+  // 🗂️ Calendar & documents — calendar, scanners, converters, media.
   { id: "translate", en: "Translate", ar: "الترجمة", descEn: "Instant translation", descAr: "ترجمة فورية", category: "docs", Icon: Languages, gradient: BLUE, keywords: "ترجمة translate", action: { kind: "dialog" } },
   { id: "scanner", en: "QR Scanner", ar: "ماسح QR", descEn: "Scan codes & barcodes", descAr: "مسح الرموز والباركود", category: "docs", Icon: ScanLine, gradient: BLUE, keywords: "qr رمز باركود scanner", action: { kind: "dialog" } },
   { id: "docscan", en: "Document Scanner", ar: "ماسح المستندات", descEn: "Scan to PDF", descAr: "مسح إلى PDF", category: "docs", Icon: ScanText, gradient: BLUE, keywords: "مسح مستندات pdf scanner docs", action: { kind: "dialog" } },
   { id: "convert", en: "File Converter", ar: "تحويل الملفات", descEn: "Images, PDF & more", descAr: "صور وPDF وأكثر", category: "docs", Icon: Repeat, gradient: EMERALD, keywords: "تحويل ملفات pdf convert", action: { kind: "route", to: "/convert" } },
-  { id: "jobs", en: "Saudi Jobs", ar: "وظائف السعودية", descEn: "Latest job openings", descAr: "أحدث الوظائف الشاغرة", category: "jobs", Icon: Briefcase, gradient: EMERALD, keywords: "وظائف عمل jobs", action: { kind: "route", to: "/saudi-jobs" } },
-  { id: "gov-jobs", en: "Government Jobs", ar: "الوظائف الحكومية", descEn: "Public sector openings", descAr: "وظائف القطاع الحكومي", category: "jobs", Icon: Landmark, gradient: EMERALD, keywords: "وظائف حكومية government jobs", action: { kind: "route", to: "/government-jobs" } },
   // Not shown on iOS native (filtered out below) — matches the pre-existing
   // rule that hid this same feature from the old bottom-nav Media tab there.
   { id: "media", en: "Media Downloader", ar: "تنزيل الوسائط", descEn: "Download & manage saved files", descAr: "تنزيل وإدارة الملفات المحفوظة", category: "docs", Icon: Download, gradient: BLUE, keywords: "تنزيل وسائط فيديو media download", action: { kind: "route", to: "/media" } },

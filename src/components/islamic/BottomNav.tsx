@@ -20,7 +20,7 @@ function tabFor(pathname: string): TabKey | null {
   if (pathname === "/calendar") return "appointments";
   if (["/settings", "/prayer-settings", "/notification-settings", "/location"].some((p) => pathname === p || pathname.startsWith(p + "/"))) return "settings";
   if (
-    ["/tools", "/calculators", "/date-converter", "/convert", "/media", "/saudi-jobs", "/government-jobs", "/ai"].some(
+    ["/tools", "/calculators", "/date-converter", "/convert", "/media", "/ai"].some(
       (p) => pathname === p || pathname.startsWith(p + "/"),
     )
   ) {

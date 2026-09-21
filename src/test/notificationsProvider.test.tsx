@@ -22,7 +22,6 @@ vi.mock("@/lib/notifications/plugin", () => ({
   },
   pluginPendingGroup: async () => [],
   pluginCancelGroup: async () => undefined,
-  pluginEnsurePermission: async () => ({ granted: true, status: "granted" }),
 }));
 vi.mock("@capacitor/app", () => ({
   App: {

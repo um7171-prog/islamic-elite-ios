@@ -23,7 +23,6 @@ import CalculatorsPage from "./pages/CalculatorsPage.tsx";
 import DateConverterPage from "./pages/DateConverterPage.tsx";
 import QuranIndexPage from "./pages/QuranIndexPage.tsx";
 import MorePage from "./pages/MorePage.tsx";
-import { SplashScreen } from "@/components/site/SplashScreen";
 import { NotificationRouter } from "./components/notifications/NotificationRouter";
 import { NotificationsProvider } from "./components/notifications/NotificationsProvider";
 import { NotificationOnboardingCard } from "./components/notifications/NotificationOnboardingCard";
@@ -52,9 +51,6 @@ const AI = lazy(() => import("./pages/AI.tsx"));
 const BackgroundRemoverPage = lazy(() => import("./pages/ai/BackgroundRemover.tsx"));
 const ImageEnhancerPage = lazy(() => import("./pages/ai/ImageEnhancer.tsx"));
 const OcrPage = lazy(() => import("./pages/ai/Ocr.tsx"));
-const SaudiJobs = lazy(() => import("./pages/SaudiJobs.tsx"));
-const SaudiJobDetails = lazy(() => import("./pages/SaudiJobDetails.tsx"));
-const GovernmentJobs = lazy(() => import("./pages/GovernmentJobs.tsx"));
 
 const queryClient = new QueryClient();
 
@@ -122,9 +118,6 @@ const AppShell = () => {
           <Route path="/cookies" element={<Cookies />} />
           <Route path="/disclaimer" element={<Disclaimer />} />
           <Route path="/faq" element={<Faq />} />
-          <Route path="/saudi-jobs" element={<SaudiJobs />} />
-          <Route path="/saudi-jobs/:id" element={<SaudiJobDetails />} />
-          <Route path="/government-jobs" element={<GovernmentJobs />} />
           <Route path="/sitemap" element={<SitemapPage />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/prayer-times" element={<PrayerTimes />} />
@@ -153,7 +146,6 @@ const AppShell = () => {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <SplashScreen />
       <Toaster />
       <Sonner />
       <ThemeProvider>

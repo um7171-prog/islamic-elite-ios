@@ -16,8 +16,8 @@ const REGISTERED_ROUTES = new Set([
   "/translate", "/notifications", "/qr-scanner", "/document-scanner", "/prayer-times",
   "/asma-al-husna", "/about", "/admin", "/ai", "/ai/background-remover",
   "/ai/image-enhancer", "/ai/ocr", "/contact", "/convert", "/cookies", "/disclaimer",
-  "/faq", "/government-jobs", "/mushaf", "/privacy",
-  "/reset-password", "/saudi-jobs", "/saudi-jobs/:id", "/settings", "/sitemap", "/terms",
+  "/faq", "/mushaf", "/privacy",
+  "/reset-password", "/settings", "/sitemap", "/terms",
 ]);
 
 const navigateMock = vi.fn();

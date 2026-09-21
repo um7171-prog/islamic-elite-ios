@@ -165,7 +165,7 @@ async function warpQuadToRect(srcDataUrl: string, quad: Quad, outW: number, outH
 /** Detect the page in a CAPTURED photo (never the live preview). Null → caller falls back to the whole frame. */
 async function detectInCapture(dataUrl: string): Promise<Quad | null> {
   const img = await loadImage(dataUrl);
-  const scale = Math.min(1, 240 / Math.max(img.width, img.height));
+  const scale = Math.min(1, 320 / Math.max(img.width, img.height));
   const w = Math.max(16, Math.round(img.width * scale)), h = Math.max(16, Math.round(img.height * scale));
   const c = document.createElement("canvas");
   c.width = w; c.height = h;

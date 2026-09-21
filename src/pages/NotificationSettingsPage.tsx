@@ -9,7 +9,6 @@ import { Switch } from "@/components/ui/switch";
 import {
   AthanSoundGroup,
   NotificationStatusCard,
-  NotificationTestGroup,
   PrayerAlertsGroup,
   PreReminderGroup,
 } from "@/components/notifications/NotificationSettingsSection";
@@ -155,10 +154,6 @@ export default function NotificationSettingsPage() {
             <SettingsRow icon={Music2} to="#n-athkar" label={t("Athkar reminder sound", "صوت تذكير الأذكار")} value={athkarSound ? (lang === "ar" ? athkarSound.ar : athkarSound.en) : ""} />
             <SettingsRow icon={Music2} to="/calendar" label={t("Appointment sound", "صوت المواعيد")} description={t("Chosen per appointment", "يُختار لكل موعد")} />
           </SettingsGroup>
-        </SettingsSection>
-
-        <SettingsSection id="n-test" title={t("Test Notification", "اختبار الإشعار")}>
-          <NotificationTestGroup />
         </SettingsSection>
       </div>
     </PageShell>

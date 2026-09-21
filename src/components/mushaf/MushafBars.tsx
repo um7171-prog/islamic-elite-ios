@@ -1,6 +1,6 @@
 import { ArrowRight, Bookmark, BookmarkCheck, Search, LayoutGrid,
-  Play, Pause, Languages, Share2, Copy, BookText, Settings2 } from "lucide-react";
-import { toArabicDigits, type PageInfo } from "@/lib/mushaf";
+  Play, Pause, SkipBack, SkipForward, Square, Languages, Share2, Copy, BookText, Settings2 } from "lucide-react";
+import { toArabicDigits, SURAHS, type PageInfo } from "@/lib/mushaf";
 import { useLocale } from "@/contexts/LocaleContext";
 import { cn } from "@/lib/utils";
 
@@ -68,12 +68,17 @@ export function MushafTopBar({
 }
 
 export function MushafBottomBar({
-  visible, info, playing, onAudio, onTranslation, onShare, onCopy, onTafsir, onSettings,
+  visible, info, playing, audioActive, nowAyah, onAudio, onStop, onPrevAyah, onNextAyah, onTranslation, onShare, onCopy, onTafsir, onSettings,
 }: {
   visible: boolean;
   info: PageInfo;
   playing: boolean;
+  audioActive: boolean;
+  nowAyah: { surah: number; ayah: number } | null;
   onAudio: () => void;
+  onStop: () => void;
+  onPrevAyah: () => void;
+  onNextAyah: () => void;
   onTranslation: () => void;
   onShare: () => void;
   onCopy: () => void;
@@ -104,6 +109,14 @@ export function MushafBottomBar({
         <span className="mx-1.5">·</span>{t(`Hizb ${info.hizb}`, `الحزب ${toArabicDigits(info.hizb)}`)}
         <span className="mx-1.5">·</span>{t(`Page ${info.page}`, `صفحة ${toArabicDigits(info.page)}`)}
       </div>
+      {audioActive && nowAyah && (
+        <div data-testid="mushaf-audio-controls" className="flex items-center justify-center gap-4 pb-1 text-white/90" dir="ltr">
+          <button onClick={onPrevAyah} aria-label={t("Previous ayah", "الآية السابقة")} data-testid="mushaf-audio-prev" className="p-2 active:scale-90"><SkipBack className="h-5 w-5" /></button>
+          <span data-testid="mushaf-audio-now" className="min-w-[7rem] text-center text-caption">{SURAHS[nowAyah.surah - 1].ar} · {toArabicDigits(nowAyah.ayah)}</span>
+          <button onClick={onNextAyah} aria-label={t("Next ayah", "الآية التالية")} data-testid="mushaf-audio-next" className="p-2 active:scale-90"><SkipForward className="h-5 w-5" /></button>
+          <button onClick={onStop} aria-label={t("Stop", "إيقاف")} data-testid="mushaf-audio-stop" className="p-2 active:scale-90"><Square className="h-5 w-5" /></button>
+        </div>
+      )}
       <div className="flex items-center justify-around px-2 pb-2">
         {items.map(({ key, Icon, label, on }) => (
           <button key={key} onClick={on} className="flex flex-col items-center gap-0.5 px-2 py-1 active:scale-90 transition-transform">

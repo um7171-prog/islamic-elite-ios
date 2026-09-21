@@ -102,6 +102,8 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   // listener was registered — otherwise coming back to the app re-scheduled
   // with stale settings (e.g. the old reminder minutes) and undid the user's
   // latest change.
+  const refreshPermissionRef = useRef(refreshPermission);
+  refreshPermissionRef.current = refreshPermission;
   const latestReschedulePrayer = useRef(reschedulePrayer);
   latestReschedulePrayer.current = reschedulePrayer;
 
@@ -168,6 +170,8 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         const { App } = await import("@capacitor/app");
         const handle = await App.addListener("appStateChange", ({ isActive }) => {
           if (isActive) {
+            // The user may have changed the permission in iOS Settings while away.
+            void refreshPermissionRef.current();
             window.setTimeout(requestRun, 500);
             window.setTimeout(() => void latestReschedulePrayer.current(), 500);
           }

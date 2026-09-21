@@ -6,7 +6,6 @@ import { useLocale } from "@/contexts/LocaleContext";
 import { isIOSNativeApp, openNativeAppSettings } from "@/lib/platform";
 import { useNotifications } from "./NotificationsProvider";
 import { requestPermission } from "@/lib/notifications/permission";
-import { sendTestNotification, type TestNotificationResult } from "@/lib/notifications/test";
 import { ATHAN_SOUNDS, previewSound, stopPreview, type AthanSoundId } from "@/lib/notifications/sounds";
 import { NOTIFIABLE_PRAYERS } from "@/lib/notifications/settings";
 import { ChipPicker, SettingsGroup, SettingsRow } from "@/components/site/SettingsUI";
@@ -229,58 +228,6 @@ export function AthanSoundGroup() {
           </div>
         </div>
       ))}
-    </SettingsGroup>
-  );
-}
-
-/** Real test notification — schedules one native notification a few seconds out
- * in its own id range. Only meaningful inside the iPhone app. */
-export function NotificationTestGroup() {
-  const { t, lang } = useLocale();
-  const [testState, setTestState] = useState<"idle" | "sending" | "sent" | "failed">("idle");
-  const [testMessage, setTestMessage] = useState("");
-
-  const handleTest = async () => {
-    setTestState("sending");
-    setTestMessage("");
-    const result: TestNotificationResult = await sendTestNotification(lang === "ar" ? "ar" : "en");
-    if (result.ok === true) {
-      setTestState("sent");
-      setTestMessage(
-        t(
-          `A real notification was scheduled for ${result.scheduledFor.toLocaleTimeString()}. Lock the phone and wait.`,
-          `تمت جدولة إشعار حقيقي في ${result.scheduledFor.toLocaleTimeString("ar")}. اقفل الشاشة وانتظر.`,
-        ),
-      );
-      return;
-    }
-    setTestState("failed");
-    const failure: Extract<TestNotificationResult, { ok: false }> = result;
-    setTestMessage(
-      failure.reason === "not-native"
-        ? t("This only works inside the installed iPhone app.", "هذا يعمل فقط داخل تطبيق iPhone المثبَّت.")
-        : failure.reason === "permission-denied"
-          ? t("Notifications aren't enabled yet.", "الإشعارات غير مفعّلة بعد.")
-          : failure.detail || t("iOS did not accept the test notification.", "لم يقبل iOS إشعار الاختبار."),
-    );
-  };
-
-  return (
-    <SettingsGroup>
-      <div className="space-y-3 p-4">
-        <Button size="sm" onClick={() => void handleTest()} disabled={testState === "sending"} className="w-full">
-          {testState === "sending" ? t("Scheduling…", "جارٍ الجدولة…") : t("Send a real test notification", "إرسال إشعار اختبار حقيقي")}
-        </Button>
-        {testMessage && (
-          <p className={`text-body-sm leading-relaxed ${testState === "sent" ? "text-primary" : "text-destructive"}`}>{testMessage}</p>
-        )}
-        <p className="text-caption leading-relaxed text-foreground/55">
-          {t(
-            "Uses its own id range — it never touches prayer, Athkar or calendar alerts.",
-            "يستخدم نطاق معرّفات مستقلاً — لا يمسّ تنبيهات الصلاة أو الأذكار أو المواعيد.",
-          )}
-        </p>
-      </div>
     </SettingsGroup>
   );
 }
