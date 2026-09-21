@@ -2,29 +2,21 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
-// ---- native bridge mocks (scheduler payloads are inspected, iOS itself is not available here) ----
-const scheduleCalls: { minId: number; maxId: number; items: { id: number; atMs: number; title: string }[] }[] = [];
+// ---- iOS is replaced by an in-memory notification centre behind the real plugin API ----
 vi.mock("@/lib/platform", () => ({ isNativeApp: () => true, isIOSNativeApp: () => false, openNativeAppSettings: async () => undefined }));
-vi.mock("@/lib/notifications/permission", () => ({ checkPermissionStatus: async () => "granted", PERMISSION_CHANGED_EVENT: "x", requestPermission: async () => "granted" }));
-vi.mock("@/lib/notifications/plugin", () => ({
-  pluginScheduleGroup: async (minId: number, maxId: number, items: { id: number; atMs: number; title: string }[]) => {
-    scheduleCalls.push({ minId, maxId, items });
-    return { acceptedIds: items.map((i) => i.id), verifiedIds: items.map((i) => i.id), errors: [] };
-  },
-  pluginPendingGroup: async () => [],
-  pluginCancelGroup: async () => undefined,
-}));
+vi.mock("@capacitor/local-notifications", async () => {
+  const m = await import("./fakeIosNotificationCenter");
+  return { LocalNotifications: m.fakeLocalNotifications };
+});
+import { center, pendingIn, resetCenter } from "./fakeIosNotificationCenter";
 const rebuildSpy = vi.fn();
-vi.mock("@/lib/notifications/coordinator", () => ({
-  requestNotificationRebuild: () => rebuildSpy(),
-  registerNotificationRebuildHandler: () => () => undefined,
-}));
 
 import { LocaleProvider } from "@/contexts/LocaleContext";
 import { EventsCalendar } from "@/components/islamic/EventsCalendar";
-import { syncEventNotifications, loadEvents, type CalEvent } from "@/lib/events";
+import { loadEvents, type CalEvent } from "@/lib/events";
+import { syncAppointmentNotifications } from "@/lib/notifications/AppointmentNotificationService";
 import { syncAthkarReminders, DEFAULT_ATHKAR_SETTINGS, type AthkarReminderSettings } from "@/lib/athkarReminders";
-import { NOTIFICATION_RANGES } from "@/lib/notifications/ranges";
+import { NOTIFICATION_RANGES, registerNotificationRebuildHandler } from "@/lib/notifications/NotificationScheduler";
 import { INBOX_KEY, INBOX_TTL_MS, addInboxItem, isFresh, loadInbox, relativeAgo, visibleItems } from "@/lib/notificationInbox";
 import { fetchTemperature, temperatureUrl, _clearTemperatureCache } from "@/lib/temperature";
 import { DAILY_ITEMS, dailyItem } from "@/lib/dailyContent";
@@ -78,74 +70,69 @@ describe("Notification Center window", () => {
   });
 
   it("expiry is display-only: the scheduler is never called by the inbox", () => {
-    scheduleCalls.length = 0;
+    resetCenter();
     addInboxItem({ kind: "push", id: "x", title: "t", body: "", receivedAt: Date.now() - 45 * MIN });
     loadInbox();
-    expect(scheduleCalls.length).toBe(0);
+    expect(center.calls.length).toBe(0);
   });
 });
 
 /* ---------------- appointment notifications: create / edit / delete ---------------- */
 const ev = (over: Partial<CalEvent> = {}): CalEvent =>
   ({ id: "evt-1", title: "Dentist", date: "2026-09-25", time: "10:00", repeat: "none", remindMinutesBefore: 15, sound: "notif_chime", category: "general", createdAt: 1, ...over }) as CalEvent;
-const calCalls = () => scheduleCalls.filter((c) => c.minId === NOTIFICATION_RANGES.calendar.min);
+const cal = () => pendingIn(NOTIFICATION_RANGES.calendar.min, NOTIFICATION_RANGES.calendar.max);
 
-describe("appointment notification lifecycle (scheduler payloads)", () => {
-  beforeEach(() => { scheduleCalls.length = 0; localStorage.clear(); vi.useFakeTimers(); vi.setSystemTime(new Date("2026-09-20T06:00:00Z")); });
+describe("appointment notification lifecycle (against the iOS notification-centre double)", () => {
+  beforeEach(() => { resetCenter(); localStorage.clear(); vi.useFakeTimers(); vi.setSystemTime(new Date("2026-09-20T06:00:00Z")); });
   afterEach(() => vi.useRealTimers());
 
   it("create -> one notification at (time - reminder), inside the calendar id range only", async () => {
-    await syncEventNotifications([ev()], "en");
-    const [call] = calCalls();
-    expect(call.items).toHaveLength(1);
-    const it0 = call.items[0];
-    expect(it0.atMs).toBe(new Date(2026, 8, 25, 9, 45, 0).getTime()); // 10:00 - 15 min, local time
-    expect(it0.id).toBeGreaterThanOrEqual(NOTIFICATION_RANGES.calendar.min);
-    expect(it0.id).toBeLessThanOrEqual(NOTIFICATION_RANGES.calendar.max);
-    expect(call.minId).toBe(NOTIFICATION_RANGES.calendar.min);
-    expect(call.maxId).toBe(NOTIFICATION_RANGES.calendar.max);
+    await syncAppointmentNotifications([ev()], "en");
+    expect(cal()).toHaveLength(1);
+    const n = cal()[0];
+    expect(n.at.getTime()).toBe(new Date(2026, 8, 25, 9, 45, 0).getTime()); // 10:00 - 15 min, local time
+    expect(n.id).toBeGreaterThanOrEqual(NOTIFICATION_RANGES.calendar.min);
+    expect(n.id).toBeLessThanOrEqual(NOTIFICATION_RANGES.calendar.max);
   });
 
-  it("edit -> the SAME id is re-used with the new time (old one replaced, not duplicated)", async () => {
-    await syncEventNotifications([ev()], "en");
-    await syncEventNotifications([ev({ time: "14:30", remindMinutesBefore: 5 })], "en");
-    const [a, b] = calCalls();
-    expect(b.items).toHaveLength(1);
-    expect(b.items[0].id).toBe(a.items[0].id);
-    expect(b.items[0].atMs).toBe(new Date(2026, 8, 25, 14, 25, 0).getTime());
-    expect(b.items[0].atMs).not.toBe(a.items[0].atMs);
+  it("edit -> the SAME id now carries the new time (old one replaced, not duplicated)", async () => {
+    await syncAppointmentNotifications([ev()], "en");
+    const first = cal()[0];
+    await syncAppointmentNotifications([ev({ time: "14:30", remindMinutesBefore: 5 })], "en");
+    expect(cal()).toHaveLength(1);
+    expect(cal()[0].id).toBe(first.id);
+    expect(cal()[0].at.getTime()).toBe(new Date(2026, 8, 25, 14, 25, 0).getTime());
   });
 
-  it("delete -> an empty rebuild for the calendar range (native clears every stale id in it)", async () => {
-    await syncEventNotifications([ev()], "en");
-    await syncEventNotifications([], "en");
-    const last = calCalls().at(-1)!;
-    expect(last.items).toHaveLength(0);
-    expect(last.minId).toBe(NOTIFICATION_RANGES.calendar.min);
-    expect(last.maxId).toBe(NOTIFICATION_RANGES.calendar.max);
+  it("delete -> the notification is cancelled", async () => {
+    await syncAppointmentNotifications([ev()], "en");
+    await syncAppointmentNotifications([], "en");
+    expect(cal()).toHaveLength(0);
   });
 
   it("removing only the reminder from an event cancels its notification", async () => {
-    await syncEventNotifications([ev()], "en");
-    await syncEventNotifications([ev({ remindMinutesBefore: null })], "en");
-    expect(calCalls().at(-1)!.items).toHaveLength(0);
+    await syncAppointmentNotifications([ev()], "en");
+    await syncAppointmentNotifications([ev({ remindMinutesBefore: null })], "en");
+    expect(cal()).toHaveLength(0);
   });
 
   it("two events get two different ids; a daily repeat yields several distinct ones", async () => {
-    await syncEventNotifications([ev(), ev({ id: "evt-2", title: "Meeting" }), ev({ id: "evt-3", repeat: "daily" })], "en");
-    const ids = calCalls()[0].items.map((i) => i.id);
+    await syncAppointmentNotifications([ev(), ev({ id: "evt-2", title: "Meeting" }), ev({ id: "evt-3", repeat: "daily" })], "en");
+    const ids = cal().map((i) => i.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids.length).toBeGreaterThanOrEqual(5);
   });
 
-  it("calendar ids never overlap prayer / athkar / test ranges", () => {
-    const { calendar, prayer, athkar, test } = NOTIFICATION_RANGES;
-    for (const other of [prayer, athkar, test]) expect(calendar.max < other.min || calendar.min > other.max).toBe(true);
+  it("calendar ids never overlap prayer / athkar ranges", () => {
+    const { calendar, prayer, athkar } = NOTIFICATION_RANGES;
+    for (const other of [prayer, athkar]) expect(calendar.max < other.min || calendar.min > other.max).toBe(true);
   });
 });
 
 describe("EventsCalendar UI -> storage + reschedule", () => {
-  beforeEach(() => { localStorage.clear(); localStorage.setItem("lang", "en"); rebuildSpy.mockClear(); scheduleCalls.length = 0; });
+  let unregister: () => void = () => undefined;
+  beforeEach(() => { localStorage.clear(); localStorage.setItem("lang", "en"); rebuildSpy.mockClear(); resetCenter(); unregister = registerNotificationRebuildHandler(() => rebuildSpy()); });
+  afterEach(() => unregister());
 
   const setup = () =>
     render(
@@ -211,7 +198,7 @@ describe("EventsCalendar UI -> storage + reschedule", () => {
 });
 
 /* ---------------- Athkar rescheduling ---------------- */
-const athkarCalls = () => scheduleCalls.filter((c) => c.minId === NOTIFICATION_RANGES.athkar.min);
+const athkarHeld = () => pendingIn(NOTIFICATION_RANGES.athkar.min, NOTIFICATION_RANGES.athkar.max);
 const days = (shiftMin = 0) =>
   [0, 1, 2].map((n) => ({
     sunrise: new Date(new Date("2026-09-21T02:50:00Z").getTime() + n * 86_400_000 + shiftMin * MIN),
@@ -220,44 +207,43 @@ const days = (shiftMin = 0) =>
 const A = (over: Partial<AthkarReminderSettings> = {}) => ({ ...DEFAULT_ATHKAR_SETTINGS, ...over });
 
 describe("Athkar rescheduling", () => {
-  beforeEach(() => { scheduleCalls.length = 0; vi.useFakeTimers(); vi.setSystemTime(new Date("2026-09-20T00:00:00Z")); });
+  beforeEach(() => { resetCenter(); vi.useFakeTimers(); vi.setSystemTime(new Date("2026-09-20T00:00:00Z")); });
   afterEach(() => vi.useRealTimers());
 
   it("Morning ON/OFF and Evening ON/OFF add/remove exactly their own items", async () => {
     await syncAthkarReminders(A(), days(), "en");
-    expect(athkarCalls().at(-1)!.items).toHaveLength(6);
+    expect(athkarHeld()).toHaveLength(6);
     await syncAthkarReminders(A({ morningEnabled: false }), days(), "en");
-    const noMorning = athkarCalls().at(-1)!.items;
-    expect(noMorning).toHaveLength(3);
-    expect(noMorning.every((i) => /Evening/.test(i.title))).toBe(true);
+    expect(athkarHeld()).toHaveLength(3);
+    expect(athkarHeld().every((i) => /Evening/.test(i.title))).toBe(true);
     await syncAthkarReminders(A({ eveningEnabled: false }), days(), "en");
-    expect(athkarCalls().at(-1)!.items.every((i) => /Morning/.test(i.title))).toBe(true);
+    expect(athkarHeld().every((i) => /Morning/.test(i.title))).toBe(true);
     await syncAthkarReminders(A({ morningEnabled: false, eveningEnabled: false }), days(), "en");
-    expect(athkarCalls().at(-1)!.items).toHaveLength(0); // OFF -> native clears the whole athkar range
+    expect(athkarHeld()).toHaveLength(0); // OFF -> the whole athkar range is cleared
   });
 
   it("changing the time replaces (same ids, new times); no old notification is left", async () => {
     await syncAthkarReminders(A({ morningAfterSunrise: 30, eveningBeforeMaghrib: 60 }), days(), "en");
+    const a = athkarHeld().map((n) => ({ id: n.id, at: n.at.getTime(), title: n.title }));
     await syncAthkarReminders(A({ morningAfterSunrise: 60, eveningBeforeMaghrib: 30 }), days(), "en");
-    const [a, b] = athkarCalls();
-    expect(b.items.map((i) => i.id).sort()).toEqual(a.items.map((i) => i.id).sort());
-    const byId = (c: typeof a, id: number) => c.items.find((i) => i.id === id)!;
-    const morningId = a.items.find((i) => /Morning/.test(i.title))!.id;
-    const eveningId = a.items.find((i) => /Evening/.test(i.title))!.id;
-    expect(byId(b, morningId).atMs - byId(a, morningId).atMs).toBe(30 * MIN); // later
-    expect(byId(b, eveningId).atMs - byId(a, eveningId).atMs).toBe(30 * MIN); // evening: 30 min before maghrib instead of 60 => 30 min later
+    const b = athkarHeld();
+    expect(b.map((n) => n.id)).toEqual(a.map((n) => n.id));
+    const morning = a.find((n) => /Morning/.test(n.title))!;
+    const evening = a.find((n) => /Evening/.test(n.title))!;
+    expect(b.find((n) => n.id === morning.id)!.at.getTime() - morning.at).toBe(30 * MIN); // later
+    expect(b.find((n) => n.id === evening.id)!.at.getTime() - evening.at).toBe(30 * MIN); // 30 min before maghrib instead of 60
   });
 
   it("times follow the (re-computed) sunrise / maghrib after a city or date change", async () => {
     await syncAthkarReminders(A(), days(0), "en");
+    const a = athkarHeld().map((n) => n.at.getTime());
     await syncAthkarReminders(A(), days(20), "en"); // another city: prayer times 20 min later
-    const [a, b] = athkarCalls();
-    a.items.forEach((it0, i) => expect(b.items[i].atMs - it0.atMs).toBe(20 * MIN));
+    athkarHeld().forEach((n, i) => expect(n.at.getTime() - a[i]).toBe(20 * MIN));
   });
 
   it("ids stay inside the athkar range and are unique", async () => {
     await syncAthkarReminders(A(), days(), "en");
-    const ids = athkarCalls()[0].items.map((i) => i.id);
+    const ids = athkarHeld().map((i) => i.id);
     expect(new Set(ids).size).toBe(ids.length);
     ids.forEach((id) => { expect(id).toBeGreaterThanOrEqual(NOTIFICATION_RANGES.athkar.min); expect(id).toBeLessThanOrEqual(NOTIFICATION_RANGES.athkar.max); });
   });

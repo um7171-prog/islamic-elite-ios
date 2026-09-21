@@ -25,7 +25,7 @@ import { AthkarDialog } from "@/components/islamic/AthkarDialog";
 import { QiblaDialog } from "@/components/islamic/QiblaDialog";
 import { TranslatorDialog } from "@/components/islamic/TranslatorDialog";
 import { QRScannerDialog } from "@/components/islamic/QRScannerDialog";
-import { DocumentScannerDialog } from "@/components/islamic/DocumentScannerDialog";
+import { DocumentScannerDialog } from "@/components/scanner/DocumentScannerDialog";
 import { AsmaAlHusnaDialog } from "@/components/islamic/AsmaAlHusnaDialog";
 import { TasbeehWidget } from "@/components/islamic/TasbeehWidget";
 import { isIOSNativeApp } from "@/lib/platform";

@@ -11,14 +11,14 @@ import {
   REMINDER_SOUNDS,
   previewSound,
   type ReminderSoundId,
-} from "@/lib/notifications/sounds";
+} from "@/lib/notifications/NotificationSounds";
 import {
   loadAthkarSettings,
   saveAthkarSettings,
   type AthkarDayTimes,
   type AthkarReminderSettings,
 } from "@/lib/athkarReminders";
-import { requestNotificationRebuild } from "@/lib/notifications/coordinator";
+import { requestNotificationRebuild } from "@/lib/notifications/NotificationScheduler";
 
 const OFFSETS = [15, 30, 45, 60, 90, 120];
 

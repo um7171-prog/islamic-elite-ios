@@ -5,6 +5,7 @@ import { useLocale } from "@/contexts/LocaleContext";
 import { useCity } from "@/contexts/CityContext";
 import { usePrayerCalc } from "@/contexts/PrayerCalcContext";
 import { MosqueArt } from "@/components/site/MosqueArt";
+import { adhanElapsedLabel, getAdhanElapsed } from "@/lib/notifications/AdhanElapsed";
 
 /**
  * "Next prayer" card. Only the five prayers can be next (sunrise never is).
@@ -18,19 +19,33 @@ function useNextPrayer() {
   const [now, setNow] = useState(new Date());
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
+    // Timers are throttled/paused in the background: refresh the moment the app is visible again.
+    const onVisible = () => { if (document.visibilityState === "visible") setNow(new Date()); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
 
   const { entries } = useMemo(
     () => getPrayerTimes(now, city.lat, city.lng, madhab, { method, adjustments, ishaDelayMinutes: prefs.ishaDelay30 ? 30 : 0 }),
     [now.toDateString(), city.id, madhab, calcSignature],
   );
+  // Yesterday's times too, so "الأذان منذ" still works just after midnight (yesterday's Isha).
+  const yesterdayEntries = useMemo(() => {
+    const y = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+    return getPrayerTimes(y, city.lat, city.lng, madhab, { method, adjustments, ishaDelayMinutes: prefs.ishaDelay30 ? 30 : 0 }).entries;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [now.toDateString(), city.id, madhab, calcSignature]);
   const { current, next, msUntilNext } = getNextPrayer(entries, now);
+  // Straight from the current time and the real prayer times (never from notifications or tick counts).
+  const adhan = getAdhanElapsed(now, [...yesterdayEntries, ...entries]);
   // Raw (unclamped) diff: before today's Fajr, `current` is today's (still
   // upcoming) Isha entry, so a negative diff must not read as "just arrived".
   const rawSinceCurrent = now.getTime() - current.time.getTime();
   const justArrived = rawSinceCurrent >= 0 && rawSinceCurrent < 60_000;
-  return { current, next, msUntilNext, justArrived };
+  return { current, next, msUntilNext, justArrived, adhan };
 }
 
 const formatHMS = (ms: number) => {
@@ -43,7 +58,7 @@ const formatHMS = (ms: number) => {
 
 export function HeroPrayerCard({ className = "" }: { className?: string }) {
   const { t, dir, lang } = useLocale();
-  const { current, next, msUntilNext, justArrived } = useNextPrayer();
+  const { current, next, msUntilNext, justArrived, adhan } = useNextPrayer();
 
   return (
     <div
@@ -85,6 +100,15 @@ export function HeroPrayerCard({ className = "" }: { className?: string }) {
               {formatHMS(msUntilNext)}
             </div>
           </>
+        )}
+        {adhan && (
+          <div
+            data-testid="adhan-elapsed"
+            data-minutes={adhan.minutes}
+            className="mt-2 rounded-full bg-primary/10 px-3 py-1 font-arabic text-body-sm font-semibold text-primary"
+          >
+            {adhanElapsedLabel(adhan.minutes, lang === "ar" ? "ar" : "en")}
+          </div>
         )}
       </div>
     </div>

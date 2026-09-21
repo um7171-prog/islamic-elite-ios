@@ -2,18 +2,17 @@
  * Morning / Evening Athkar reminders.
  *
  * Completely independent from the prayer scheduler: notification IDs live in
- * the "athkar" range (see lib/notifications/ranges.ts), and the sound is
+ * the "athkar" range (see lib/notifications/NotificationScheduler.ts), and the sound is
  * always a short bell/chime — never an adhan. Nothing here touches prayer
  * notification logic.
  */
 
-import { scheduleGroup } from "@/lib/notifications/scheduler";
-import { NOTIFICATION_RANGES } from "@/lib/notifications/ranges";
+import { NOTIFICATION_RANGES, replaceGroup } from "@/lib/notifications/NotificationScheduler";
 import {
   DEFAULT_ATHKAR_SOUND as ATHKAR_DEFAULT_SOUND,
   reminderNativeSound as reminderSoundFile,
   type ReminderSoundId,
-} from "@/lib/notifications/sounds";
+} from "@/lib/notifications/NotificationSounds";
 
 const ATHKAR_ID_MIN = NOTIFICATION_RANGES.athkar.min;
 
@@ -117,6 +116,6 @@ export async function syncAthkarReminders(
     }
   });
 
-  const res = await scheduleGroup("athkar", items);
+  const res = await replaceGroup("athkar", items);
   return res.scheduled;
 }

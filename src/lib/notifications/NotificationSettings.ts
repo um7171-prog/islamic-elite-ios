@@ -1,5 +1,5 @@
 import type { PrayerKey } from "@/lib/prayer";
-import { DEFAULT_ATHAN_SOUND_FAJR, DEFAULT_ATHAN_SOUND_OTHER, type AthanSoundId } from "./sounds";
+import { DEFAULT_ATHAN_SOUND_FAJR, DEFAULT_ATHAN_SOUND_OTHER, type AthanSoundId } from "./NotificationSounds";
 
 /** The five real prayers this system schedules alerts for — sunrise is a
  * displayed time elsewhere in the app but never gets its own alert. */

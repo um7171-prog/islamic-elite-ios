@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/contexts/LocaleContext";
 import { isIOSNativeApp } from "@/lib/platform";
-import { checkPermissionStatus, requestPermission } from "@/lib/notifications/permission";
+import { getPermissionStatus, requestPermission } from "@/lib/notifications/NotificationPermissionService";
 import { useNotifications } from "./NotificationsProvider";
 
 /** Shown at most once per install, native iOS only — separate flag from the
@@ -71,7 +71,7 @@ export function NotificationOnboardingCard() {
     const decide = async () => {
       if (cancelled) return;
       if (!isIOSNativeApp()) { setOpen(true); return; }
-      const status = await checkPermissionStatus();
+      const status = await getPermissionStatus();
       if (cancelled) return;
       if (status === "notDetermined") void askIOS();
       else writeFlag("accepted");
@@ -89,7 +89,7 @@ export function NotificationOnboardingCard() {
   useEffect(() => {
     const onReopen = () => {
       if (!isIOSNativeApp()) return;
-      void checkPermissionStatus().then((status) => {
+      void getPermissionStatus().then((status) => {
         if (status === "notDetermined") void askIOS();
       });
     };

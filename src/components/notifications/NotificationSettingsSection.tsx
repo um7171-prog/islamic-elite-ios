@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button";
 import { useLocale } from "@/contexts/LocaleContext";
 import { isIOSNativeApp, openNativeAppSettings } from "@/lib/platform";
 import { useNotifications } from "./NotificationsProvider";
-import { requestPermission } from "@/lib/notifications/permission";
-import { ATHAN_SOUNDS, previewSound, stopPreview, type AthanSoundId } from "@/lib/notifications/sounds";
-import { NOTIFIABLE_PRAYERS } from "@/lib/notifications/settings";
+import { requestPermission } from "@/lib/notifications/NotificationPermissionService";
+import { ATHAN_SOUNDS, previewSound, stopPreview, type AthanSoundId } from "@/lib/notifications/NotificationSounds";
+import { NOTIFIABLE_PRAYERS } from "@/lib/notifications/NotificationSettings";
 import { ChipPicker, SettingsGroup, SettingsRow } from "@/components/site/SettingsUI";
 
 /**

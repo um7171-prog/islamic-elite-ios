@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { Switch } from "@/components/ui/switch";
 import { useLocale } from "@/contexts/LocaleContext";
 import { SettingsGroup } from "@/components/site/SettingsUI";
-import { REMINDER_SOUNDS, previewSound, type ReminderSoundId } from "@/lib/notifications/sounds";
+import { REMINDER_SOUNDS, previewSound, type ReminderSoundId } from "@/lib/notifications/NotificationSounds";
 import { EVENT_CATEGORIES, REMINDER_CHOICES, REPEAT_CHOICES, ymd, type EventCategory, type Repeat } from "@/lib/events";
 import { cn } from "@/lib/utils";
 

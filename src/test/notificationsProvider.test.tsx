@@ -6,23 +6,13 @@ import { MemoryRouter } from "react-router-dom";
 // prayer settings. It used to call a rebuild captured when the listener was
 // registered, so a reminder-minutes change made after that was undone (the old
 // reminder times were scheduled again).
-const scheduleCalls: { minId: number; items: { id: number; atMs: number }[] }[] = [];
 let appStateCallback: ((s: { isActive: boolean }) => void) | null = null;
 
 vi.mock("@/lib/platform", () => ({ isNativeApp: () => true, isIOSNativeApp: () => true, openNativeAppSettings: async () => undefined }));
-vi.mock("@/lib/notifications/permission", () => ({
-  checkPermissionStatus: async () => "granted",
-  PERMISSION_CHANGED_EVENT: "elite-notifications:permission-changed",
-  requestPermission: async () => "granted",
-}));
-vi.mock("@/lib/notifications/plugin", () => ({
-  pluginScheduleGroup: async (minId: number, _max: number, items: { id: number; atMs: number }[]) => {
-    scheduleCalls.push({ minId, items });
-    return { acceptedIds: items.map((i) => i.id), verifiedIds: items.map((i) => i.id), errors: [] };
-  },
-  pluginPendingGroup: async () => [],
-  pluginCancelGroup: async () => undefined,
-}));
+vi.mock("@capacitor/local-notifications", async () => {
+  const m = await import("./fakeIosNotificationCenter");
+  return { LocalNotifications: m.fakeLocalNotifications };
+});
 vi.mock("@capacitor/app", () => ({
   App: {
     addListener: async (_evt: string, cb: (s: { isActive: boolean }) => void) => {
@@ -31,13 +21,14 @@ vi.mock("@capacitor/app", () => ({
     },
   },
 }));
+import { center, pendingIn, resetCenter } from "./fakeIosNotificationCenter";
 
 import { LocaleProvider } from "@/contexts/LocaleContext";
 import { CityProvider } from "@/contexts/CityContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { PrayerCalcProvider } from "@/contexts/PrayerCalcContext";
 import { NotificationsProvider, useNotifications } from "@/components/notifications/NotificationsProvider";
-import { NOTIFICATION_RANGES } from "@/lib/notifications/ranges";
+import { NOTIFICATION_RANGES } from "@/lib/notifications/NotificationScheduler";
 
 let api: ReturnType<typeof useNotifications> | null = null;
 function Probe() {
@@ -45,17 +36,17 @@ function Probe() {
   return null;
 }
 
-const prayerCalls = () => scheduleCalls.filter((c) => c.minId === NOTIFICATION_RANGES.prayer.min);
-const soonestReminderGap = (items: { id: number; atMs: number }[]) => {
-  // Deterministic ids: base + day*10 + prayerIdx*2 + (1 for reminder). Fajr day 0 => athan id base+0, reminder base+1.
+const prayerHeld = () => pendingIn(NOTIFICATION_RANGES.prayer.min, NOTIFICATION_RANGES.prayer.max);
+const reminderGap = () => {
+  // Deterministic ids: base + day*10 + prayerIdx*2 (+1 = reminder). Day 2, Fajr: athan base+20, reminder base+21.
   const base = NOTIFICATION_RANGES.prayer.min;
-  const athan = items.find((i) => i.id === base + 20 + 0); // day 2, fajr athan (always in the future)
-  const rem = items.find((i) => i.id === base + 20 + 1);
-  return athan && rem ? (athan.atMs - rem.atMs) / 60_000 : null;
+  const athan = prayerHeld().find((n) => n.id === base + 20);
+  const rem = prayerHeld().find((n) => n.id === base + 21);
+  return athan && rem ? (athan.at.getTime() - rem.at.getTime()) / 60_000 : null;
 };
 
 beforeEach(() => {
-  scheduleCalls.length = 0;
+  resetCenter();
   appStateCallback = null;
   api = null;
   localStorage.clear();
@@ -80,23 +71,54 @@ describe("NotificationsProvider foreground reschedule", () => {
       </MemoryRouter>,
     );
 
-    await waitFor(() => expect(prayerCalls().length).toBeGreaterThan(0));
+    await waitFor(() => expect(prayerHeld().length).toBeGreaterThan(0));
     await waitFor(() => expect(appStateCallback).not.toBeNull());
-    expect(soonestReminderGap(prayerCalls().at(-1)!.items)).toBe(10); // default
+    expect(reminderGap()).toBe(10); // default
 
     // User changes reminder to 5 minutes...
     await act(async () => {
       api!.setPrayerSettings({ ...api!.prayerSettings, preReminderMinutes: 5 });
     });
-    await waitFor(() => expect(soonestReminderGap(prayerCalls().at(-1)!.items)).toBe(5));
+    await waitFor(() => expect(reminderGap()).toBe(5));
 
-    // ...then the app goes to the background and returns.
-    scheduleCalls.length = 0;
+    // ...then the app goes to the background and returns: the schedule must still use 5, not the stale 10.
+    await new Promise((r) => setTimeout(r, 300));
+    center.calls.length = 0;
     await act(async () => {
       appStateCallback!({ isActive: true });
       await new Promise((r) => setTimeout(r, 900));
     });
-    await waitFor(() => expect(prayerCalls().length).toBeGreaterThan(0));
-    expect(soonestReminderGap(prayerCalls().at(-1)!.items)).toBe(5); // not the stale 10
+    await waitFor(() => expect(center.calls.some((c) => c.op === "getPending")).toBe(true));
+    expect(reminderGap()).toBe(5);
+  });
+
+  it("returning from iOS Settings re-reads the permission and schedules once it is granted", async () => {
+    center.permission = "denied";
+    render(
+      <MemoryRouter>
+        <ThemeProvider>
+          <LocaleProvider>
+            <CityProvider>
+              <PrayerCalcProvider>
+                <NotificationsProvider>
+                  <Probe />
+                </NotificationsProvider>
+              </PrayerCalcProvider>
+            </CityProvider>
+          </LocaleProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(api!.permission).toBe("denied"));
+    expect(prayerHeld()).toHaveLength(0); // nothing is scheduled without permission
+
+    center.permission = "granted"; // the user enabled notifications in iOS Settings
+    await waitFor(() => expect(appStateCallback).not.toBeNull());
+    await act(async () => {
+      appStateCallback!({ isActive: true });
+      await new Promise((r) => setTimeout(r, 500));
+    });
+    await waitFor(() => expect(api!.permission).toBe("granted"));
+    await waitFor(() => expect(prayerHeld().length).toBeGreaterThan(0));
   });
 });

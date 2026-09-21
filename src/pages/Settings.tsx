@@ -42,7 +42,7 @@ import { themeById } from "@/lib/themes";
 import { getAppVersion, type AppVersionInfo } from "@/lib/appVersion";
 import { loadAthkarSettings, saveAthkarSettings, type AthkarReminderSettings } from "@/lib/athkarReminders";
 import { isCalendarNotificationsEnabled, setCalendarNotificationsEnabled } from "@/lib/events";
-import { requestNotificationRebuild } from "@/lib/notifications/coordinator";
+import { requestNotificationRebuild } from "@/lib/notifications/NotificationScheduler";
 
 const CAL_MODE_KEY = "elite.calendar.mode.v1";
 

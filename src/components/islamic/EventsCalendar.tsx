@@ -7,7 +7,7 @@ import { useLocale } from "@/contexts/LocaleContext";
 import { Calendar } from "@/components/ui/calendar";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { DEFAULT_REMINDER_SOUND, type ReminderSoundId } from "@/lib/notifications/sounds";
+import { DEFAULT_REMINDER_SOUND, type ReminderSoundId } from "@/lib/notifications/NotificationSounds";
 import {
   CalEvent,
   Repeat,
@@ -21,9 +21,9 @@ import {
   upcoming,
   ymd,
 } from "@/lib/events";
-import { requestNotificationRebuild } from "@/lib/notifications/coordinator";
+import { requestNotificationRebuild } from "@/lib/notifications/NotificationScheduler";
 import { uid } from "@/lib/id";
-import { checkPermissionStatus } from "@/lib/notifications/permission";
+import { getPermissionStatus } from "@/lib/notifications/NotificationPermissionService";
 import { requestReopenNotificationOnboarding } from "@/components/notifications/NotificationOnboardingCard";
 import { isIOSNativeApp } from "@/lib/platform";
 import { CATEGORY_ICON, EventForm, type EventDraft } from "./EventForm";
@@ -223,7 +223,7 @@ export function EventsCalendar({ hideHeading = false }: { hideHeading?: boolean 
     // why notifications are needed (the system prompt only ever appears from
     // the explanation card's button, never on its own).
     if (ev.remindMinutesBefore !== null && isIOSNativeApp()) {
-      void checkPermissionStatus().then((st) => {
+      void getPermissionStatus().then((st) => {
         if (st === "notDetermined") requestReopenNotificationOnboarding();
       });
     }

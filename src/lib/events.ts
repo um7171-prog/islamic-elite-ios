@@ -1,14 +1,10 @@
 /**
  * Calendar events ("التقويم والمواعيد").
  * Stored permanently in localStorage; each event can schedule an iOS local
- * notification. Notification IDs live in the "calendar" range (see
- * lib/notifications/ranges.ts) so they never clash with prayer or athkar
- * notifications.
+ * notification (scheduling lives in lib/notifications/AppointmentNotificationService.ts).
  */
 
-import { reminderNativeSound as reminderSoundFile, type ReminderSoundId } from "@/lib/notifications/sounds";
-import { scheduleGroup } from "@/lib/notifications/scheduler";
-import { NOTIFICATION_RANGES } from "@/lib/notifications/ranges";
+import type { ReminderSoundId } from "@/lib/notifications/NotificationSounds";
 
 export type Repeat = "none" | "daily" | "weekly" | "monthly" | "yearly";
 
@@ -58,8 +54,6 @@ export function setCalendarNotificationsEnabled(on: boolean) {
   }
 }
 
-export const EVENT_ID_MIN = NOTIFICATION_RANGES.calendar.min;
-export const EVENT_ID_MAX = NOTIFICATION_RANGES.calendar.max;
 
 export function pad2(n: number) {
   return String(n).padStart(2, "0");
@@ -194,68 +188,3 @@ export const REPEAT_CHOICES: { value: Repeat; ar: string; en: string }[] = [
   { value: "monthly", ar: "شهري", en: "Monthly" },
   { value: "yearly", ar: "سنوي", en: "Yearly" },
 ];
-
-// ---------------- Native local notifications ----------------
-
-const EVENT_ID_SPAN = EVENT_ID_MAX - EVENT_ID_MIN + 1;
-
-/** Stable per-event notification id, always inside the calendar range
- * (EVENT_ID_MIN..EVENT_ID_MAX). Staying inside the range is what lets the
- * native scheduler cancel a deleted event's notification (it only clears ids
- * within the range it is given) and keeps calendar ids from ever colliding
- * with another group's range. */
-function notifId(ev: CalEvent, offset = 0): number {
-  let h = 0;
-  for (let i = 0; i < ev.id.length; i++) h = (h * 31 + ev.id.charCodeAt(i)) % EVENT_ID_SPAN;
-  return EVENT_ID_MIN + ((h + offset * 3) % EVENT_ID_SPAN);
-}
-
-/**
- * Rebuild all event notifications through the shared native pipeline.
- * Only the events id range is touched — prayers and athkar are untouched.
- */
-export async function syncEventNotifications(events: CalEvent[], lang: "ar" | "en") {
-  if (!isCalendarNotificationsEnabled()) return scheduleGroup("calendar", []);
-  const now = new Date();
-  const items: {
-    id: number;
-    title: string;
-    body: string;
-    at: Date;
-    sound: string;
-    extra: { route: string };
-  }[] = [];
-  const used = new Set<number>();
-
-  for (const ev of events) {
-    if (ev.remindMinutesBefore === null) continue;
-    let cursor = now;
-    const count = ev.repeat === "none" ? 1 : 3;
-    for (let i = 0; i < count; i++) {
-      const when = nextOccurrence(ev, cursor);
-      if (!when) break;
-      const requestedAt = new Date(when.getTime() - (ev.remindMinutesBefore ?? 0) * 60_000);
-      // A common real-world test is "make an event two minutes from now" while
-      // the form still has its old/default "15 minutes before" reminder.  That
-      // requested reminder is already in the past, so iOS correctly refuses it.
-      // Keep the user's event useful by falling back to the event time itself.
-      const at = requestedAt.getTime() > now.getTime() + 5_000 ? requestedAt : when;
-      let id = notifId(ev, i);
-      while (used.has(id)) id = id + 1 > EVENT_ID_MAX ? EVENT_ID_MIN : id + 1;
-      used.add(id);
-      items.push({
-        id,
-        title: ev.title,
-        body:
-          ev.notes ||
-          (lang === "ar" ? `موعدك الساعة ${ev.time}` : `Your event at ${ev.time}`),
-        at,
-        sound: reminderSoundFile(ev.sound),
-        extra: { route: `/calendar?event=${ev.id}` },
-      });
-      cursor = new Date(when.getTime() + 60_000);
-    }
-  }
-
-  return scheduleGroup("calendar", items);
-}

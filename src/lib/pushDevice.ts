@@ -1,5 +1,5 @@
 // Remote (APNs) push notifications — admin announcements & updates ONLY.
-// Athan / prayer alerts are LOCAL notifications and live in `nativeAthan.ts`.
+// Athan / prayer / appointment alerts are LOCAL notifications (lib/notifications/NotificationScheduler.ts).
 import { addInboxItem } from "@/lib/notificationInbox";
 import { supabase } from "@/integrations/supabase/client";
 import { isNativeApp } from "./platform";

@@ -12,12 +12,11 @@ import Capacitor
 class MainViewController: CAPBridgeViewController {
 
     // Register the app-local Capacitor plugin explicitly.
-    // App-target plugins are NOT package auto-registered by Capacitor; without
-    // this, registerPlugin("NativeNotification") in TypeScript has no iOS
-    // implementation and prayer/events/athkar scheduling silently fails at the
-    // bridge while the official LocalNotifications test can still work.
+    // App-target plugins are NOT package auto-registered by Capacitor; without this,
+    // registerPlugin("DocumentScanner") in TypeScript has no iOS implementation.
+    // (Notifications need no app-local plugin: they use the official LocalNotifications plugin.)
     override open func capacitorDidLoad() {
-        bridge?.registerPluginInstance(NativeNotificationPlugin())
+        bridge?.registerPluginInstance(DocumentScannerPlugin())
     }
 
     /// Matches the CSS `--background` token: pure black (dark) / warm off-white (light).

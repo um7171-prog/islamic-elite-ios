@@ -1,20 +1,24 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useCity } from "@/contexts/CityContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { usePrayerCalc } from "@/contexts/PrayerCalcContext";
 import { isNativeApp } from "@/lib/platform";
-import { isDryRun } from "@/lib/notifications/dryRun";
+import { getPrayerTimes } from "@/lib/prayer";
+import { loadEvents } from "@/lib/events";
+import { loadAthkarSettings, syncAthkarReminders, type AthkarDayTimes } from "@/lib/athkarReminders";
+import {
+  getPermissionStatus,
+  PERMISSION_CHANGED_EVENT,
+  type NotificationPermissionStatus,
+} from "@/lib/notifications/NotificationPermissionService";
+import { isDryRun, registerNotificationRebuildHandler } from "@/lib/notifications/NotificationScheduler";
+import { syncPrayerNotifications } from "@/lib/notifications/PrayerNotificationService";
+import { syncAppointmentNotifications } from "@/lib/notifications/AppointmentNotificationService";
 import {
   loadPrayerNotificationSettings,
   savePrayerNotificationSettings,
   type PrayerNotificationSettings,
-} from "@/lib/notifications/settings";
-import { schedulePrayerNotifications } from "@/lib/notifications/prayerSchedule";
-import { checkPermissionStatus, PERMISSION_CHANGED_EVENT, type NotificationPermissionStatus } from "@/lib/notifications/permission";
-import { registerNotificationRebuildHandler } from "@/lib/notifications/coordinator";
-import { loadEvents, syncEventNotifications } from "@/lib/events";
-import { loadAthkarSettings, syncAthkarReminders, type AthkarDayTimes } from "@/lib/athkarReminders";
-import { getPrayerTimes } from "@/lib/prayer";
+} from "@/lib/notifications/NotificationSettings";
 
 interface NotificationsContextValue {
   permission: NotificationPermissionStatus;
@@ -27,6 +31,14 @@ interface NotificationsContextValue {
 
 const NotificationsContext = createContext<NotificationsContextValue | null>(null);
 
+/**
+ * The orchestrator. It owns NO scheduling logic: it only decides WHEN to rebuild (startup, a
+ * location/method/madhab/setting/language change, the app returning to the foreground, the
+ * permission changing, a settings screen asking) and calls the three services, which hand their
+ * lists to the NotificationScheduler. Rebuilds never overlap: a request that arrives while one is
+ * running makes it run once more afterwards, with the newest inputs (read from a ref, so there is
+ * no stale closure).
+ */
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const { city } = useCity();
   const { lang } = useLocale();
@@ -34,11 +46,8 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const native = isNativeApp();
 
   const [permission, setPermission] = useState<NotificationPermissionStatus>("notDetermined");
-  const [prayerSettings, setPrayerSettingsState] = useState<PrayerNotificationSettings>(() =>
-    // Always restore saved preferences (web included) so the Settings toggles
-    // don't silently reset on reload; only the native app schedules from them.
-    loadPrayerNotificationSettings(),
-  );
+  // Restore saved preferences everywhere (web included) so the Settings toggles survive a reload.
+  const [prayerSettings, setPrayerSettingsState] = useState<PrayerNotificationSettings>(() => loadPrayerNotificationSettings());
   const [scheduledPrayerCount, setScheduledPrayerCount] = useState(0);
 
   const calc = useMemo(
@@ -46,164 +55,123 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     [method, adjustments, prefs.ishaDelay30],
   );
 
-  const refreshPermission = async () => {
-    const status = await checkPermissionStatus();
-    setPermission(status);
-  };
+  // Always the newest render's inputs.
+  const inputs = useRef({ city, madhab, calc, prayerSettings, lang });
+  inputs.current = { city, madhab, calc, prayerSettings, lang };
 
-  // Read-only permission check on mount/native change — never prompts.
-  useEffect(() => {
+  const refreshPermission = useCallback(async () => {
     if (!native) return;
-    void refreshPermission();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setPermission(await getPermissionStatus());
   }, [native]);
-
-  // React the moment the user answers the permission prompt from anywhere
-  // (the onboarding card or the Settings button) so schedules go out right away.
-  useEffect(() => {
-    const onChanged = () => void refreshPermission();
-    window.addEventListener(PERMISSION_CHANGED_EVENT, onChanged);
-    return () => window.removeEventListener(PERMISSION_CHANGED_EVENT, onChanged);
-  }, []);
 
   const setPrayerSettings = (next: PrayerNotificationSettings) => {
     setPrayerSettingsState(next);
     savePrayerNotificationSettings(next);
   };
 
-  // ---- Prayer schedule rebuild: city / madhab / calc / settings / lang ----
-  // Every rebuild is queued behind the previous one, and always runs with the
-  // values of the render that requested it. Rapid changes (e.g. tapping through
-  // reminder minutes) therefore finish in request order — the last request,
-  // carrying the newest settings, is always the one that ends up scheduled.
-  const prayerQueueRef = useRef<Promise<unknown>>(Promise.resolve());
-  const reschedulePrayer = (): Promise<number> => {
-    if (!native || permission !== "granted") return Promise.resolve(0);
-    const snapshot = {
-      lat: city.lat,
-      lng: city.lng,
-      madhab,
-      calc,
-      settings: prayerSettings,
-      lang: (lang === "ar" ? "ar" : "en") as "ar" | "en",
-    };
-    const job = prayerQueueRef.current
-      .catch(() => undefined)
-      .then(async () => {
-        const res = await schedulePrayerNotifications(snapshot);
-        setScheduledPrayerCount(res.scheduled);
-        return res.scheduled;
-      });
-    prayerQueueRef.current = job;
-    return job;
-  };
-  // Always points at the newest render's rebuild. Long-lived listeners (the
-  // foreground handler below) call this instead of a closure captured when the
-  // listener was registered — otherwise coming back to the app re-scheduled
-  // with stale settings (e.g. the old reminder minutes) and undid the user's
-  // latest change.
-  const refreshPermissionRef = useRef(refreshPermission);
-  refreshPermissionRef.current = refreshPermission;
-  const latestReschedulePrayer = useRef(reschedulePrayer);
-  latestReschedulePrayer.current = reschedulePrayer;
+  /* ---------------- one coalescing, non-overlapping rebuild ---------------- */
+  const running = useRef(false);
+  const again = useRef(false);
 
-  useEffect(() => {
-    void reschedulePrayer();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [native, permission, city.lat, city.lng, madhab, calcSignature, prayerSettings, lang]);
-
-  // ---- Athkar + calendar rebuild: one serialized owner, like the prayer
-  // group but driven by the coordinator so those two features don't each
-  // need their own foreground/permission wiring. ----
-  const groupRunRef = useRef<Promise<void> | null>(null);
-  const rerunRef = useRef(false);
-
-  useEffect(() => {
-    // Dry-run (test only): run the same calendar/Athkar pipeline in a browser and record requests.
+  const performRebuild = useCallback(async () => {
+    // Browser: only the test-only dry run may proceed (it records requests, delivers nothing).
     if (!native && !isDryRun()) return;
-    let disposed = false;
+    if (native && (await getPermissionStatus()) !== "granted") return;
 
-    const performAthkarAndCalendar = async () => {
-      const status = native ? await checkPermissionStatus() : "granted";
-      if (status !== "granted" || disposed) return;
-      const l: "ar" | "en" = lang === "ar" ? "ar" : "en";
-      const days: AthkarDayTimes[] = [];
-      for (let i = 0; i < 3; i++) {
-        const d = new Date();
-        d.setDate(d.getDate() + i);
-        const { times } = getPrayerTimes(d, city.lat, city.lng, madhab, calc);
-        days.push({ sunrise: times.sunrise, maghrib: times.maghrib });
-      }
-      await syncEventNotifications(loadEvents(), l);
-      if (!disposed) await syncAthkarReminders(loadAthkarSettings(), days, l);
-    };
+    const { city: c, madhab: m, calc: cc, prayerSettings: ps, lang: lg } = inputs.current;
+    const l: "ar" | "en" = lg === "ar" ? "ar" : "en";
 
-    const requestRun = () => {
-      if (disposed) return;
-      if (groupRunRef.current) {
-        rerunRef.current = true;
-        return;
-      }
-      const run = (async () => {
+    const prayer = await syncPrayerNotifications({ lat: c.lat, lng: c.lng, madhab: m, calc: cc, settings: ps, lang: l });
+    setScheduledPrayerCount(prayer.scheduled);
+
+    await syncAppointmentNotifications(loadEvents(), l);
+
+    const days: AthkarDayTimes[] = [];
+    for (let i = 0; i < 3; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() + i);
+      const { times } = getPrayerTimes(d, c.lat, c.lng, m, cc);
+      days.push({ sunrise: times.sunrise, maghrib: times.maghrib });
+    }
+    await syncAthkarReminders(loadAthkarSettings(), days, l);
+  }, [native]);
+
+  const rebuild = useCallback(async () => {
+    if (running.current) {
+      again.current = true;
+      return;
+    }
+    running.current = true;
+    try {
+      do {
+        again.current = false;
         try {
-          await performAthkarAndCalendar();
-        } finally {
-          groupRunRef.current = null;
-          if (!disposed && rerunRef.current) {
-            rerunRef.current = false;
-            window.setTimeout(requestRun, 300);
-          }
+          await performRebuild();
+        } catch {
+          /* the scheduler reports its own errors; never let one failed rebuild stop the next */
         }
-      })();
-      groupRunRef.current = run;
+      } while (again.current);
+    } finally {
+      running.current = false;
+    }
+  }, [performRebuild]);
+
+  // The permission the UI shows comes from iOS on start-up.
+  useEffect(() => {
+    void refreshPermission();
+  }, [refreshPermission]);
+
+  // Rebuild whenever anything the schedule depends on changes (including the permission).
+  useEffect(() => {
+    void rebuild();
+  }, [rebuild, permission, city.lat, city.lng, madhab, calcSignature, prayerSettings, lang]);
+
+  // Settings screens ask through the scheduler module; nothing else builds notifications.
+  useEffect(() => registerNotificationRebuildHandler(() => void rebuild()), [rebuild]);
+
+  // The user answered Apple's dialog (or changed something) from anywhere.
+  useEffect(() => {
+    const onChanged = () => {
+      void refreshPermission();
+      void rebuild();
     };
+    window.addEventListener(PERMISSION_CHANGED_EVENT, onChanged);
+    return () => window.removeEventListener(PERMISSION_CHANGED_EVENT, onChanged);
+  }, [refreshPermission, rebuild]);
 
-    const unregister = registerNotificationRebuildHandler(requestRun);
-    const startup = window.setTimeout(requestRun, 900);
-    const onPermissionChanged = () => requestRun();
-    window.addEventListener(PERMISSION_CHANGED_EVENT, onPermissionChanged);
-
-    let removeAppListener: (() => void) | undefined;
-    let listenerCancelled = false;
+  // Back from the background (or from iOS Settings): re-read the permission and top the schedule up.
+  useEffect(() => {
+    if (!native) return;
+    let remove: (() => void) | undefined;
+    let cancelled = false;
     (async () => {
       try {
         const { App } = await import("@capacitor/app");
         const handle = await App.addListener("appStateChange", ({ isActive }) => {
-          if (isActive) {
-            // The user may have changed the permission in iOS Settings while away.
-            void refreshPermissionRef.current();
-            window.setTimeout(requestRun, 500);
-            window.setTimeout(() => void latestReschedulePrayer.current(), 500);
-          }
+          if (!isActive) return;
+          void refreshPermission();
+          void rebuild();
         });
-        if (listenerCancelled) handle.remove();
-        else removeAppListener = () => handle.remove();
+        if (cancelled) void handle.remove();
+        else remove = () => void handle.remove();
       } catch {
-        /* plugin unavailable (web build) */
+        /* plugin unavailable */
       }
     })();
-
     return () => {
-      disposed = true;
-      listenerCancelled = true;
-      window.clearTimeout(startup);
-      window.removeEventListener(PERMISSION_CHANGED_EVENT, onPermissionChanged);
-      unregister();
-      removeAppListener?.();
+      cancelled = true;
+      remove?.();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [native, city.lat, city.lng, madhab, calc, lang]);
+  }, [native, refreshPermission, rebuild]);
 
-  const rebuildAll = async () => {
-    await latestReschedulePrayer.current();
-    // Athkar/calendar go through the same coordinator every other trigger uses.
-    const { requestNotificationRebuild } = await import("@/lib/notifications/coordinator");
-    requestNotificationRebuild();
-  };
+  const rebuildAll = useCallback(async () => {
+    await rebuild();
+  }, [rebuild]);
 
   const value = useMemo<NotificationsContextValue>(
     () => ({ permission, refreshPermission, prayerSettings, setPrayerSettings, scheduledPrayerCount, rebuildAll }),
-    [permission, prayerSettings, scheduledPrayerCount],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [permission, refreshPermission, prayerSettings, scheduledPrayerCount, rebuildAll],
   );
 
   return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>;

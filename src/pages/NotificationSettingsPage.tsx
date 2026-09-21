@@ -15,8 +15,8 @@ import {
 import { useNotifications } from "@/components/notifications/NotificationsProvider";
 import { AthkarRemindersCard } from "@/components/islamic/AthkarRemindersCard";
 import { isCalendarNotificationsEnabled, setCalendarNotificationsEnabled } from "@/lib/events";
-import { requestNotificationRebuild } from "@/lib/notifications/coordinator";
-import { athanSoundOption, reminderSoundOption } from "@/lib/notifications/sounds";
+import { requestNotificationRebuild } from "@/lib/notifications/NotificationScheduler";
+import { athanSoundOption, reminderSoundOption } from "@/lib/notifications/NotificationSounds";
 import { loadAthkarSettings } from "@/lib/athkarReminders";
 import { getAnnouncementPushEnabled, setAnnouncementPushEnabled } from "@/lib/pushDevice";
 import { isIOSNativeApp } from "@/lib/platform";
