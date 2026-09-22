@@ -58,6 +58,7 @@
     /* Gradients */
     --gradient-night: radial-gradient(ellipse at top, hsl(var(--card)) 0%, hsl(var(--background)) 60%, hsl(var(--background)) 100%);
     --gradient-fajr: linear-gradient(135deg, hsl(230 50% 18%), hsl(280 40% 22%), hsl(20 60% 30%));
+    --gradient-sunrise: linear-gradient(135deg, hsl(280 35% 24%), hsl(20 70% 45%), hsl(40 90% 65%));
     --gradient-dhuhr: linear-gradient(135deg, hsl(200 70% 45%), hsl(195 80% 60%), hsl(45 90% 70%));
     --gradient-asr: linear-gradient(135deg, hsl(35 75% 55%), hsl(20 70% 50%), hsl(340 50% 35%));
     --gradient-maghrib: linear-gradient(135deg, hsl(15 80% 45%), hsl(340 55% 35%), hsl(280 45% 25%));
@@ -373,6 +374,7 @@
 
 @layer utilities {
   .bg-fajr { background: var(--gradient-fajr); }
+  .bg-sunrise { background: var(--gradient-sunrise); }
   .bg-dhuhr { background: var(--gradient-dhuhr); }
   .bg-asr { background: var(--gradient-asr); }
   .bg-maghrib { background: var(--gradient-maghrib); }
@@ -439,6 +441,15 @@ html:not(.light) .ring-accent { --tw-ring-color: hsl(var(--elite-gold-start)); }
 .page-enter { animation: page-in 240ms ease-out backwards; }
 @media (prefers-reduced-motion: reduce) {
   .scene-star, .rise-in, .page-enter, .animate-pulse { animation: none !important; }
+}
+
+/* Home prayer-time atmosphere: a new gradient fades IN over the old one (opacity only — GPU
+   cheap, no JS animation loop); once the fade ends the component swaps its base layer, so only
+   one layer is ever painting at rest. */
+@keyframes atmosphere-fade-in { from { opacity: 0; } to { opacity: 1; } }
+.atmosphere-fade-in { animation: atmosphere-fade-in 900ms ease both; }
+@media (prefers-reduced-motion: reduce) {
+  .atmosphere-fade-in { animation-duration: 1ms; }
 }
 /* Home hero video: fades into the header at the top/bottom; on wide screens the ends fade too.
    Nested masks (the wrapper carries the horizontal one) so no mask-composite support is needed. */

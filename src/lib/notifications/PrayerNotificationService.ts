@@ -1,6 +1,6 @@
 import { getPrayerTimes, type CalcOptions, type MadhabPref } from "@/lib/prayer";
 import { NOTIFICATION_RANGES, replaceGroup, type ScheduleItemInput } from "./NotificationScheduler";
-import { athanNativeSound } from "./NotificationSounds";
+import { athanNativeSound, preprayerNativeSound } from "./NotificationSounds";
 import { NOTIFIABLE_PRAYERS, type PrayerNotificationSettings } from "./NotificationSettings";
 
 /**
@@ -57,24 +57,30 @@ export function buildPrayerItems(input: BuildPrayerScheduleInput): ScheduleItemI
       const entry = entries.find((e) => e.key === key);
       if (!entry) return;
       const name = NAMES[key];
-      const sound = athanNativeSound(key === "fajr" ? settings.soundFajr : settings.soundOther);
-
+      // PRAYER TIME = the full athan (its own bundled sound, up to iOS's notification-sound
+      // length). The athan id/sound also rides along in `extra` so the app can play the FULL,
+      // untruncated recitation in-app (see lib/notifications/AdhanPlayer.ts) once the tap or the
+      // foreground delivery event fires — the short bundled file is what iOS itself can play as a
+      // notification sound; it is never what limits how much of the athan the user actually hears.
+      const athanId = key === "fajr" ? settings.soundFajr : settings.soundOther;
       items.push({
         id: prayerNotificationId(dayOffset, prayerIndex, false),
         title: lang === "ar" ? `حان الآن وقت صلاة ${name.ar}` : `It's time for ${name.en}`,
         body: lang === "ar" ? "حيّ على الصلاة، حيّ على الفلاح" : "Hayya 'ala-s-salah",
         at: entry.time,
-        sound,
-        extra: { route: "/", prayer: key, kind: "athan" },
+        sound: athanNativeSound(athanId),
+        extra: { route: "/", prayer: key, kind: "athan", sound: athanId },
       });
 
+      // PRE-PRAYER reminder = "أستغفر الله" only — deliberately a different, short sound so it is
+      // never confused with the athan itself.
       if (settings.preReminderEnabled && settings.preReminderMinutes > 0) {
         items.push({
           id: prayerNotificationId(dayOffset, prayerIndex, true),
           title: lang === "ar" ? `تذكير: ${name.ar} بعد ${settings.preReminderMinutes} دقيقة` : `Reminder: ${name.en} in ${settings.preReminderMinutes} min`,
-          body: lang === "ar" ? "استعد لأداء الصلاة" : "Prepare for prayer",
+          body: lang === "ar" ? "أستغفر الله — استعد لأداء الصلاة" : "Astaghfirullah — prepare for prayer",
           at: new Date(entry.time.getTime() - settings.preReminderMinutes * 60_000),
-          sound,
+          sound: preprayerNativeSound(),
           extra: { route: "/", prayer: key, kind: "pre-reminder" },
         });
       }

@@ -23,6 +23,7 @@ import {
   Timer,
   Volume2,
   Calculator,
+  Megaphone,
 } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useTheme, type ThemeMode } from "@/contexts/ThemeContext";
@@ -42,6 +43,7 @@ import { themeById } from "@/lib/themes";
 import { getAppVersion, type AppVersionInfo } from "@/lib/appVersion";
 import { loadAthkarSettings, saveAthkarSettings, type AthkarReminderSettings } from "@/lib/athkarReminders";
 import { isCalendarNotificationsEnabled, setCalendarNotificationsEnabled } from "@/lib/events";
+import { isAdsEnabled, setAdsEnabled } from "@/lib/adsConfig";
 import { requestNotificationRebuild } from "@/lib/notifications/NotificationScheduler";
 
 const CAL_MODE_KEY = "elite.calendar.mode.v1";
@@ -66,6 +68,7 @@ export default function Settings() {
   const { madhab, setMadhab, method, setMethod } = usePrayerCalc();
   const { prayerSettings } = useNotifications();
   const [versionInfo, setVersionInfo] = useState<AppVersionInfo | null>(null);
+  const [adsOn, setAdsOn] = useState(() => isAdsEnabled());
   const [athkar, setAthkar] = useState<AthkarReminderSettings>(() => loadAthkarSettings());
   const [calendarOn, setCalendarOn] = useState(() => isCalendarNotificationsEnabled());
   const [calMode, setCalMode] = useState<"gregorian" | "hijri">(() => {
@@ -211,6 +214,14 @@ export default function Settings() {
           <SettingsGroup>
             <SettingsRow icon={Bell} to="/notification-settings#n-general" label={t("General Notifications", "الإشعارات العامة")} />
             <SettingsRow icon={Music2} to="/notification-settings#n-sounds" label={t("Sounds", "الأصوات")} />
+            <SettingsRow icon={Megaphone} label={t("Ads", "الإعلانات")} description={t("Never shown during prayer, Quran, Athkar, Qibla or scanning.", "لا تظهر أبداً أثناء الصلاة أو القرآن أو الأذكار أو القبلة أو المسح.")}>
+              <Switch
+                aria-label={t("Ads", "الإعلانات")}
+                data-testid="ads-toggle"
+                checked={adsOn}
+                onCheckedChange={(v) => { setAdsOn(v); setAdsEnabled(v); }}
+              />
+            </SettingsRow>
           </SettingsGroup>
         </SettingsSection>
 

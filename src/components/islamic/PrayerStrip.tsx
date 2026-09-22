@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Sunrise, Sun, CloudSun, Sunset, Moon, MoonStar, Hourglass, Volume2, VolumeX } from "lucide-react";
 import { formatTime, getNextPrayer, getPrayerTimes, type PrayerKey } from "@/lib/prayer";
+import { getAtmospherePeriod } from "@/lib/prayerAtmosphere";
 import { useNotificationsOptional } from "@/components/notifications/NotificationsProvider";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useCity } from "@/contexts/CityContext";
@@ -21,6 +22,10 @@ const STYLES: Record<string, StripItem> = {
   isha:    { key: "isha",    Icon: Moon,     iconClass: "text-indigo-600" },
 };
 
+/** How long a tap-preview of another prayer's atmosphere lasts before reverting to the real,
+ * automatic, time-based one. */
+const PREVIEW_MS = 5000;
+
 export function PrayerStrip({ variant = "strip" }: { variant?: "strip" | "list" }) {
   const { lang, t, dir } = useLocale();
   const notif = useNotificationsOptional();
@@ -29,7 +34,14 @@ export function PrayerStrip({ variant = "strip" }: { variant?: "strip" | "list" 
   const [now, setNow] = useState(new Date());
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
+    // Timers are throttled/paused in the background; recompute the moment the app is visible again
+    // instead of waiting for the next tick, so the atmosphere is never stale after a resume.
+    const onVisible = () => { if (document.visibilityState === "visible") setNow(new Date()); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
 
   const { entries, sunnah } = useMemo(
@@ -37,6 +49,35 @@ export function PrayerStrip({ variant = "strip" }: { variant?: "strip" | "list" 
     [now.toDateString(), city.id, madhab, calcSignature],
   );
   const { next, progress } = getNextPrayer(entries, now);
+
+  // The REAL, automatic atmosphere — always driven by the actual current time and the app's own
+  // prayer times, recomputed every tick (and immediately on resume via the effect above).
+  const realAtmosphere = useMemo(() => getAtmospherePeriod(entries, now), [entries, now]);
+
+  // A tap on a specific prayer time previews ITS atmosphere for a few seconds without changing the
+  // real, underlying state — when the preview ends (or the real period itself changes) it always
+  // falls back to `realAtmosphere`, never the other way around.
+  const [previewKey, setPreviewKey] = useState<PrayerKey | null>(null);
+  useEffect(() => {
+    if (!previewKey) return;
+    const id = window.setTimeout(() => setPreviewKey(null), PREVIEW_MS);
+    return () => window.clearTimeout(id);
+  }, [previewKey]);
+  useEffect(() => setPreviewKey(null), [realAtmosphere.key]); // the real time moved on — drop any stale preview
+
+  const shownAtmosphere = (previewKey && entries.find((e) => e.key === previewKey)) || realAtmosphere;
+  const previewing = previewKey !== null && previewKey !== realAtmosphere.key;
+
+  // Cross-fade between gradients: CSS cannot interpolate one gradient into another directly, so the
+  // new gradient fades in over the old one (a single opacity animation — no JS animation loop), then
+  // becomes the base layer once the fade finishes. Under prefers-reduced-motion the fade is instant
+  // (see index.css), so this still resolves to a plain swap with no motion.
+  const [displayedGradient, setDisplayedGradient] = useState(shownAtmosphere.gradient);
+  const [incomingGradient, setIncomingGradient] = useState<string | null>(null);
+  useEffect(() => {
+    if (shownAtmosphere.gradient !== displayedGradient) setIncomingGradient(shownAtmosphere.gradient);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shownAtmosphere.gradient]);
 
   const locale = lang === "ar" ? "ar-SA" : "en-US";
 
@@ -117,21 +158,44 @@ export function PrayerStrip({ variant = "strip" }: { variant?: "strip" | "list" 
 
   return (
     <div dir={dir} className="space-y-3">
-      {/* Horizontal strip */}
-      <div className="glass rounded-2xl p-2 border border-foreground/10 shadow-sm">
-        <div className="flex items-stretch gap-1 w-full">
+      {/* Horizontal strip, on a background that reflects the real time of day (Fajr/Sunrise/Dhuhr/
+          Asr/Maghrib/Isha) — reuses the app's own gradient tokens (--gradient-fajr, …), transitions
+          smoothly between them, and updates itself automatically as the real prayer time changes.
+          Tapping a tile PREVIEWS that prayer's atmosphere for a few seconds without changing the
+          real, underlying state. */}
+      <div
+        data-testid="prayer-atmosphere"
+        data-atmosphere={shownAtmosphere.key}
+        data-previewing={previewing}
+        className="relative overflow-hidden rounded-2xl border border-white/10 shadow-sm"
+      >
+        <div className={`absolute inset-0 ${displayedGradient}`} aria-hidden="true" />
+        {incomingGradient && (
+          <div
+            key={incomingGradient}
+            className={`absolute inset-0 ${incomingGradient} atmosphere-fade-in`}
+            aria-hidden="true"
+            onAnimationEnd={() => { setDisplayedGradient(incomingGradient); setIncomingGradient(null); }}
+          />
+        )}
+        <div className="relative flex items-stretch gap-1 w-full p-2">
           {entries.map((p) => {
             const style = STYLES[p.key] ?? STYLES.dhuhr;
             const Icon = style.Icon;
             const isNext = p.key === next.key;
             return (
-              <div
+              <button
+                type="button"
                 key={p.key}
+                data-testid={`prayer-tile-${p.key}`}
+                onClick={() => setPreviewKey((cur) => (cur === p.key ? null : p.key))}
+                aria-pressed={previewKey === p.key}
+                aria-label={t(`Preview ${p.nameEn} atmosphere`, `معاينة أجواء ${p.nameAr}`)}
                 className={`flex-1 min-w-0 flex flex-col items-center px-0.5 py-2.5 rounded-xl transition ${
-                  isNext ? "bg-accent/15 ring-1 ring-accent" : "opacity-60"
+                  isNext ? "bg-white/15 ring-1 ring-accent" : "opacity-80 hover:opacity-100"
                 }`}
               >
-                <div className={`text-[11px] min-[400px]:text-label mb-1.5 whitespace-nowrap max-w-full ${isNext ? "text-accent" : "text-foreground/85"}`}>
+                <div className={`text-[11px] min-[400px]:text-label mb-1.5 whitespace-nowrap max-w-full ${isNext ? "text-accent" : "text-white/90"}`}>
                   {t(p.nameEn, p.nameAr)}
                 </div>
                 <div className="relative h-10 w-10 mb-1.5">
@@ -154,13 +218,12 @@ export function PrayerStrip({ variant = "strip" }: { variant?: "strip" | "list" 
                 </div>
                 <div
                   className={`font-time text-[12px] sm:text-body-sm font-bold tabular-nums whitespace-nowrap ${
-                    isNext ? "text-elite-gold" : "text-foreground"
+                    isNext ? "text-elite-gold" : "text-white"
                   }`}
                 >
                   {formatTime(p.time, locale)}
                 </div>
-
-              </div>
+              </button>
             );
           })}
         </div>

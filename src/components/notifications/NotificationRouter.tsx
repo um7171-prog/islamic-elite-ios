@@ -4,6 +4,7 @@ import { isNativeApp } from "@/lib/platform";
 import { ANNOUNCEMENT_PUSH_CHANGED_EVENT, getAnnouncementPushEnabled, registerPushNotifications } from "@/lib/pushDevice";
 import { useLocale } from "@/contexts/LocaleContext";
 import { addInboxItem } from "@/lib/notificationInbox";
+import { playFullAdhan } from "@/lib/notifications/AdhanPlayer";
 
 /**
  * Native-only: opens the right screen when the user taps a notification, and
@@ -37,12 +38,21 @@ export function NotificationRouter() {
       try {
         const { LocalNotifications } = await import("@capacitor/local-notifications");
         // A local notification delivered while the app is open enters the Notification Center now.
+        // extra.kind === "athan": the OS already played the short bundled sound; this plays the
+        // SAME recitation's full, untruncated length in-app (see AdhanPlayer). Whichever of the two
+        // events below fires first wins — AdhanPlayer de-dupes by notification id.
+        const playIfAthan = (extra: { kind?: string; sound?: string } | undefined, id: number) => {
+          if (extra?.kind === "athan" && extra.sound) playFullAdhan(extra.sound as Parameters<typeof playFullAdhan>[0], id);
+        };
         const received = await LocalNotifications.addListener("localNotificationReceived", (n) => {
-          addInboxItem({ kind: "local", id: `local-${n.id}-${Math.floor(Date.now() / 60_000)}`, title: n.title ?? "", body: n.body ?? "", route: (n.extra as { route?: string } | undefined)?.route });
+          const extra = n.extra as { route?: string; kind?: string; sound?: string } | undefined;
+          addInboxItem({ kind: "local", id: `local-${n.id}-${Math.floor(Date.now() / 60_000)}`, title: n.title ?? "", body: n.body ?? "", route: extra?.route });
+          playIfAthan(extra, n.id);
         });
         const handle = await LocalNotifications.addListener("localNotificationActionPerformed", (event) => {
-          const route = (event.notification?.extra as { route?: string } | undefined)?.route || "/";
-          navigate(route);
+          const extra = event.notification?.extra as { route?: string; kind?: string; sound?: string } | undefined;
+          playIfAthan(extra, event.notification?.id);
+          navigate(extra?.route || "/");
         });
         if (cancelled) { handle.remove(); received.remove(); }
         else remove = () => { handle.remove(); received.remove(); };

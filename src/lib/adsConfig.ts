@@ -18,3 +18,26 @@ export const AD_SLOTS = {
 
 export type AdSlotKey = keyof typeof AD_SLOTS;
 
+
+/* ------------ User on/off switch (Settings) ------------ */
+const ADS_ENABLED_KEY = "elite.ads.enabled.v1";
+export const ADS_ENABLED_CHANGED_EVENT = "elite:ads-enabled-changed";
+
+/** Default ON (matches the app's existing behaviour before this switch existed). */
+export function isAdsEnabled(): boolean {
+  try {
+    const v = localStorage.getItem(ADS_ENABLED_KEY);
+    return v === null ? true : v === "1";
+  } catch {
+    return true;
+  }
+}
+
+export function setAdsEnabled(enabled: boolean): void {
+  try {
+    localStorage.setItem(ADS_ENABLED_KEY, enabled ? "1" : "0");
+    window.dispatchEvent(new CustomEvent(ADS_ENABLED_CHANGED_EVENT, { detail: { enabled } }));
+  } catch {
+    /* storage unavailable */
+  }
+}

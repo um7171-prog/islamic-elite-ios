@@ -282,13 +282,14 @@ describe("PrayerNotificationService", () => {
     expect(at("hanafi", "fajr")).toBe(at("hanbali", "fajr"));
   });
 
-  it("every prayer alert is at its prayer time; the reminder is N minutes earlier with the same sound", () => {
+  it("every prayer alert is at its prayer time; the reminder is N minutes earlier — with its OWN (pre-prayer) sound, not the athan's", () => {
     const items = buildPrayerItems(prayerInput({ s: settings({ preReminderMinutes: 15 }) }));
     const base = NOTIFICATION_RANGES.prayer.min;
     const athan = items.find((i) => i.id === base + 2)!; // day 0, dhuhr
     const rem = items.find((i) => i.id === base + 3)!;
     expect((athan.at.getTime() - rem.at.getTime()) / 60_000).toBe(15);
-    expect(rem.sound).toBe(athan.sound);
+    expect(rem.sound).not.toBe(athan.sound);
+    expect(rem.sound).toBe("astaghfirullah.caf");
   });
 
   it("turning the reminder off removes every reminder; disabling a prayer removes all of it", () => {
@@ -521,5 +522,37 @@ describe("Adhan elapsed (الأذان منذ)", () => {
   it("when two prayers are inside the window the most recent one wins", () => {
     const e: PrayerTimeEntry[] = [{ key: "dhuhr", time: new Date(T.getTime() - 20 * 60_000) }, { key: "asr", time: new Date(T.getTime() - 5 * 60_000) }];
     expect(getAdhanElapsed(T, e)).toEqual({ prayer: "asr", minutes: 5 });
+  });
+});
+
+/* ---------------------------------------------------------------- pre-prayer vs athan sound */
+describe("PRE-PRAYER (أستغفر الله) is never mixed with PRAYER TIME (athan)", () => {
+  it("the athan item and the pre-reminder item use different sound files", () => {
+    const items = buildPrayerItems(prayerInput({ s: settings({ preReminderEnabled: true, preReminderMinutes: 10 }) }));
+    const athan = items.find((i) => (i.extra as { kind: string }).kind === "athan")!;
+    const pre = items.find((i) => (i.extra as { kind: string }).kind === "pre-reminder")!;
+    expect(athan.sound).not.toBe(pre.sound);
+    expect(pre.sound).toBe("astaghfirullah.caf");
+    expect(athan.sound).toMatch(/^athan_/);
+  });
+
+  it("the pre-reminder body says Astaghfirullah / أستغفر الله, never the athan phrase", () => {
+    const ar = buildPrayerItems({ ...prayerInput({ s: settings({ preReminderEnabled: true }) }), lang: "ar" });
+    const en = buildPrayerItems({ ...prayerInput({ s: settings({ preReminderEnabled: true }) }), lang: "en" });
+    const preAr = ar.filter((i) => (i.extra as { kind: string }).kind === "pre-reminder");
+    const preEn = en.filter((i) => (i.extra as { kind: string }).kind === "pre-reminder");
+    expect(preAr.length).toBeGreaterThan(0);
+    expect(preEn.length).toBeGreaterThan(0);
+    preAr.forEach((i) => expect(i.body).toMatch(/أستغفر الله/));
+    preEn.forEach((i) => expect(i.body).toMatch(/Astaghfirullah/i));
+    preAr.forEach((i) => expect(i.body).not.toMatch(/حيّ على الصلاة/));
+  });
+
+  it("the athan item carries its sound id in extra, for in-app full playback", () => {
+    const items = buildPrayerItems(prayerInput({ s: settings({ soundFajr: "fajr", soundOther: "madinah" }) }));
+    const fajrAthan = items.find((i) => (i.extra as { kind: string; prayer: string }).kind === "athan" && (i.extra as { prayer: string }).prayer === "fajr")!;
+    const dhuhrAthan = items.find((i) => (i.extra as { kind: string; prayer: string }).kind === "athan" && (i.extra as { prayer: string }).prayer === "dhuhr")!;
+    expect((fajrAthan.extra as { sound: string }).sound).toBe("fajr");
+    expect((dhuhrAthan.extra as { sound: string }).sound).toBe("madinah");
   });
 });

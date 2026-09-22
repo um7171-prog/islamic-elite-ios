@@ -28,9 +28,9 @@ export interface AthanSoundOption {
 }
 
 export const ATHAN_SOUNDS: AthanSoundOption[] = [
-  { id: "makkah", ar: "أذان المسجد الحرام", en: "Makkah (Haram)", previewUrl: "https://www.islamcan.com/audio/adhan/azan3.mp3", nativeFile: "athan_makkah.caf" },
-  { id: "madinah", ar: "أذان المسجد النبوي", en: "Madinah (Nabawi)", previewUrl: "https://www.islamcan.com/audio/adhan/azan1.mp3", nativeFile: "athan_madinah.caf" },
-  { id: "fajr", ar: "أذان الفجر", en: "Fajr Athan", previewUrl: "https://www.islamcan.com/audio/adhan/azan2.mp3", nativeFile: "athan_fajr.caf" },
+  { id: "makkah", ar: "أذان المسجد الحرام", en: "Makkah (Haram)", previewUrl: "/sounds/athan_makkah.mp3", nativeFile: "athan_makkah.caf" },
+  { id: "madinah", ar: "أذان المسجد النبوي", en: "Madinah (Nabawi)", previewUrl: "/sounds/athan_madinah.mp3", nativeFile: "athan_madinah.caf" },
+  { id: "fajr", ar: "أذان الفجر", en: "Fajr Athan", previewUrl: "/sounds/athan_fajr.mp3", nativeFile: "athan_fajr.caf" },
   { id: "ibnMajid", ar: "الشيخ عبدالعزيز بن ماجد", en: "Sheikh Abdulaziz bin Majid", previewUrl: "/sounds/athan_ibn_majid.mp3", nativeFile: "athan_ibn_majid.caf" },
   { id: "default", ar: "الصوت الافتراضي", en: "System default", previewUrl: "" },
 ];
@@ -79,6 +79,20 @@ export function athanNativeSound(id: AthanSoundId): string {
 export function reminderNativeSound(id: ReminderSoundId): string {
   const file = reminderSoundOption(id)?.nativeFile;
   return file && BUNDLED_NATIVE_SOUNDS.includes(file) ? file : "default";
+}
+
+/** The bundled "أستغفر الله" file used for the pre-prayer reminder ONLY — never for the
+ * athan itself. Falls back to "default" the same way athan/reminder sounds do if it is
+ * ever not actually bundled. */
+export const PRE_PRAYER_SOUND_FILE = "astaghfirullah.caf";
+export function preprayerNativeSound(): string {
+  return BUNDLED_NATIVE_SOUNDS.includes(PRE_PRAYER_SOUND_FILE) ? PRE_PRAYER_SOUND_FILE : "default";
+}
+
+/** Local full-length recitation file for in-app playback (never truncated by the
+ * iOS notification-sound size limit, which only applies to the short `.caf`). */
+export function athanFullAudioUrl(id: AthanSoundId): string {
+  return athanSoundOption(id)?.previewUrl || "";
 }
 
 /** In-app preview playback (web + native webview) — separate from the

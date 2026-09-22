@@ -17,6 +17,13 @@ vi.mock("@/lib/scanner/nativeScanner", () => ({
 const downloadBlob = vi.fn<(blob: Blob, name: string) => Promise<void>>(async () => undefined);
 vi.mock("@/lib/aiImage", () => ({ downloadBlob: (blob: Blob, name: string) => downloadBlob(blob, name) }));
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
+// applyFilterToDataUrl needs real <canvas> pixel APIs jsdom does not implement; stand in with a
+// deterministic, distinguishable "processed" marker per filter so the UI/PDF wiring is provable.
+// A valid JPEG must stay embeddable in the real PDF, so the mock keeps the SAME bytes and only
+// distinguishes filters by width (real algorithm output width/height would differ too).
+const FILTER_WIDTH: Record<string, number> = { magic: 901, grayscale: 902, bw: 903 };
+const applyFilterToDataUrl = vi.fn(async (dataUrl: string, filter: string) => ({ dataUrl, width: FILTER_WIDTH[filter] ?? 900, height: 1300 }));
+vi.mock("@/lib/scanner/applyFilter", () => ({ applyFilterToDataUrl: (u: string, f: string) => applyFilterToDataUrl(u, f) }));
 
 import { LocaleProvider } from "@/contexts/LocaleContext";
 import { DocumentScannerDialog } from "@/components/scanner/DocumentScannerDialog";
@@ -204,5 +211,87 @@ describe("native project wiring (what the iPhone build actually contains)", () =
     for (const f of readdirSync("src/components/scanner")) expect(read(`src/components/scanner/${f}`)).not.toMatch(/getUserMedia|detectDocument|warpToRect/);
     for (const f of readdirSync("src/lib/scanner")) expect(read(`src/lib/scanner/${f}`)).not.toMatch(/getUserMedia|detectDocument|warpToRect/);
     expect(read("src/components/services/ServicesHub.tsx")).toMatch(/@\/components\/scanner\/DocumentScannerDialog/);
+  });
+});
+
+describe("scan enhancement (real per-pixel processing, applied before PDF)", () => {
+  beforeEach(() => { applyFilterToDataUrl.mockClear(); applyFilterToDataUrl.mockImplementation(async (dataUrl: string, filter: string) => ({ dataUrl, width: FILTER_WIDTH[filter] ?? 900, height: 1300 })); });
+
+  it("Magic is applied automatically right after the scan (not just Original)", async () => {
+    scanDocument.mockResolvedValue(page());
+    render(<Host />);
+    await waitFor(() => expect(screen.getAllByTestId("scan-page")).toHaveLength(1));
+    await waitFor(() => expect(applyFilterToDataUrl).toHaveBeenCalledWith(JPEG_1X1, "magic"));
+    await waitFor(() => expect(screen.getByAltText("صفحة 1").getAttribute("data-filter")).toBe("magic"));
+    expect(screen.getByTestId("scan-filter-magic").getAttribute("data-active")).toBe("true");
+  });
+
+  it("all four options are offered: Original, Magic, Grayscale, B&W", async () => {
+    scanDocument.mockResolvedValue(page());
+    render(<Host />);
+    await waitFor(() => expect(screen.getByTestId("scan-filters")).toBeTruthy());
+    for (const id of ["original", "magic", "grayscale", "bw"]) expect(screen.getByTestId(`scan-filter-${id}`)).toBeTruthy();
+  });
+
+  it("switching filters runs REAL processing (not a CSS-only preview) and updates what will be exported", async () => {
+    scanDocument.mockResolvedValue(page());
+    render(<Host />);
+    await waitFor(() => expect(screen.getByAltText("صفحة 1").getAttribute("data-filter")).toBe("magic")); // initial auto-Magic settled
+    fireEvent.click(screen.getByTestId("scan-filter-bw"));
+    await waitFor(() => expect(applyFilterToDataUrl).toHaveBeenCalledWith(JPEG_1X1, "bw"));
+    await waitFor(() => expect(screen.getByAltText("صفحة 1").getAttribute("data-filter")).toBe("bw"));
+    fireEvent.click(screen.getByTestId("scan-save-pdf"));
+    await waitFor(() => expect(downloadBlob).toHaveBeenCalled());
+  });
+
+  it("a computed filter is cached: switching back to it does not reprocess", async () => {
+    scanDocument.mockResolvedValue(page());
+    render(<Host />);
+    await waitFor(() => expect(applyFilterToDataUrl).toHaveBeenCalledWith(JPEG_1X1, "magic"));
+    fireEvent.click(screen.getByTestId("scan-filter-grayscale"));
+    await waitFor(() => expect(applyFilterToDataUrl).toHaveBeenCalledWith(JPEG_1X1, "grayscale"));
+    const callsAfterGray = applyFilterToDataUrl.mock.calls.length;
+    fireEvent.click(screen.getByTestId("scan-filter-magic")); // already computed
+    await new Promise((r) => setTimeout(r, 20));
+    expect(applyFilterToDataUrl.mock.calls.length).toBe(callsAfterGray);
+  });
+
+  it("Original bypasses processing entirely and uses the untouched capture", async () => {
+    scanDocument.mockResolvedValue(page());
+    render(<Host />);
+    await waitFor(() => expect(screen.getByTestId("scan-filters")).toBeTruthy());
+    fireEvent.click(screen.getByTestId("scan-filter-original"));
+    await waitFor(() => {
+      const img = screen.getByAltText("صفحة 1") as HTMLImageElement;
+      expect(img.getAttribute("data-filter")).toBe("original");
+      expect(img.src).toBe(JPEG_1X1);
+    });
+    expect(applyFilterToDataUrl).not.toHaveBeenCalledWith(JPEG_1X1, "original");
+  });
+
+  it("Save PDF uses the SELECTED FILTER's processed image, not the raw capture", async () => {
+    scanDocument.mockResolvedValue(page());
+    render(<Host />);
+    await waitFor(() => expect(screen.getByAltText("صفحة 1").getAttribute("data-filter")).toBe("magic")); // initial auto-Magic settled
+    fireEvent.click(screen.getByTestId("scan-save-pdf"));
+    await waitFor(() => expect(downloadBlob).toHaveBeenCalledTimes(1));
+    const [blob] = downloadBlob.mock.calls[0];
+    const text = await new Promise<string>((res) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.readAsText(blob); });
+    expect(text.startsWith("%PDF-")).toBe(true); // a real, embeddable image reference — not just the raw dataUrl string
+  });
+
+  it("each page keeps its own filter independently", async () => {
+    scanDocument.mockResolvedValueOnce(page(1)).mockResolvedValueOnce(page(2));
+    render(<Host />);
+    await waitFor(() => expect(screen.getAllByTestId("scan-page")).toHaveLength(1));
+    fireEvent.click(screen.getByTestId("scan-filter-grayscale"));
+    await waitFor(() => expect(applyFilterToDataUrl).toHaveBeenCalledWith(JPEG_1X1, "grayscale"));
+    fireEvent.click(screen.getByTestId("scan-add"));
+    await waitFor(() => expect(screen.getAllByTestId("scan-page")).toHaveLength(2));
+    // the newly added (now selected) page defaults to Magic again
+    await waitFor(() => expect(screen.getByTestId("scan-filter-magic").getAttribute("data-active")).toBe("true"));
+    // selecting page 1 again shows it is still Grayscale
+    fireEvent.click(screen.getAllByTestId("scan-page")[0]);
+    expect(screen.getByTestId("scan-filter-grayscale").getAttribute("data-active")).toBe("true");
   });
 });

@@ -69,7 +69,7 @@ export function getPrayerTimes(
 
   const entries: PrayerEntry[] = [
     { key: "fajr",    nameEn: "Fajr",    nameAr: "الفجر",   time: times.fajr,    gradient: "bg-fajr" },
-    { key: "sunrise", nameEn: "Sunrise", nameAr: "الشروق",  time: times.sunrise, gradient: "bg-dhuhr" },
+    { key: "sunrise", nameEn: "Sunrise", nameAr: "الشروق",  time: times.sunrise, gradient: "bg-sunrise" },
     { key: "dhuhr",   nameEn: "Dhuhr",   nameAr: "الظهر",   time: times.dhuhr,   gradient: "bg-dhuhr" },
     { key: "asr",     nameEn: "Asr",     nameAr: "العصر",   time: times.asr,     gradient: "bg-asr" },
     { key: "maghrib", nameEn: "Maghrib", nameAr: "المغرب",  time: times.maghrib, gradient: "bg-maghrib" },

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { ADSENSE_CLIENT, AD_SLOTS, type AdSlotKey } from "@/lib/adsConfig";
 import { isIOSNativeApp } from "@/lib/platform";
+import { isAdsEnabled } from "@/lib/adsConfig";
 
 interface Props {
   slot: AdSlotKey;
@@ -17,11 +18,12 @@ interface Props {
 export function AdSlot({ slot, className = "", format = "auto" }: Props) {
   const slotId = AD_SLOTS[slot];
   const iosNative = isIOSNativeApp();
+  const enabled = isAdsEnabled();
   const insRef = useRef<HTMLModElement>(null);
   const pushed = useRef(false);
 
   useEffect(() => {
-    if (iosNative || !slotId || pushed.current || !insRef.current) return;
+    if (iosNative || !enabled || !slotId || pushed.current || !insRef.current) return;
 
     const pushAd = () => {
       if (pushed.current) return;
@@ -51,9 +53,9 @@ export function AdSlot({ slot, className = "", format = "auto" }: Props) {
       pushAd();
     }, { once: true });
     document.head.appendChild(script);
-  }, [iosNative, slotId]);
+  }, [iosNative, enabled, slotId]);
 
-  if (iosNative || !slotId) return null;
+  if (iosNative || !enabled || !slotId) return null;
 
   return (
     <div className={`w-full my-3 ${className}`}>

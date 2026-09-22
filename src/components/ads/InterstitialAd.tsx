@@ -4,6 +4,7 @@ import { AdSlot } from "@/components/ads/AdSlot";
 import type { AdSlotKey } from "@/lib/adsConfig";
 import { useLocale } from "@/contexts/LocaleContext";
 import { isIOSNativeApp } from "@/lib/platform";
+import { isAdsEnabled } from "@/lib/adsConfig";
 
 interface Props {
   open: boolean;
@@ -22,22 +23,23 @@ interface Props {
 export function InterstitialAd({ open, slot, onClose, delay = 3 }: Props) {
   const { t, dir } = useLocale();
   const iosNative = isIOSNativeApp();
+  const skip = iosNative || !isAdsEnabled();
   const [left, setLeft] = useState(delay);
 
   useEffect(() => {
-    if (!open || iosNative) return;
+    if (!open || skip) return;
     setLeft(delay);
     const id = window.setInterval(() => {
       setLeft((v) => (v <= 1 ? (window.clearInterval(id), 0) : v - 1));
     }, 1000);
     return () => window.clearInterval(id);
-  }, [open, delay, iosNative]);
+  }, [open, delay, skip]);
 
   useEffect(() => {
-    if (open && iosNative) onClose();
-  }, [open, iosNative, onClose]);
+    if (open && skip) onClose();
+  }, [open, skip, onClose]);
 
-  if (!open || iosNative) return null;
+  if (!open || skip) return null;
 
   return (
     <div dir={dir} className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-sm flex flex-col animate-fade-in">

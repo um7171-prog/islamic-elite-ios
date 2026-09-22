@@ -86,6 +86,19 @@ export async function hapticQiblaAligned() {
   beep(1760, 260, 0.32, 0.24);
 }
 
+/** Single light tap for a toggle/switch flip — no beep, no loop, fires once per state change. */
+export async function hapticToggle() {
+  if (isNative()) {
+    try {
+      await Haptics.impact({ style: ImpactStyle.Light });
+      return;
+    } catch {}
+  }
+  if (typeof navigator !== "undefined" && (navigator as any).vibrate) {
+    (navigator as any).vibrate(10);
+  }
+}
+
 /** Quick tick — also unlocks iOS haptics + audio when called from a user gesture. */
 export async function hapticTick() {
   unlockAudio();
