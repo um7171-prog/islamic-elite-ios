@@ -81,10 +81,12 @@ export function reminderNativeSound(id: ReminderSoundId): string {
   return file && BUNDLED_NATIVE_SOUNDS.includes(file) ? file : "default";
 }
 
-/** The bundled "أستغفر الله" file used for the pre-prayer reminder ONLY — never for the
- * athan itself. Falls back to "default" the same way athan/reminder sounds do if it is
- * ever not actually bundled. */
-export const PRE_PRAYER_SOUND_FILE = "astaghfirullah.caf";
+/** The bundled pre-Athan alert sound, used for the pre-prayer reminder ONLY — never for the
+ * athan itself. It is an iOS-ready copy (.caf, linear PCM) of the supplied
+ * public/sounds/ElevenLabs_2026-09-22T22_16_26_…_صدى_خفيف.wav, under a plain ASCII name like
+ * every other bundled notification sound. Falls back to "default" the same way athan/reminder sounds
+ * do if it is ever not actually bundled. */
+export const PRE_PRAYER_SOUND_FILE = "pre_athan_alert.caf";
 export function preprayerNativeSound(): string {
   return BUNDLED_NATIVE_SOUNDS.includes(PRE_PRAYER_SOUND_FILE) ? PRE_PRAYER_SOUND_FILE : "default";
 }

@@ -10,6 +10,7 @@ import { componentTagger } from "lovable-tagger";
 // is not verified here is scheduled with the system default sound instead —
 // iOS delivers a *silent* notification when it cannot find the named file.
 const CAF_NAMES = [
+  "pre_athan_alert.caf",
   "astaghfirullah.caf",
   "athan_makkah.caf",
   "athan_madinah.caf",
@@ -61,7 +62,7 @@ const GIT_INFO = gitInfo();
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   define: {
-    __PRE_REMINDER_CAF_BUNDLED__: JSON.stringify(bundledCafs().includes("astaghfirullah.caf")),
+    __PRE_REMINDER_CAF_BUNDLED__: JSON.stringify(bundledCafs().includes("pre_athan_alert.caf")),
     __BUNDLED_CAFS__: JSON.stringify(bundledCafs()),
     __BUILD_STAMP__: JSON.stringify(BUILD_STAMP),
     __APP_VERSION__: JSON.stringify(APP_VERSION),

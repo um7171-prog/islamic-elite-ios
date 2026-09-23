@@ -155,7 +155,7 @@ export function PrayerAlertsGroup({ defaultOpen = false }: { defaultOpen?: boole
 }
 
 /** Alert before the Athan — on/off, and (when on) how many minutes before, as a
- * row that opens its choices on tap. Its sound is the bundled "أستغفر الله"
+ * row that opens its choices on tap. Its sound is the bundled pre-Athan alert
  * (PRE_PRAYER_SOUND_FILE); scheduling itself lives in PrayerNotificationService. */
 export function PreReminderGroup({ defaultOpen = false }: { defaultOpen?: boolean }) {
   const { t } = useLocale();
@@ -164,7 +164,6 @@ export function PreReminderGroup({ defaultOpen = false }: { defaultOpen?: boolea
     <SettingsGroup>
       <SettingsRow
         label={t("Alert before the Athan", "التنبيه قبل الأذان")}
-        description={t("Sound: Astaghfirullah", "الصوت: أستغفر الله")}
         icon={Timer}
       >
         <Switch

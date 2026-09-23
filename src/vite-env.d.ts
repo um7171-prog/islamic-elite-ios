@@ -12,7 +12,7 @@ declare module "mammoth" {
   export default mammoth;
 }
 
-/** Injected by vite.config.ts — true when astaghfirullah.caf is inside the iOS App Bundle. */
+/** Injected by vite.config.ts — true when pre_athan_alert.caf is inside the iOS App Bundle. */
 declare const __PRE_REMINDER_CAF_BUNDLED__: boolean;
 /** Injected by vite.config.ts — .caf files verified to be in the iOS App Bundle. */
 declare const __BUNDLED_CAFS__: string[];

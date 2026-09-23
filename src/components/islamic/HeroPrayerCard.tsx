@@ -52,7 +52,7 @@ function useNextPrayer() {
   // upcoming) Isha entry, so a negative diff must not read as "just arrived".
   const rawSinceCurrent = now.getTime() - current.time.getTime();
   const justArrived = rawSinceCurrent >= 0 && rawSinceCurrent < 60_000;
-  return { now, entries, tomorrowEntries, current, next, msUntilNext, justArrived, adhan };
+  return { now, entries, yesterdayEntries, tomorrowEntries, current, next, msUntilNext, justArrived, adhan };
 }
 
 const formatHMS = (ms: number) => {
@@ -122,10 +122,22 @@ export function HeroPrayerCard({ className = "" }: { className?: string }) {
   );
 }
 
+/** "أذّن منذ دقيقة / دقيقتين / 3 دقائق … / 11 دقيقة" — minutes since a prayer's adhan time. */
+function adhanSinceLabel(minutes: number, lang: "ar" | "en"): string {
+  if (lang === "en") return minutes === 1 ? "Adhan 1 min ago" : `Adhan ${minutes} min ago`;
+  if (minutes === 1) return "أذّن منذ دقيقة";
+  if (minutes === 2) return "أذّن منذ دقيقتين";
+  if (minutes <= 10) return `أذّن منذ ${minutes} دقائق`;
+  return `أذّن منذ ${minutes} دقيقة`;
+}
+
 /** Compact "time until the next prayer" bar (Prayer Times screen, above the list).
  * `selectedKey` (optional) counts down to that specific prayer instead — today's time, or
- * tomorrow's once today's has passed. `atmosphere` paints the bar with the time-of-day gradient
- * of the shown prayer (the same `bg-fajr`/`bg-dhuhr`/… tokens as Home's strip). */
+ * tomorrow's once today's has passed. For the first 30 minutes after a prayer's adhan
+ * (ADHAN_ELAPSED_WINDOW_MINUTES) the bar does not jump to the next prayer: it shows
+ * "أذّن منذ N دقيقة" for that prayer (the selected one, when one is selected), then returns to the
+ * normal countdown. `atmosphere` paints the bar with the time-of-day gradient of the shown prayer
+ * (the same `bg-fajr`/`bg-dhuhr`/… tokens as Home's strip). */
 export function NextPrayerBar({
   className = "",
   selectedKey = null,
@@ -135,27 +147,34 @@ export function NextPrayerBar({
   selectedKey?: PrayerKey | null;
   atmosphere?: boolean;
 }) {
-  const { t, dir } = useLocale();
-  const { now, entries, tomorrowEntries, current, next, msUntilNext, justArrived } = useNextPrayer();
+  const { t, dir, lang } = useLocale();
+  const { now, entries, yesterdayEntries, tomorrowEntries, next, msUntilNext, adhan } = useNextPrayer();
 
   let target: PrayerEntry = next;
   let ms = msUntilNext;
-  let arrived = justArrived;
+  // The prayer whose adhan passed within the window — for the selected prayer only, when one is selected.
+  let since: { entry: PrayerEntry; minutes: number } | null = null;
   const chosen = selectedKey ? entries.find((e) => e.key === selectedKey) : undefined;
   if (chosen) {
     const upcoming = chosen.time.getTime() > now.getTime() ? chosen : tomorrowEntries.find((e) => e.key === chosen.key) ?? chosen;
     target = upcoming;
     ms = upcoming.time.getTime() - now.getTime();
-    arrived = justArrived && chosen.key === current.key;
+    const own = getAdhanElapsed(now, [...yesterdayEntries, ...entries].filter((e) => e.key === chosen.key));
+    if (own) since = { entry: chosen, minutes: own.minutes };
+  } else if (adhan) {
+    const entry = entries.find((e) => e.key === adhan.prayer);
+    if (entry) since = { entry, minutes: adhan.minutes };
   }
+  if (since) target = since.entry;
 
-  const background = atmosphere ? (chosen ?? getAtmospherePeriod(entries, now)).gradient : "bg-header";
+  const background = atmosphere ? (chosen ?? since?.entry ?? getAtmospherePeriod(entries, now)).gradient : "bg-header";
 
   return (
     <div
       dir={dir}
       data-testid="next-prayer-bar"
       data-target={target.key}
+      data-mode={since ? "since" : "countdown"}
       className={`${background} relative overflow-hidden rounded-2xl p-4 shadow-sm transition-colors ${className}`}
     >
       {/* Keeps the white/gold text readable on the lighter daytime gradients (Dhuhr, Sunrise). */}
@@ -165,10 +184,17 @@ export function NextPrayerBar({
           <MoonStar className="h-6 w-6" />
         </span>
         <div className="min-w-0 flex-1">
-          {arrived ? (
-            <div className="font-arabic text-h3 font-bold text-[hsl(var(--elite-gold-end))]">
-              {t(`It's now ${current.nameEn} time`, `حان الآن وقت ${current.nameAr}`)}
+          {since && since.minutes === 0 ? (
+            <div className="font-arabic text-h3 font-bold text-[hsl(var(--elite-gold-end))]" data-testid="adhan-since">
+              {t(`It's now ${since.entry.nameEn} time`, `حان الآن وقت ${since.entry.nameAr}`)}
             </div>
+          ) : since ? (
+            <>
+              <div className="font-arabic text-body-lg font-semibold text-white">{t(since.entry.nameEn, since.entry.nameAr)}</div>
+              <div className="font-arabic text-[26px] font-bold leading-tight text-[hsl(var(--elite-gold-end))]" data-testid="adhan-since" data-minutes={since.minutes}>
+                {adhanSinceLabel(since.minutes, lang === "ar" ? "ar" : "en")}
+              </div>
+            </>
           ) : (
             <>
               <div className="font-arabic text-body-lg font-semibold text-white">

@@ -289,7 +289,7 @@ describe("PrayerNotificationService", () => {
     const rem = items.find((i) => i.id === base + 3)!;
     expect((athan.at.getTime() - rem.at.getTime()) / 60_000).toBe(15);
     expect(rem.sound).not.toBe(athan.sound);
-    expect(rem.sound).toBe("astaghfirullah.caf");
+    expect(rem.sound).toBe("pre_athan_alert.caf");
   });
 
   it("turning the reminder off removes every reminder; disabling a prayer removes all of it", () => {
@@ -532,7 +532,7 @@ describe("PRE-PRAYER (أستغفر الله) is never mixed with PRAYER TIME (at
     const athan = items.find((i) => (i.extra as { kind: string }).kind === "athan")!;
     const pre = items.find((i) => (i.extra as { kind: string }).kind === "pre-reminder")!;
     expect(athan.sound).not.toBe(pre.sound);
-    expect(pre.sound).toBe("astaghfirullah.caf");
+    expect(pre.sound).toBe("pre_athan_alert.caf");
     expect(athan.sound).toMatch(/^athan_/);
   });
 
