@@ -26,7 +26,17 @@ const STYLES: Record<string, StripItem> = {
  * automatic, time-based one. */
 const PREVIEW_MS = 5000;
 
-export function PrayerStrip({ variant = "strip" }: { variant?: "strip" | "list" }) {
+export function PrayerStrip({
+  variant = "strip",
+  selectedKey = null,
+  onSelect,
+}: {
+  variant?: "strip" | "list";
+  /** List variant only: the prayer the user tapped (its row is highlighted). */
+  selectedKey?: PrayerKey | null;
+  /** List variant only: makes each row tappable; tapping the selected row again clears it. */
+  onSelect?: (key: PrayerKey | null) => void;
+}) {
   const { lang, t, dir } = useLocale();
   const notif = useNotificationsOptional();
   const { city } = useCity();
@@ -112,41 +122,50 @@ export function PrayerStrip({ variant = "strip" }: { variant?: "strip" | "list" 
             const style = STYLES[p.key] ?? STYLES.dhuhr;
             const Icon = style.Icon;
             const isNext = p.key === next.key;
+            const isSelected = selectedKey === p.key;
+            const highlighted = selectedKey ? isSelected : isNext;
             const alertOn = p.key !== "sunrise" && notif ? notif.prayerSettings.perPrayerEnabled[p.key as Exclude<PrayerKey, "sunrise">] !== false : null;
             return (
-              <li
-                key={p.key}
-                data-prayer={p.key}
-                className={`flex min-h-[64px] items-center gap-3 px-4 py-2.5 ${isNext ? "bg-primary/10" : ""}`}
-              >
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary/10">
-                  <Icon className={`h-[18px] w-[18px] ${style.iconClass}`} strokeWidth={2} />
-                </span>
-                <span className="min-w-0 flex-1 leading-tight">
-                  <span className={`block text-body font-semibold ${isNext ? "text-primary" : "text-foreground"}`}>
-                    {t(p.nameEn, p.nameAr)}
+              <li key={p.key} data-prayer={p.key} data-selected={isSelected}>
+                <button
+                  type="button"
+                  disabled={!onSelect}
+                  onClick={() => onSelect?.(isSelected ? null : p.key)}
+                  aria-pressed={onSelect ? isSelected : undefined}
+                  data-testid={`prayer-row-${p.key}`}
+                  className={`flex min-h-[64px] w-full items-center gap-3 px-4 py-2.5 text-start transition-colors disabled:cursor-default ${
+                    highlighted ? "bg-primary/10" : ""
+                  } ${isSelected ? "ring-2 ring-inset ring-primary/60" : ""}`}
+                >
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary/10">
+                    <Icon className={`h-[18px] w-[18px] ${style.iconClass}`} strokeWidth={2} />
                   </span>
-                  {lang === "ar" && (
-                    <span dir="ltr" className="block text-start text-[12px] text-foreground/55 rtl:text-right">{p.nameEn}</span>
+                  <span className="min-w-0 flex-1 leading-tight">
+                    <span className={`block text-body font-semibold ${highlighted ? "text-primary" : "text-foreground"}`}>
+                      {t(p.nameEn, p.nameAr)}
+                    </span>
+                    {lang === "ar" && (
+                      <span dir="ltr" className="block text-start text-[12px] text-foreground/55 rtl:text-right">{p.nameEn}</span>
+                    )}
+                  </span>
+                  {isNext && (
+                    <span className="shrink-0 rounded-full bg-accent/20 px-2.5 py-0.5 text-xs font-semibold text-[hsl(var(--elite-gold-start))]">
+                      {t("Next", "القادمة")}
+                    </span>
                   )}
-                </span>
-                {isNext && (
-                  <span className="shrink-0 rounded-full bg-accent/20 px-2.5 py-0.5 text-xs font-semibold text-[hsl(var(--elite-gold-start))]">
-                    {t("Next", "القادمة")}
+                  <span dir="ltr" className={`font-time text-body font-bold tabular-nums whitespace-nowrap ${highlighted ? "text-primary" : "text-foreground"}`}>
+                    {formatTime(p.time, locale)}
                   </span>
-                )}
-                <span dir="ltr" className={`font-time text-body font-bold tabular-nums whitespace-nowrap ${isNext ? "text-primary" : "text-foreground"}`}>
-                  {formatTime(p.time, locale)}
-                </span>
-                {alertOn !== null && (
-                  <span
-                    data-alert={alertOn ? "on" : "off"}
-                    aria-label={alertOn ? t("Alert on", "التنبيه مفعّل") : t("Alert off", "التنبيه متوقف")}
-                    className={alertOn ? "text-primary" : "text-foreground/30"}
-                  >
-                    {alertOn ? <Volume2 className="h-[18px] w-[18px]" /> : <VolumeX className="h-[18px] w-[18px]" />}
-                  </span>
-                )}
+                  {alertOn !== null && (
+                    <span
+                      data-alert={alertOn ? "on" : "off"}
+                      aria-label={alertOn ? t("Alert on", "التنبيه مفعّل") : t("Alert off", "التنبيه متوقف")}
+                      className={alertOn ? "text-primary" : "text-foreground/30"}
+                    >
+                      {alertOn ? <Volume2 className="h-[18px] w-[18px]" /> : <VolumeX className="h-[18px] w-[18px]" />}
+                    </span>
+                  )}
+                </button>
               </li>
             );
           })}

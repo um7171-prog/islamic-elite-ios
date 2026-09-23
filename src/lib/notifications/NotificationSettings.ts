@@ -19,7 +19,7 @@ const STORAGE_KEY = "elite.notifications.prayer.v1";
 export const DEFAULT_PRAYER_NOTIFICATION_SETTINGS: PrayerNotificationSettings = {
   perPrayerEnabled: { fajr: true, dhuhr: true, asr: true, maghrib: true, isha: true },
   preReminderEnabled: true,
-  preReminderMinutes: 10,
+  preReminderMinutes: 5,
   soundFajr: DEFAULT_ATHAN_SOUND_FAJR,
   soundOther: DEFAULT_ATHAN_SOUND_OTHER,
 };

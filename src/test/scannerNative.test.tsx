@@ -177,7 +177,8 @@ describe("native project wiring (what the iPhone build actually contains)", () =
     expect(vc).toMatch(/didFinishProcessingPhoto/);
   });
 
-  it("the 'مسح' button is on the LEFT and the layout is not mirrored by RTL", () => {
+  it("the 'التالي' (Next) button is on the LEFT and the layout is not mirrored by RTL", () => {
+    expect(read("ios/App/App/DocumentScannerViewController.swift")).toMatch(/scan: "التالي"/);
     const vc = read("ios/App/App/DocumentScannerViewController.swift");
     expect(vc).toMatch(/semanticContentAttribute = \.forceLeftToRight/);
     expect(vc).toMatch(/scanButton\.frame = CGRect\(x: 16,/);

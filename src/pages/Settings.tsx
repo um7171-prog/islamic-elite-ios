@@ -163,11 +163,11 @@ export default function Settings() {
               label={t("Prayer Notifications", "إشعارات الصلاة")}
               value={t(`${enabledPrayers} of 5 on`, `${enabledPrayers} من 5 مفعّلة`)}
             />
-            <SettingsRow icon={Volume2} to="/notification-settings#n-athan" label={t("Athan", "الأذان")} />
+            <SettingsRow icon={Volume2} to="/notification-settings#n-athan" label={t("Muezzin", "اختيار المؤذن")} />
             <SettingsRow
               icon={Timer}
               to="/notification-settings#n-reminder"
-              label={t("Pre-Prayer Reminder", "التذكير قبل الصلاة")}
+              label={t("Alert Before the Athan", "التنبيه قبل الأذان")}
               value={prayerSettings.preReminderEnabled ? t(`${prayerSettings.preReminderMinutes} min`, `${prayerSettings.preReminderMinutes} دقائق`) : t("Off", "متوقف")}
             />
           </SettingsGroup>

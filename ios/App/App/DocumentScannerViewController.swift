@@ -4,7 +4,7 @@ import AVFoundation
 /// Full-screen native scanner UI.
 ///
 ///   camera (plain live preview, NO detection)  ->  capture  ->  the still is analysed
-///   -> real corners drawn on the photo + "مسح"  ->  scan  ->  finished page
+///   -> real corners drawn on the photo + "التالي"  ->  scan  ->  finished page
 ///
 /// If no document is found the user sees a clear message and can only retake the photo; a
 /// rectangle is never invented.
@@ -45,7 +45,7 @@ final class DocumentScannerViewController: UIViewController, AVCapturePhotoCaptu
             if language.hasPrefix("ar") {
                 return Strings(
                     hint: "وجّه الكاميرا نحو المستند ثم اضغط التقاط",
-                    capture: "التقاط", back: "رجوع", scan: "مسح", retake: "إعادة التصوير",
+                    capture: "التقاط", back: "رجوع", scan: "التالي", retake: "إعادة التصوير",
                     noDocument: "لم نتمكن من اكتشاف المستند",
                     noDocumentHint: "تأكد أن المستند كاملًا داخل الصورة وبإضاءة جيدة، ثم أعد التصوير.",
                     analyzing: "جارٍ تحليل الصورة…", scanning: "جارٍ المسح…",
@@ -57,7 +57,7 @@ final class DocumentScannerViewController: UIViewController, AVCapturePhotoCaptu
             }
             return Strings(
                 hint: "Point the camera at the document, then tap capture",
-                capture: "Capture", back: "Back", scan: "Scan", retake: "Retake",
+                capture: "Capture", back: "Back", scan: "Next", retake: "Retake",
                 noDocument: "We couldn't detect the document",
                 noDocumentHint: "Make sure the whole document is in the photo with good light, then retake.",
                 analyzing: "Analysing the photo…", scanning: "Scanning…",
@@ -124,7 +124,7 @@ final class DocumentScannerViewController: UIViewController, AVCapturePhotoCaptu
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .black
-        // The layout below is left/right exact (the "مسح" button must be on the LEFT), so it must
+        // The layout below is left/right exact (the "التالي" button must be on the LEFT), so it must
         // not be mirrored by the app's right-to-left language.
         view.semanticContentAttribute = .forceLeftToRight
 
@@ -275,7 +275,7 @@ final class DocumentScannerViewController: UIViewController, AVCapturePhotoCaptu
         let bottomY = bounds.height - safe.bottom - 96
         captureButton.frame = CGRect(x: (bounds.width - 70) / 2, y: bottomY, width: 70, height: 70)
 
-        // "مسح" is on the LEFT, the secondary action on the RIGHT.
+        // "التالي" is on the LEFT, the secondary action on the RIGHT.
         let buttonWidth = (bounds.width - 16 * 2 - 12) / 2
         scanButton.frame = CGRect(x: 16, y: bounds.height - safe.bottom - 86, width: buttonWidth, height: 52)
         if state == .noDocument {

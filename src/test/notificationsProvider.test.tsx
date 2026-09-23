@@ -73,15 +73,15 @@ describe("NotificationsProvider foreground reschedule", () => {
 
     await waitFor(() => expect(prayerHeld().length).toBeGreaterThan(0));
     await waitFor(() => expect(appStateCallback).not.toBeNull());
-    expect(reminderGap()).toBe(10); // default
+    expect(reminderGap()).toBe(5); // default
 
-    // User changes reminder to 5 minutes...
+    // User changes reminder to 10 minutes...
     await act(async () => {
-      api!.setPrayerSettings({ ...api!.prayerSettings, preReminderMinutes: 5 });
+      api!.setPrayerSettings({ ...api!.prayerSettings, preReminderMinutes: 10 });
     });
-    await waitFor(() => expect(reminderGap()).toBe(5));
+    await waitFor(() => expect(reminderGap()).toBe(10));
 
-    // ...then the app goes to the background and returns: the schedule must still use 5, not the stale 10.
+    // ...then the app goes to the background and returns: the schedule must still use 10, not the stale 5.
     await new Promise((r) => setTimeout(r, 300));
     center.calls.length = 0;
     await act(async () => {
@@ -89,7 +89,7 @@ describe("NotificationsProvider foreground reschedule", () => {
       await new Promise((r) => setTimeout(r, 900));
     });
     await waitFor(() => expect(center.calls.some((c) => c.op === "getPending")).toBe(true));
-    expect(reminderGap()).toBe(5);
+    expect(reminderGap()).toBe(10);
   });
 
   it("returning from iOS Settings re-reads the permission and schedules once it is granted", async () => {

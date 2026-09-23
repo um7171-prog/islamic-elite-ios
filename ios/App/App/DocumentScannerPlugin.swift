@@ -6,7 +6,7 @@ import Capacitor
 ///
 /// Flow (all native, no web camera, no live detection):
 ///   scan() -> full-screen camera -> user taps capture -> the still is analysed with Vision
-///   (VNDetectRectanglesRequest) -> the real corners are drawn on the photo -> user taps "مسح"
+///   (VNDetectRectanglesRequest) -> the real corners are drawn on the photo -> user taps "التالي"
 ///   -> perspective correction + enhancement (Core Image) -> the scanned page comes back to JS.
 ///
 /// JS API (see src/lib/scanner/nativeScanner.ts):

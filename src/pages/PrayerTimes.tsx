@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Compass, BellRing, BellOff, Bell, Settings as SettingsIcon } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
 import { usePrayerCalc, type MadhabId } from "@/contexts/PrayerCalcContext";
 import { methodOption } from "@/lib/prayerMethods";
+import type { PrayerKey } from "@/lib/prayer";
 import { isIOSNativeApp } from "@/lib/platform";
 import { useNotifications } from "@/components/notifications/NotificationsProvider";
 import { DateHeader } from "@/components/islamic/DateHeader";
@@ -34,6 +36,9 @@ export default function PrayerTimes() {
   const nativeApp = isIOSNativeApp();
   const madhabLabel = MADHAB_LABELS[madhab];
   const methodLabel = methodOption(method);
+  // Tapping a prayer points the countdown (and its time-of-day colours) at that prayer;
+  // tapping it again returns to the automatic "next prayer".
+  const [selectedPrayer, setSelectedPrayer] = useState<PrayerKey | null>(null);
 
   return (
     <PageShell
@@ -63,8 +68,8 @@ export default function PrayerTimes() {
 
       <div className="space-y-4">
         <DateHeader />
-        <PrayerStrip variant="list" />
-        <NextPrayerBar />
+        <NextPrayerBar selectedKey={selectedPrayer} atmosphere />
+        <PrayerStrip variant="list" selectedKey={selectedPrayer} onSelect={setSelectedPrayer} />
 
         {/* Calculation info — madhab & method, with a link to change them */}
         <div className="glass flex items-center justify-between gap-3 rounded-2xl p-4">

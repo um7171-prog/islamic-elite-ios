@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertTriangle, Bell, BellOff, BellRing, Check, Play, Square, Timer } from "lucide-react";
+import { AlertTriangle, Bell, BellOff, BellRing, Check, Mic2, Play, Square, Timer } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -8,7 +8,7 @@ import { useNotifications } from "./NotificationsProvider";
 import { requestPermission } from "@/lib/notifications/NotificationPermissionService";
 import { ATHAN_SOUNDS, previewSound, stopPreview, type AthanSoundId } from "@/lib/notifications/NotificationSounds";
 import { NOTIFIABLE_PRAYERS } from "@/lib/notifications/NotificationSettings";
-import { ChipPicker, SettingsGroup, SettingsRow } from "@/components/site/SettingsUI";
+import { ChipPicker, CollapsibleRow, SettingsGroup, SettingsRow } from "@/components/site/SettingsUI";
 
 /**
  * Notification settings blocks for the new notification system
@@ -118,60 +118,85 @@ export function NotificationStatusCard() {
   );
 }
 
-/** Per-prayer alert switches (the five prayers only). */
-export function PrayerAlertsGroup() {
+/** Per-prayer alert switches (the five prayers only) — folded behind one row
+ * showing how many are on, opened on tap. */
+export function PrayerAlertsGroup({ defaultOpen = false }: { defaultOpen?: boolean }) {
   const { t, lang } = useLocale();
   const { prayerSettings, setPrayerSettings } = useNotifications();
+  const enabled = NOTIFIABLE_PRAYERS.filter((k) => prayerSettings.perPrayerEnabled[k] !== false).length;
   return (
     <SettingsGroup>
-      {NOTIFIABLE_PRAYERS.map((key) => (
-        <SettingsRow key={key} label={t(PRAYER_LABELS[key].en, PRAYER_LABELS[key].ar)} icon={Bell}>
-          <Switch
-            aria-label={lang === "ar" ? `تنبيه ${PRAYER_LABELS[key].ar}` : `${PRAYER_LABELS[key].en} alert`}
-            checked={prayerSettings.perPrayerEnabled[key] !== false}
-            onCheckedChange={(v) =>
-              setPrayerSettings({
-                ...prayerSettings,
-                perPrayerEnabled: { ...prayerSettings.perPrayerEnabled, [key]: v },
-              })
-            }
-          />
-        </SettingsRow>
-      ))}
+      <CollapsibleRow
+        icon={Bell}
+        label={t("Prayer alerts", "تنبيهات الصلوات")}
+        value={t(`${enabled} of 5 on`, `${enabled} من 5 مفعّلة`)}
+        defaultOpen={defaultOpen}
+        data-testid="prayer-alerts-toggle"
+      >
+        <div className="divide-y divide-foreground/[0.07] border-t border-foreground/[0.07]">
+          {NOTIFIABLE_PRAYERS.map((key) => (
+            <SettingsRow key={key} label={t(PRAYER_LABELS[key].en, PRAYER_LABELS[key].ar)}>
+              <Switch
+                aria-label={lang === "ar" ? `تنبيه ${PRAYER_LABELS[key].ar}` : `${PRAYER_LABELS[key].en} alert`}
+                checked={prayerSettings.perPrayerEnabled[key] !== false}
+                onCheckedChange={(v) =>
+                  setPrayerSettings({
+                    ...prayerSettings,
+                    perPrayerEnabled: { ...prayerSettings.perPrayerEnabled, [key]: v },
+                  })
+                }
+              />
+            </SettingsRow>
+          ))}
+        </div>
+      </CollapsibleRow>
     </SettingsGroup>
   );
 }
 
-/** Reminder before prayer — on/off + minutes. */
-export function PreReminderGroup() {
+/** Alert before the Athan — on/off, and (when on) how many minutes before, as a
+ * row that opens its choices on tap. Its sound is the bundled "أستغفر الله"
+ * (PRE_PRAYER_SOUND_FILE); scheduling itself lives in PrayerNotificationService. */
+export function PreReminderGroup({ defaultOpen = false }: { defaultOpen?: boolean }) {
   const { t } = useLocale();
   const { prayerSettings, setPrayerSettings } = useNotifications();
   return (
     <SettingsGroup>
-      <SettingsRow label={t("Remind me before prayer", "تذكير قبل الصلاة")} icon={Timer}>
+      <SettingsRow
+        label={t("Alert before the Athan", "التنبيه قبل الأذان")}
+        description={t("Sound: Astaghfirullah", "الصوت: أستغفر الله")}
+        icon={Timer}
+      >
         <Switch
-          aria-label={t("Reminder before prayer", "تذكير قبل الصلاة")}
+          aria-label={t("Alert before the Athan", "التنبيه قبل الأذان")}
           checked={prayerSettings.preReminderEnabled}
           onCheckedChange={(v) => setPrayerSettings({ ...prayerSettings, preReminderEnabled: v })}
         />
       </SettingsRow>
       {prayerSettings.preReminderEnabled && (
-        <div className="pt-3">
-          <p className="px-4 pb-2 text-caption text-foreground/60">{t("How long before", "قبل الصلاة بـ")}</p>
-          <ChipPicker
-            value={prayerSettings.preReminderMinutes}
-            onChange={(m) => setPrayerSettings({ ...prayerSettings, preReminderMinutes: m })}
-            options={PRE_REMINDER_OPTIONS.map((m) => ({ value: m, label: t(`${m} min`, `${m} دقائق`) }))}
-          />
-        </div>
+        <CollapsibleRow
+          label={t("How long before", "قبل الأذان بـ")}
+          value={t(`${prayerSettings.preReminderMinutes} min`, `${prayerSettings.preReminderMinutes} دقائق`)}
+          defaultOpen={defaultOpen}
+          data-testid="pre-reminder-minutes-toggle"
+        >
+          <div className="pt-1">
+            <ChipPicker
+              value={prayerSettings.preReminderMinutes}
+              onChange={(m) => setPrayerSettings({ ...prayerSettings, preReminderMinutes: m })}
+              options={PRE_REMINDER_OPTIONS.map((m) => ({ value: m, label: t(`${m} min`, `${m} دقائق`) }))}
+            />
+          </div>
+        </CollapsibleRow>
       )}
     </SettingsGroup>
   );
 }
 
-/** Athan sound for Fajr and for the other prayers, with preview. Preview plays
- * the bundled web audio sample; the real notification sound is the native .caf
- * and can only be confirmed on an iPhone. */
+/** Muezzin (Athan voice) for Fajr and for the other prayers: each is one row
+ * showing the current choice, whose list opens on tap, with preview. Preview
+ * plays the bundled web audio sample; the real notification sound is the native
+ * .caf and can only be confirmed on an iPhone. */
 export function AthanSoundGroup() {
   const { t } = useLocale();
   const { prayerSettings, setPrayerSettings } = useNotifications();
@@ -187,47 +212,56 @@ export function AthanSoundGroup() {
   };
 
   const rows = [
-    { label: t("Fajr athan", "أذان الفجر"), value: prayerSettings.soundFajr, key: "soundFajr" as const },
-    { label: t("Other prayers", "بقية الصلوات"), value: prayerSettings.soundOther, key: "soundOther" as const },
+    { label: t("Fajr muezzin", "مؤذن الفجر"), value: prayerSettings.soundFajr, key: "soundFajr" as const },
+    { label: t("Muezzin for other prayers", "مؤذن بقية الصلوات"), value: prayerSettings.soundOther, key: "soundOther" as const },
   ];
 
   return (
     <SettingsGroup>
-      {rows.map((row) => (
-        <div key={row.key} className="space-y-2.5 px-4 py-3.5">
-          <div className="text-body font-medium">{row.label}</div>
-          <div className="flex flex-wrap gap-2">
-            {ATHAN_SOUNDS.map((s) => {
-              const active = s.id === row.value;
-              const previewId = `${row.key}-${s.id}`;
-              return (
-                <div key={s.id} className="flex items-stretch">
-                  <button
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => setPrayerSettings({ ...prayerSettings, [row.key]: s.id as AthanSoundId })}
-                    className={`min-h-[40px] rounded-s-xl border px-3 text-body-sm transition ${
-                      active ? "border-primary bg-primary/12 font-semibold text-primary" : "border-foreground/10 hover:bg-foreground/[0.04]"
-                    }`}
-                  >
-                    {active && <Check className="me-1 inline h-3.5 w-3.5" />}
-                    {t(s.en, s.ar)}
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={t("Preview", "استماع")}
-                    disabled={!s.previewUrl}
-                    onClick={() => preview(previewId, s.previewUrl)}
-                    className="grid min-w-[40px] place-items-center rounded-e-xl border border-s-0 border-foreground/10 hover:bg-foreground/[0.04] disabled:opacity-30"
-                  >
-                    {playing === previewId ? <Square className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ))}
+      {rows.map((row) => {
+        const current = ATHAN_SOUNDS.find((s) => s.id === row.value);
+        return (
+          <CollapsibleRow
+            key={row.key}
+            icon={Mic2}
+            label={row.label}
+            value={current ? t(current.en, current.ar) : ""}
+            data-testid={`muezzin-${row.key}`}
+          >
+            <div className="divide-y divide-foreground/[0.07] border-t border-foreground/[0.07]" role="radiogroup" aria-label={row.label}>
+              {ATHAN_SOUNDS.map((s) => {
+                const active = s.id === row.value;
+                const previewId = `${row.key}-${s.id}`;
+                return (
+                  <div key={s.id} className="flex items-center">
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() => setPrayerSettings({ ...prayerSettings, [row.key]: s.id as AthanSoundId })}
+                      className="flex min-h-[52px] min-w-0 flex-1 items-center gap-3 px-4 py-2.5 text-start transition active:bg-foreground/[0.04]"
+                    >
+                      <span className="grid h-6 w-6 shrink-0 place-items-center" aria-hidden>
+                        {active && <Check className="h-5 w-5 text-primary" />}
+                      </span>
+                      <span className={`min-w-0 flex-1 truncate text-body-sm ${active ? "font-semibold text-primary" : ""}`}>{t(s.en, s.ar)}</span>
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={t("Preview", "استماع")}
+                      disabled={!s.previewUrl}
+                      onClick={() => preview(previewId, s.previewUrl)}
+                      className="me-3 grid h-10 w-10 shrink-0 place-items-center rounded-full border border-foreground/10 hover:bg-foreground/[0.04] disabled:opacity-30"
+                    >
+                      {playing === previewId ? <Square className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </CollapsibleRow>
+        );
+      })}
     </SettingsGroup>
   );
 }

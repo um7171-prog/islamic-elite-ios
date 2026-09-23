@@ -71,22 +71,22 @@ export default function NotificationSettingsPage() {
             "تنبيهات محلية على جهازك حسب مواقيت الصلاة — تعمل بلا إنترنت.",
           )}
         >
-          <PrayerAlertsGroup />
-        </SettingsSection>
-
-        <SettingsSection id="n-reminder" title={t("Pre-Prayer Reminder", "التذكير قبل الصلاة")}>
-          <PreReminderGroup />
+          <PrayerAlertsGroup defaultOpen={hash === "#n-prayer"} />
         </SettingsSection>
 
         <SettingsSection
           id="n-athan"
-          title={t("Athan", "الأذان")}
+          title={t("Muezzin", "اختيار المؤذن")}
           footer={t(
             "Previews play a sample here; the notification itself uses the bundled iPhone sound.",
             "الاستماع هنا عيّنة تجريبية؛ أما الإشعار نفسه فيستخدم الصوت المدمج في تطبيق iPhone.",
           )}
         >
           <AthanSoundGroup />
+        </SettingsSection>
+
+        <SettingsSection id="n-reminder" title={t("Alert Before the Athan", "التنبيه قبل الأذان")}>
+          <PreReminderGroup defaultOpen={hash === "#n-reminder"} />
         </SettingsSection>
 
         <SettingsSection id="n-athkar" title={t("Athkar Reminders", "تذكيرات الأذكار")}>
@@ -149,8 +149,8 @@ export default function NotificationSettingsPage() {
 
         <SettingsSection id="n-sounds" title={t("Sounds", "الأصوات")}>
           <SettingsGroup>
-            <SettingsRow icon={Sunrise} to="#n-athan" label={t("Athan — Fajr", "الأذان — الفجر")} value={name(prayerSettings.soundFajr)} />
-            <SettingsRow icon={Sunrise} to="#n-athan" label={t("Athan — other prayers", "الأذان — بقية الصلوات")} value={name(prayerSettings.soundOther)} />
+            <SettingsRow icon={Sunrise} to="#n-athan" label={t("Muezzin — Fajr", "المؤذن — الفجر")} value={name(prayerSettings.soundFajr)} />
+            <SettingsRow icon={Sunrise} to="#n-athan" label={t("Muezzin — other prayers", "المؤذن — بقية الصلوات")} value={name(prayerSettings.soundOther)} />
             <SettingsRow icon={Music2} to="#n-athkar" label={t("Athkar reminder sound", "صوت تذكير الأذكار")} value={athkarSound ? (lang === "ar" ? athkarSound.ar : athkarSound.en) : ""} />
             <SettingsRow icon={Music2} to="/calendar" label={t("Appointment sound", "صوت المواعيد")} description={t("Chosen per appointment", "يُختار لكل موعد")} />
           </SettingsGroup>

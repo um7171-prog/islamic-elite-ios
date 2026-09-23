@@ -1,5 +1,5 @@
-import type { ElementType, ReactNode } from "react";
-import { Check } from "lucide-react";
+import { useId, useState, type ElementType, type ReactNode } from "react";
+import { Check, ChevronDown } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -115,6 +115,51 @@ export function SettingsRow({ label, description, icon: Icon, children, to, href
   }
   if (onClick) return <button type="button" onClick={onClick} className={cls} {...dataProps}>{inner}</button>;
   return <div className={cls} {...dataProps}>{inner}</div>;
+}
+
+/** A row that shows its current value and reveals its choices only when tapped
+ * (for settings with several options, so a screen isn't a wall of controls). */
+export function CollapsibleRow({
+  label,
+  description,
+  icon: Icon,
+  value,
+  defaultOpen = false,
+  children,
+  ...rest
+}: {
+  label: string;
+  description?: string;
+  icon?: ElementType;
+  value?: string;
+  defaultOpen?: boolean;
+  children: ReactNode;
+  [dataAttr: `data-${string}`]: string | undefined;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  const panelId = useId();
+  return (
+    <div {...rest}>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={() => setOpen((v) => !v)}
+        className="flex min-h-[56px] w-full items-center gap-3 px-4 py-3 text-start transition active:bg-foreground/[0.04] hover:bg-foreground/[0.03]"
+      >
+        {Icon && <IconBadge icon={Icon} size="sm" tone="soft" />}
+        <span className="min-w-0 flex-1">
+          <span className="block text-body font-medium leading-snug">{label}</span>
+          {description && <span className="mt-0.5 block text-caption leading-snug text-foreground/60">{description}</span>}
+        </span>
+        {value !== undefined && (
+          <span className="max-w-[45%] shrink-0 truncate text-body-sm text-foreground/60" data-row-value>{value}</span>
+        )}
+        <ChevronDown className={cn("h-4 w-4 shrink-0 text-foreground/35 transition-transform", open && "rotate-180")} aria-hidden />
+      </button>
+      {open && <div id={panelId}>{children}</div>}
+    </div>
+  );
 }
 
 /** Segmented pill control — same look for language, theme, minutes, etc. */
