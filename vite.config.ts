@@ -11,6 +11,7 @@ import { componentTagger } from "lovable-tagger";
 // iOS delivers a *silent* notification when it cannot find the named file.
 const CAF_NAMES = [
   "pre_athan_alert.caf",
+  "astaghfirullah_night.caf",
   "astaghfirullah.caf",
   "athan_makkah.caf",
   "athan_madinah.caf",

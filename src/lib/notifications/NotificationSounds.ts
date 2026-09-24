@@ -91,6 +91,13 @@ export function preprayerNativeSound(): string {
   return BUNDLED_NATIVE_SOUNDS.includes(PRE_PRAYER_SOUND_FILE) ? PRE_PRAYER_SOUND_FILE : "default";
 }
 
+/** The bundled night sound, used ONLY for the middle-of-the-night and last-third notifications
+ * (NightNotificationService). Falls back to "default" like every other sound if not bundled. */
+export const NIGHT_SOUND_FILE = "astaghfirullah_night.caf";
+export function nightNativeSound(): string {
+  return BUNDLED_NATIVE_SOUNDS.includes(NIGHT_SOUND_FILE) ? NIGHT_SOUND_FILE : "default";
+}
+
 /** Local full-length recitation file for in-app playback (never truncated by the
  * iOS notification-sound size limit, which only applies to the short `.caf`). */
 export function athanFullAudioUrl(id: AthanSoundId): string {

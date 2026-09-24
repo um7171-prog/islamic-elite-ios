@@ -12,6 +12,7 @@ import { isIOSNativeApp } from "@/lib/platform";
 interface DocumentScannerPlugin {
   scan(options: { lang: string }): Promise<{ cancelled: boolean; image?: string; mimeType?: string; width?: number; height?: number }>;
   cancel(): Promise<void>;
+  saveToPhotos(options: { images: string[] }): Promise<{ saved: number }>;
 }
 
 export interface ScannedPage {
@@ -37,6 +38,23 @@ export async function scanDocument(lang: "ar" | "en"): Promise<ScannedPage | nul
     width: result.width ?? 0,
     height: result.height ?? 0,
   };
+}
+
+/**
+ * Saves the pages (JPEG data URLs — the final images, after each page's filter) to the iPhone's
+ * Photos app. iOS asks for permission the first time. Rejects with the native error code in the
+ * message (PHOTOS_DENIED, SAVE_FAILED, …) so the screen can explain what happened.
+ */
+export async function savePagesToPhotos(dataUrls: string[]): Promise<number> {
+  if (!isScannerAvailable()) throw new Error("SCANNER_UNAVAILABLE");
+  const images = dataUrls.map((u) => u.slice(u.indexOf(",") + 1));
+  try {
+    const { saved } = await getPlugin().saveToPhotos({ images });
+    return saved;
+  } catch (e) {
+    const err = e as { code?: string; message?: string };
+    throw new Error(err.code || err.message || "SAVE_FAILED");
+  }
 }
 
 /** Closes the native scanner if it is open (e.g. the screen that started it is going away). */

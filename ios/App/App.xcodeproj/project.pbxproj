@@ -20,6 +20,7 @@
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		AA0011220000000000000002 /* astaghfirullah.caf in Resources */ = {isa = PBXBuildFile; fileRef = AA0011220000000000000001 /* astaghfirullah.caf */; };
 		AA0011220000000000000031 /* pre_athan_alert.caf in Resources */ = {isa = PBXBuildFile; fileRef = AA0011220000000000000030 /* pre_athan_alert.caf */; };
+		AA0011220000000000000033 /* astaghfirullah_night.caf in Resources */ = {isa = PBXBuildFile; fileRef = AA0011220000000000000032 /* astaghfirullah_night.caf */; };
 		AA0011220000000000000004 /* athan_ibn_majid.caf in Resources */ = {isa = PBXBuildFile; fileRef = AA0011220000000000000003 /* athan_ibn_majid.caf */; };
 		AA0011220000000000000006 /* athan_makkah.caf in Resources */ = {isa = PBXBuildFile; fileRef = AA0011220000000000000005 /* athan_makkah.caf */; };
 		AA0011220000000000000008 /* athan_madinah.caf in Resources */ = {isa = PBXBuildFile; fileRef = AA0011220000000000000007 /* athan_madinah.caf */; };
@@ -46,6 +47,7 @@
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		AA0011220000000000000001 /* astaghfirullah.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = astaghfirullah.caf; sourceTree = "<group>"; };
 		AA0011220000000000000030 /* pre_athan_alert.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = pre_athan_alert.caf; sourceTree = "<group>"; };
+		AA0011220000000000000032 /* astaghfirullah_night.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = astaghfirullah_night.caf; sourceTree = "<group>"; };
 		AA0011220000000000000003 /* athan_ibn_majid.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = athan_ibn_majid.caf; sourceTree = "<group>"; };
 		AA0011220000000000000005 /* athan_makkah.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = athan_makkah.caf; sourceTree = "<group>"; };
 		AA0011220000000000000007 /* athan_madinah.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = athan_madinah.caf; sourceTree = "<group>"; };
@@ -103,6 +105,7 @@
 				50B271D01FEDC1A000F3C39B /* public */,
 				AA0011220000000000000001 /* astaghfirullah.caf */,
 				AA0011220000000000000030 /* pre_athan_alert.caf */,
+				AA0011220000000000000032 /* astaghfirullah_night.caf */,
 				AA0011220000000000000003 /* athan_ibn_majid.caf */,
 				AA0011220000000000000005 /* athan_makkah.caf */,
 				AA0011220000000000000007 /* athan_madinah.caf */,
@@ -185,6 +188,7 @@
 				50B271D11FEDC1A000F3C39B /* public in Resources */,
 				AA0011220000000000000002 /* astaghfirullah.caf in Resources */,
 				AA0011220000000000000031 /* pre_athan_alert.caf in Resources */,
+				AA0011220000000000000033 /* astaghfirullah_night.caf in Resources */,
 				AA0011220000000000000004 /* athan_ibn_majid.caf in Resources */,
 				AA0011220000000000000006 /* athan_makkah.caf in Resources */,
 				AA0011220000000000000008 /* athan_madinah.caf in Resources */,

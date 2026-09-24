@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, FileDown, Loader2, Plus, ScanLine, Share2, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileDown, ImageDown, Loader2, Plus, ScanLine, Share2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useLocale } from "@/contexts/LocaleContext";
 import { uid } from "@/lib/id";
 import { downloadBlob } from "@/lib/aiImage";
-import { cancelScan, isScannerAvailable, scanDocument, type ScannedPage } from "@/lib/scanner/nativeScanner";
+import { cancelScan, isScannerAvailable, savePagesToPhotos, scanDocument, type ScannedPage } from "@/lib/scanner/nativeScanner";
 import { buildScanPdf } from "@/lib/scanner/scanPdf";
 import { applyFilterToDataUrl } from "@/lib/scanner/applyFilter";
 import { SCAN_FILTERS, type ScanFilter } from "@/lib/scanner/imageProcessing";
@@ -152,6 +152,24 @@ export function DocumentScannerDialog({ open, onOpenChange }: Props) {
     }
   };
 
+  /** Each page as its FINAL image (after its own filter), straight into the Photos app. */
+  const saveToPhotos = async () => {
+    if (!pages.length || exporting) return;
+    setExporting(true);
+    try {
+      const saved = await savePagesToPhotos(pages.map((p) => p.current.dataUrl));
+      toast.success(t(`Saved ${saved} image(s) to Photos`, saved === 1 ? "تم حفظ الصورة في الصور" : `تم حفظ ${saved} صور في الصور`));
+    } catch (e) {
+      if (/PHOTOS_DENIED/.test((e as Error)?.message || "")) {
+        toast.error(t("Photos access is off. Allow it in iPhone Settings → Elite Islamic → Photos.", "الوصول إلى الصور غير مسموح. فعّله من إعدادات iPhone ← النخبة الإسلامية ← الصور."));
+      } else {
+        toast.error(t("Couldn't save to Photos. Please try again.", "تعذّر الحفظ في الصور. حاول مرة أخرى."));
+      }
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const removePage = (id: string) => {
     setPages((prev) => prev.filter((p) => p.id !== id));
     setSelectedId((cur) => (cur === id ? null : cur));
@@ -285,12 +303,15 @@ export function DocumentScannerDialog({ open, onOpenChange }: Props) {
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <button type="button" onClick={() => void savePdf()} disabled={exporting} data-testid="scan-save-pdf" className="flex h-12 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-50">
-                  <FileDown className="h-4 w-4" />{t("Save PDF", "حفظ PDF")}
+              <div className="grid grid-cols-3 gap-2">
+                <button type="button" onClick={() => void savePdf()} disabled={exporting} data-testid="scan-save-pdf" className="flex h-12 items-center justify-center gap-1.5 rounded-xl bg-primary px-1 text-[13px] font-semibold text-primary-foreground disabled:opacity-50">
+                  <FileDown className="h-4 w-4 shrink-0" />{t("Save PDF", "حفظ PDF")}
                 </button>
-                <button type="button" onClick={() => void sharePdf()} disabled={exporting} data-testid="scan-share-pdf" className="flex h-12 items-center justify-center gap-2 rounded-xl bg-white/15 text-sm font-medium text-white disabled:opacity-50">
-                  <Share2 className="h-4 w-4" />{t("Share", "مشاركة")}
+                <button type="button" onClick={() => void saveToPhotos()} disabled={exporting} data-testid="scan-save-photos" className="flex h-12 items-center justify-center gap-1.5 rounded-xl bg-white/15 px-1 text-[13px] font-medium text-white disabled:opacity-50">
+                  <ImageDown className="h-4 w-4 shrink-0" />{t("Save to Photos", "حفظ في الصور")}
+                </button>
+                <button type="button" onClick={() => void sharePdf()} disabled={exporting} data-testid="scan-share-pdf" className="flex h-12 items-center justify-center gap-1.5 rounded-xl bg-white/15 px-1 text-[13px] font-medium text-white disabled:opacity-50">
+                  <Share2 className="h-4 w-4 shrink-0" />{t("Share", "مشاركة")}
                 </button>
               </div>
             </div>

@@ -10,6 +10,7 @@ import { useLocale } from "@/contexts/LocaleContext";
 import { useLocation, useNavigate } from "react-router-dom";
 import { HeroPrayerCard } from "@/components/islamic/HeroPrayerCard";
 import { PrayerStrip } from "@/components/islamic/PrayerStrip";
+import type { PrayerKey } from "@/lib/prayer";
 import { QuickShortcuts } from "@/components/islamic/QuickShortcuts";
 import { HomeHeader } from "@/components/islamic/HomeHeader";
 import { DailyDhikrCard } from "@/components/islamic/DailyDhikrCard";
@@ -61,6 +62,8 @@ function Dashboard() {
   const [tab, setTab] = useState<DashboardTab>(routeInfo.tab);
   const [initialTool, setInitialTool] = useState<string | null>(routeInfo.tool);
   const [initialCategory, setInitialCategory] = useState<"fav" | null>(routeInfo.category ?? null);
+  // A prayer tapped in Home's strip: the Home card's countdown follows it (tap again to clear).
+  const [selectedPrayer, setSelectedPrayer] = useState<PrayerKey | null>(null);
 
   useEffect(() => {
     const info = PATH_MAP[location.pathname] ?? PATH_MAP["/"];
@@ -103,8 +106,8 @@ function Dashboard() {
         <div className="mx-auto w-full max-w-2xl min-w-0 px-4 pb-6 md:px-8">
           {/* Next prayer overlaps the header's bottom edge */}
           <section className="-mt-10 space-y-4">
-            <div className="rise-in" style={{ animationDelay: "80ms" }}><HeroPrayerCard className="relative z-10" /></div>
-            <div className="rise-in" style={{ animationDelay: "180ms" }}><PrayerStrip /></div>
+            <div className="rise-in" style={{ animationDelay: "80ms" }}><HeroPrayerCard className="relative z-10" selectedKey={selectedPrayer} /></div>
+            <div className="rise-in" style={{ animationDelay: "180ms" }}><PrayerStrip selectedKey={selectedPrayer} onSelect={setSelectedPrayer} /></div>
           </section>
 
           <div className="rise-in mt-5" style={{ animationDelay: "280ms" }}>

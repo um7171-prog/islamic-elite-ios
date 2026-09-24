@@ -10,7 +10,7 @@ import { getPermissionStatus } from "./NotificationPermissionService";
  * notification never depends on the app being open, on JS timers, or on the web.
  *
  * Every group owns an exclusive id range, so one group can never touch another's notifications.
- * iOS keeps at most 64 pending local notifications per app; the caps below sum to 60.
+ * iOS keeps at most 64 pending local notifications per app; the caps below sum to 64.
  */
 export const NOTIFICATION_RANGES = {
   /** Prayer-time + pre-prayer-reminder alerts. */
@@ -19,6 +19,8 @@ export const NOTIFICATION_RANGES = {
   athkar: { min: 42000, max: 42999, cap: 6 },
   /** Appointment (calendar) reminders. */
   calendar: { min: 43000, max: 43999, cap: 12 },
+  /** Middle of the night + start of its last third (two nights ahead). */
+  night: { min: 44000, max: 44999, cap: 4 },
 } as const;
 
 export type NotificationGroup = keyof typeof NOTIFICATION_RANGES;

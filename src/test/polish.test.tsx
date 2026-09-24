@@ -143,6 +143,57 @@ describe("EventsCalendar UI -> storage + reschedule", () => {
       </MemoryRouter>,
     );
 
+  it("a new appointment reminds AT the appointment time by default (عند الموعد)", async () => {
+    setup();
+    fireEvent.click(screen.getByTestId("add-event"));
+    fireEvent.change(await screen.findByTestId("event-title"), { target: { value: "Doctor" } });
+    const tomorrow = new Date(Date.now() + 86_400_000);
+    const ymd = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")}`;
+    fireEvent.change(document.getElementById("ev-date")!, { target: { value: ymd } });
+    expect((document.getElementById("ev-lead") as HTMLSelectElement).value).toBe("0");
+    fireEvent.click(screen.getByTestId("event-save"));
+    await act(async () => { await Promise.resolve(); });
+    expect(loadEvents()[0].remindMinutesBefore).toBe(0);
+  });
+
+  it("icon library: default is the general icon; the grid opens on tap; the chosen icon is stored", async () => {
+    setup();
+    fireEvent.click(screen.getByTestId("add-event"));
+    fireEvent.change(await screen.findByTestId("event-title"), { target: { value: "Checkup" } });
+    const tomorrow = new Date(Date.now() + 86_400_000);
+    const ymd = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")}`;
+    fireEvent.change(document.getElementById("ev-date")!, { target: { value: ymd } });
+    expect(screen.getByTestId("event-icon-toggle").textContent).toMatch(/General/);
+    expect(document.querySelector('[data-icon="doctor"]')).toBeNull(); // closed until tapped
+    fireEvent.click(screen.getByTestId("event-icon-toggle"));
+    fireEvent.click(document.querySelector('[data-icon="doctor"]')!);
+    expect(screen.getByTestId("event-icon-toggle").textContent).toMatch(/Doctor/);
+    fireEvent.click(screen.getByTestId("event-save"));
+    await act(async () => { await Promise.resolve(); });
+    expect(loadEvents()[0].icon).toBe("doctor");
+  });
+
+  it("icon library covers the requested kinds, all unique, each with an Arabic name", async () => {
+    const { EVENT_ICON_GROUPS } = await import("@/components/islamic/EventIcons");
+    const all = EVENT_ICON_GROUPS.flatMap((g) => g.icons);
+    const ids = all.map((i) => i.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const id of ["general", "hospital", "doctor", "pharmacy", "medicine", "sport", "football", "club", "restaurant", "coffee", "travel", "plane", "car", "car-service", "home", "work", "meeting", "study", "university", "shopping", "bank", "money", "bill", "birthday", "occasion", "call", "family", "mosque", "quran", "lesson", "barber", "salon", "cleaning", "computer", "tech", "mobile", "charging", "delivery", "maintenance", "pets", "important", "favorite"]) {
+      expect(ids, id).toContain(id);
+    }
+    for (const i of all) expect(i.ar.length, i.id).toBeGreaterThan(0);
+  });
+
+  it("an older appointment (no icon of its own) keeps its category icon, also when edited", async () => {
+    const { eventIconFor } = await import("@/components/islamic/EventIcons");
+    const { CATEGORY_ICON } = await import("@/components/islamic/EventForm");
+    expect(eventIconFor({}, CATEGORY_ICON.health)).toBe(CATEGORY_ICON.health);
+    expect(eventIconFor({ icon: "health" }, CATEGORY_ICON.general)).toBe(CATEGORY_ICON.health);
+    expect(eventIconFor({ icon: "work" }, CATEGORY_ICON.general)).toBe(CATEGORY_ICON.work);
+    expect(eventIconFor({ icon: "personal" }, CATEGORY_ICON.general)).toBe(CATEGORY_ICON.personal);
+    expect(eventIconFor({ icon: "general" }, CATEGORY_ICON.health)).toBe(CATEGORY_ICON.general);
+  });
+
   it("add -> Save closes the form, shows it, stores it and asks for a reschedule; edit and delete do the same", async () => {
     setup();
     fireEvent.click(screen.getByTestId("add-event"));

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { BellRing, CalendarClock, Music2, Sunrise } from "lucide-react";
+import { BellRing, CalendarClock, MoonStar, Music2, Sunrise } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
 import { PageShell } from "@/components/site/PageHeader";
 import { SettingsGroup, SettingsRow, SettingsSection } from "@/components/site/SettingsUI";
@@ -16,6 +16,7 @@ import { useNotifications } from "@/components/notifications/NotificationsProvid
 import { AthkarRemindersCard } from "@/components/islamic/AthkarRemindersCard";
 import { isCalendarNotificationsEnabled, setCalendarNotificationsEnabled } from "@/lib/events";
 import { requestNotificationRebuild } from "@/lib/notifications/NotificationScheduler";
+import { isNightNotificationsEnabled, setNightNotificationsEnabled } from "@/lib/notifications/NightNotificationService";
 import { athanSoundOption, reminderSoundOption } from "@/lib/notifications/NotificationSounds";
 import { loadAthkarSettings } from "@/lib/athkarReminders";
 import { getAnnouncementPushEnabled, setAnnouncementPushEnabled } from "@/lib/pushDevice";
@@ -25,7 +26,7 @@ import { isIOSNativeApp } from "@/lib/platform";
  * Notification SETTINGS (Settings → Notifications). Controls the four local
  * groups — prayer, reminder, Athan, Athkar, appointments — plus the separate
  * opt-in remote announcements. Deep-linkable by section id (#n-prayer,
- * #n-reminder, #n-athan, #n-athkar, #n-calendar, #n-general, #n-sounds).
+ * #n-reminder, #n-athan, #n-athkar, #n-calendar, #n-night, #n-general, #n-sounds).
  * Received notifications are the Notification Center (bottom-nav tab), not this.
  *
  * Vibration / "smart" switches are intentionally absent: the app has no such
@@ -37,6 +38,7 @@ export default function NotificationSettingsPage() {
   const nativeApp = isIOSNativeApp();
   const { prayerSettings } = useNotifications();
   const [calendarOn, setCalendarOn] = useState(() => isCalendarNotificationsEnabled());
+  const [nightOn, setNightOn] = useState(() => isNightNotificationsEnabled());
   const [announcementPush, setAnnouncementPush] = useState(() => getAnnouncementPushEnabled());
 
   // Scroll to the requested section once it has rendered.
@@ -114,6 +116,26 @@ export default function NotificationSettingsPage() {
               />
             </SettingsRow>
             <SettingsRow icon={CalendarClock} to="/calendar" label={t("Open the calendar", "فتح التقويم")} />
+          </SettingsGroup>
+        </SettingsSection>
+
+        <SettingsSection id="n-night" title={t("Night Alerts", "تنبيهات الليل")}>
+          <SettingsGroup>
+            <SettingsRow
+              icon={MoonStar}
+              label={t("Night alerts", "تنبيهات الليل")}
+              description={t("Midnight and the start of the last third of the night.", "منتصف الليل وبداية الثلث الأخير من الليل.")}
+            >
+              <Switch
+                aria-label={t("Night alerts", "تنبيهات الليل")}
+                checked={nightOn}
+                onCheckedChange={(v) => {
+                  setNightOn(v);
+                  setNightNotificationsEnabled(v);
+                  requestNotificationRebuild();
+                }}
+              />
+            </SettingsRow>
           </SettingsGroup>
         </SettingsSection>
 

@@ -7,7 +7,7 @@ import fs from "fs";
 // sound tests exercise the REAL "is this .caf actually in the iOS bundle" logic instead of always
 // falling back to "default" (which would make every sound-name assertion trivially true).
 function bundledCafs(): string[] {
-  const CAF_NAMES = ["pre_athan_alert.caf", "astaghfirullah.caf", "athan_makkah.caf", "athan_madinah.caf", "athan_fajr.caf", "athan_ibn_majid.caf", "notif_bell.caf", "notif_chime.caf", "notif_alert.caf", "notif_calm.caf"];
+  const CAF_NAMES = ["pre_athan_alert.caf", "astaghfirullah_night.caf", "astaghfirullah.caf", "athan_makkah.caf", "athan_madinah.caf", "athan_fajr.caf", "athan_ibn_majid.caf", "notif_bell.caf", "notif_chime.caf", "notif_alert.caf", "notif_calm.caf"];
   try {
     const pbx = fs.readFileSync(path.resolve(__dirname, "ios/App/App.xcodeproj/project.pbxproj"), "utf8");
     return CAF_NAMES.filter((name) => fs.existsSync(path.resolve(__dirname, "ios/App/App", name)) && pbx.includes(`${name} in Resources`));

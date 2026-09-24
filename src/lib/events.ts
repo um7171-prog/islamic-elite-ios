@@ -23,6 +23,8 @@ export interface CalEvent {
   sound?: ReminderSoundId;
   /** optional grouping shown as an icon in lists ("general" when absent) */
   category?: EventCategory;
+  /** optional icon id from the appointment icon library (EventIcons.tsx); absent = the category's icon */
+  icon?: string;
   createdAt: number;
 }
 

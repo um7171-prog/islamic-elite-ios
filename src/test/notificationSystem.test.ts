@@ -31,6 +31,8 @@ import { buildAppointmentItems, syncAppointmentNotifications } from "@/lib/notif
 import { syncAthkarReminders, DEFAULT_ATHKAR_SETTINGS } from "@/lib/athkarReminders";
 import { setCalendarNotificationsEnabled, type CalEvent } from "@/lib/events";
 import { adhanElapsedLabel, getAdhanElapsed, type PrayerTimeEntry } from "@/lib/notifications/AdhanElapsed";
+import { buildNightItems, isNightNotificationsEnabled, nightTimesFor, setNightNotificationsEnabled, syncNightNotifications } from "@/lib/notifications/NightNotificationService";
+import { getPrayerTimes } from "@/lib/prayer";
 
 const BURAYDAH = { lat: 26.33, lng: 43.97 };
 const CAIRO = { lat: 30.04, lng: 31.24 };
@@ -554,5 +556,171 @@ describe("PRE-PRAYER (أستغفر الله) is never mixed with PRAYER TIME (at
     const dhuhrAthan = items.find((i) => (i.extra as { kind: string; prayer: string }).kind === "athan" && (i.extra as { prayer: string }).prayer === "dhuhr")!;
     expect((fajrAthan.extra as { sound: string }).sound).toBe("fajr");
     expect((dhuhrAthan.extra as { sound: string }).sound).toBe("madinah");
+  });
+});
+
+/* ---------------------------------------------------------------- night notifications */
+describe("NIGHT notifications — middle of the night + last third (astaghfirullah_night.caf)", () => {
+  const nightInput = (o: { c?: { lat: number; lng: number }; now?: Date; lang?: "ar" | "en" } = {}) => ({
+    ...(o.c ?? BURAYDAH),
+    madhab: "hanbali" as const,
+    lang: o.lang ?? ("ar" as const),
+    ...(o.now ? { now: o.now } : {}),
+  });
+  const heldNight = () => pendingIn(NOTIFICATION_RANGES.night.min, NOTIFICATION_RANGES.night.max);
+
+  it("the math: night of day D = D's Maghrib -> D+1's Fajr; middle = ½, last third = ⅔ (to the minute)", () => {
+    const day = new Date(2026, 8, 20);
+    const { entries } = getPrayerTimes(day, BURAYDAH.lat, BURAYDAH.lng, "hanbali");
+    const next = getPrayerTimes(new Date(2026, 8, 21), BURAYDAH.lat, BURAYDAH.lng, "hanbali").entries;
+    const maghrib = entries.find((e) => e.key === "maghrib")!.time.getTime();
+    const fajr = next.find((e) => e.key === "fajr")!.time.getTime();
+    const night = fajr - maghrib;
+    const t = nightTimesFor(day, BURAYDAH.lat, BURAYDAH.lng, "hanbali");
+    expect(Math.abs(t.midnight.getTime() - (maghrib + night / 2))).toBeLessThanOrEqual(60_000);
+    expect(Math.abs(t.lastThird.getTime() - (maghrib + (night * 2) / 3))).toBeLessThanOrEqual(60_000);
+    expect(t.midnight.getTime()).toBeLessThan(t.lastThird.getTime());
+    expect(t.lastThird.getTime()).toBeLessThan(fajr);
+  });
+
+  it("they are exactly the times the prayer screen shows (same getPrayerTimes().sunnah)", () => {
+    const day = new Date(2026, 8, 20);
+    const { sunnah } = getPrayerTimes(day, BURAYDAH.lat, BURAYDAH.lng, "hanbali");
+    const t = nightTimesFor(day, BURAYDAH.lat, BURAYDAH.lng, "hanbali");
+    expect(t.midnight.getTime()).toBe(sunnah.middleOfTheNight.getTime());
+    expect(t.lastThird.getTime()).toBe(sunnah.lastThirdOfTheNight.getTime());
+  });
+
+  it("exact texts, the night sound only, their own id range", () => {
+    const items = buildNightItems(nightInput());
+    const mid = items.filter((i) => (i.extra as { night: string }).night === "midnight");
+    const third = items.filter((i) => (i.extra as { night: string }).night === "lastThird");
+    expect(mid.length).toBeGreaterThan(0);
+    expect(third.length).toBeGreaterThan(0);
+    for (const i of mid) expect(i.title).toBe("🌙 دخل وقت منتصف الليل");
+    for (const i of third) expect(i.title).toBe("🤲 دخل الثلث الأخير من الليل");
+    for (const i of items) {
+      expect(i.sound).toBe("astaghfirullah_night.caf");
+      expect(i.id).toBeGreaterThanOrEqual(NOTIFICATION_RANGES.night.min);
+      expect(i.id).toBeLessThanOrEqual(NOTIFICATION_RANGES.night.max);
+    }
+    expect(new Set(items.map((i) => i.id)).size).toBe(items.length);
+    // the night range never overlaps another group
+    for (const g of ["prayer", "athkar", "calendar"] as const) {
+      expect(NOTIFICATION_RANGES.night.min > NOTIFICATION_RANGES[g].max || NOTIFICATION_RANGES.night.max < NOTIFICATION_RANGES[g].min).toBe(true);
+    }
+  });
+
+  it("the night sound is used by NO other notification (prayer / pre-reminder)", () => {
+    const prayer = buildPrayerItems(prayerInput({ s: settings({ preReminderEnabled: true }) }));
+    expect(prayer.some((i) => i.sound === "astaghfirullah_night.caf")).toBe(false);
+  });
+
+  it("before dawn, tonight's still-upcoming last third is kept; only future ones, soonest first, capped at 4", () => {
+    // 03:30 Riyadh (beforeEach): the middle of last night has passed, its last third may still be ahead.
+    const now = new Date();
+    const kept = prepareItems("night", buildNightItems(nightInput()));
+    expect(kept.length).toBeLessThanOrEqual(NOTIFICATION_RANGES.night.cap);
+    expect(kept.every((i) => i.at.getTime() > now.getTime())).toBe(true);
+    for (let k = 1; k < kept.length; k++) expect(kept[k].at.getTime()).toBeGreaterThanOrEqual(kept[k - 1].at.getTime());
+  });
+
+  it("really scheduled in iOS with the night sound, and the PRAYER notifications are untouched", async () => {
+    await syncPrayerNotifications(prayerInput());
+    const prayerBefore = pendingIn(NOTIFICATION_RANGES.prayer.min, NOTIFICATION_RANGES.prayer.max).map((n) => [n.id, n.at.getTime(), n.sound, n.title]);
+    const res = await syncNightNotifications(nightInput());
+    expect(res.scheduled).toBe(NOTIFICATION_RANGES.night.cap);
+    expect(heldNight()).toHaveLength(NOTIFICATION_RANGES.night.cap);
+    expect(heldNight().every((n) => n.sound === "astaghfirullah_night.caf")).toBe(true);
+    const prayerAfter = pendingIn(NOTIFICATION_RANGES.prayer.min, NOTIFICATION_RANGES.prayer.max).map((n) => [n.id, n.at.getTime(), n.sound, n.title]);
+    expect(prayerAfter).toEqual(prayerBefore);
+  });
+
+  it("rebuilding REPLACES (new city / next day): no stale night notification is left behind", async () => {
+    await syncNightNotifications(nightInput());
+    const first = heldNight().map((n) => n.at.getTime());
+    await syncNightNotifications(nightInput({ c: CAIRO }));
+    const second = heldNight();
+    expect(second).toHaveLength(NOTIFICATION_RANGES.night.cap);
+    expect(second.some((n, i) => n.at.getTime() !== first[i])).toBe(true); // Cairo's night, not Buraydah's
+    // a day later: still exactly the cap, all in the future
+    vi.setSystemTime(new Date(Date.now() + 86_400_000));
+    await syncNightNotifications(nightInput({ c: CAIRO }));
+    expect(heldNight()).toHaveLength(NOTIFICATION_RANGES.night.cap);
+    expect(heldNight().every((n) => n.at.getTime() > Date.now())).toBe(true);
+  });
+
+  it("respects the existing permission: nothing is scheduled without it", async () => {
+    center.permission = "denied";
+    const res = await syncNightNotifications(nightInput());
+    expect(res.reason).toBe("permission-denied");
+    expect(heldNight()).toHaveLength(0);
+  });
+
+  it("the file is in the iOS App Bundle (on disk + Copy Bundle Resources)", async () => {
+    const { existsSync, readFileSync } = await import("node:fs");
+    expect(existsSync("ios/App/App/astaghfirullah_night.caf")).toBe(true);
+    expect(readFileSync("ios/App/App.xcodeproj/project.pbxproj", "utf8")).toContain("astaghfirullah_night.caf in Resources");
+  });
+
+  it("the provider rebuilds the night group together with the others (location / day / foreground changes)", async () => {
+    const { readFileSync } = await import("node:fs");
+    const src = readFileSync("src/components/notifications/NotificationsProvider.tsx", "utf8");
+    expect(src).toMatch(/await syncNightNotifications\(\{ lat: c\.lat, lng: c\.lng, madhab: m, calc: cc, lang: l \}\)/);
+  });
+});
+
+describe("«تنبيهات الليل» switch and no conflict with the prayer notifications", () => {
+  const nightInput = () => ({ ...BURAYDAH, madhab: "hanbali" as const, lang: "ar" as const });
+  const heldNight = () => pendingIn(NOTIFICATION_RANGES.night.min, NOTIFICATION_RANGES.night.max);
+  const prayerSnapshot = () =>
+    pendingIn(NOTIFICATION_RANGES.prayer.min, NOTIFICATION_RANGES.prayer.max).map((n) => [n.id, n.at.getTime(), n.sound, n.title, n.body]);
+
+  it("is ON by default", () => {
+    expect(isNightNotificationsEnabled()).toBe(true);
+  });
+
+  it("OFF cancels ONLY the two night notifications; ON schedules them again; prayers never change", async () => {
+    await syncPrayerNotifications(prayerInput({ s: settings({ preReminderEnabled: true }) }));
+    await syncNightNotifications(nightInput());
+    const prayers = prayerSnapshot();
+    expect(heldNight()).toHaveLength(NOTIFICATION_RANGES.night.cap);
+
+    setNightNotificationsEnabled(false);
+    expect(isNightNotificationsEnabled()).toBe(false);
+    const off = await syncNightNotifications(nightInput());
+    expect(off.reason).toBe("empty");
+    expect(heldNight()).toHaveLength(0);
+    expect(prayerSnapshot()).toEqual(prayers);
+
+    setNightNotificationsEnabled(true);
+    await syncNightNotifications(nightInput());
+    expect(heldNight()).toHaveLength(NOTIFICATION_RANGES.night.cap);
+    expect(prayerSnapshot()).toEqual(prayers);
+  });
+
+  it("no conflict: disjoint ids, the night sound is exclusive, and a night tap never plays the athan", async () => {
+    const prayer = buildPrayerItems(prayerInput({ s: settings({ preReminderEnabled: true }) }));
+    const night = buildNightItems(nightInput());
+    const prayerIds = new Set(prayer.map((i) => i.id));
+    expect(night.some((i) => prayerIds.has(i.id))).toBe(false);
+    expect(prayer.some((i) => i.sound === "astaghfirullah_night.caf")).toBe(false);
+    expect(night.every((i) => i.sound === "astaghfirullah_night.caf")).toBe(true);
+    // NotificationRouter plays the full athan only for extra.kind === "athan"
+    expect(night.every((i) => (i.extra as { kind: string }).kind === "night")).toBe(true);
+    // all groups together still fit iOS's 64 pending notifications
+    expect(Object.values(NOTIFICATION_RANGES).reduce((s, r) => s + r.cap, 0)).toBeLessThanOrEqual(64);
+    // scheduling both keeps both, in their own ranges
+    await syncPrayerNotifications(prayerInput());
+    await syncNightNotifications(nightInput());
+    expect(pendingIn(NOTIFICATION_RANGES.prayer.min, NOTIFICATION_RANGES.prayer.max).length).toBeGreaterThan(0);
+    expect(heldNight()).toHaveLength(NOTIFICATION_RANGES.night.cap);
+  });
+
+  it("the settings page has the switch, wired to the setting + a rebuild", async () => {
+    const { readFileSync } = await import("node:fs");
+    const src = readFileSync("src/pages/NotificationSettingsPage.tsx", "utf8");
+    expect(src).toMatch(/تنبيهات الليل/);
+    expect(src).toMatch(/setNightNotificationsEnabled\(v\);\s*requestNotificationRebuild\(\);/);
   });
 });

@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { Languages, ArrowLeftRight, Copy, Check, Loader2, Sparkles, Image as ImageIcon, Camera, X, ArrowLeft, ArrowRight } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useLocale } from "@/contexts/LocaleContext";
-import { supabase } from "@/integrations/supabase/client";
+import { requestTranslation } from "@/lib/translation/translateClient";
 import { toast } from "sonner";
 import { ensureExternalAIConsent } from "@/lib/aiConsent";
 
@@ -32,6 +32,29 @@ const LANGS: { code: string; ar: string; en: string }[] = [
 
 const RTL = new Set(["ar", "ur", "fa"]);
 
+/** Phone photos are several MB; the server takes at most ~4 MB per request, and text in an image
+ * reads fine at 1600 px. Falls back to the original if the image can't be redrawn. */
+async function shrinkImage(dataUrl: string, maxSide = 1600): Promise<string> {
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error("image load failed"));
+      el.src = dataUrl;
+    });
+    const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(img.naturalWidth * scale);
+    canvas.height = Math.round(img.naturalHeight * scale);
+    const ctx = canvas.getContext("2d");
+    if (!ctx || !canvas.width || !canvas.height) return dataUrl;
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL("image/jpeg", 0.85);
+  } catch {
+    return dataUrl;
+  }
+}
+
 interface TranslatorDialogProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -46,8 +69,9 @@ export function TranslatorDialog({ open: openProp, onOpenChange, hideTrigger }: 
     if (onOpenChange) onOpenChange(v);
     else setInternalOpen(v);
   };
-  const [from, setFrom] = useState("auto");
-  const [to, setTo] = useState(lang === "ar" ? "en" : "ar");
+  // Default pair on every first open: Arabic -> English.
+  const [from, setFrom] = useState("ar");
+  const [to, setTo] = useState("en");
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -88,24 +112,19 @@ export function TranslatorDialog({ open: openProp, onOpenChange, hideTrigger }: 
     setLoading(true);
     setOutput("");
     try {
-      const { data, error } = await supabase.functions.invoke("translate", {
-        body: { text, from, to, imageDataUrl },
-      });
-      if (error) throw error;
-      if ((data as any)?.error === "rate_limit") {
-        toast.error(t("Too many requests, try again shortly.", "طلبات كثيرة، حاول بعد قليل."));
+      const image = imageDataUrl ? await shrinkImage(imageDataUrl) : null;
+      const { translation, error: failure } = await requestTranslation({ text, from, to, imageDataUrl: image });
+      if (failure || !translation) {
+        // Never a fake success: no real translated text -> a clear error, and the output stays empty.
+        if (failure === "rate_limit") toast.error(t("Too many requests, try again shortly.", "طلبات كثيرة، حاول بعد قليل."));
+        else if (failure === "credits") toast.error(t("AI credits exhausted.", "نفدت رصيد الذكاء الاصطناعي."));
+        else if (failure === "image_unavailable") toast.error(t("Translating images isn't available right now. Type the text instead.", "ترجمة الصور غير متاحة حالياً. اكتب النص بدلاً من ذلك."));
+        else if (failure === "unreachable") toast.error(t("The translation service can't be reached. Check your internet connection and try again.", "تعذّر الوصول إلى خدمة الترجمة. تحقّق من الاتصال بالإنترنت وحاول مرة أخرى."));
+        else toast.error(t("Translation failed.", "فشلت الترجمة."));
         return;
       }
-      if ((data as any)?.error === "credits") {
-        toast.error(t("AI credits exhausted.", "نفدت رصيد الذكاء الاصطناعي."));
-        return;
-      }
-      if ((data as any)?.error) {
-        toast.error(t("Translation failed.", "فشلت الترجمة."));
-        return;
-      }
-      setOutput((data as any)?.translation ?? "");
-    } catch (e) {
+      setOutput(translation);
+    } catch {
       toast.error(t("Translation failed.", "فشلت الترجمة."));
     } finally {
       setLoading(false);

@@ -7,6 +7,11 @@ import { CityProvider } from "@/contexts/CityContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { PrayerCalcProvider } from "@/contexts/PrayerCalcContext";
 import PrayerTimes from "@/pages/PrayerTimes";
+import { useState } from "react";
+import { readFileSync } from "node:fs";
+import { HeroPrayerCard } from "@/components/islamic/HeroPrayerCard";
+import { PrayerStrip } from "@/components/islamic/PrayerStrip";
+import type { PrayerKey } from "@/lib/prayer";
 
 function renderPage() {
   localStorage.setItem("lang", "ar");
@@ -90,70 +95,128 @@ describe("Prayer Times — choosing a prayer points the countdown at it", () => 
   });
 });
 
-// 09:00Z is 12:00 in Buraydah, a few minutes after Dhuhr (≈11:56): inside the 30-minute window.
-describe("Prayer Times — «أذّن منذ…» for 30 minutes after the adhan", () => {
-  it("after the adhan it stays on that prayer and shows «أذّن منذ N …» instead of jumping to the next", () => {
-    renderPage();
-    const bar = screen.getByTestId("next-prayer-bar");
-    expect(bar.getAttribute("data-mode")).toBe("since");
-    expect(bar.getAttribute("data-target")).toBe("dhuhr");
-    expect(bar.className).toMatch(/bg-dhuhr/);
-    expect(screen.getByTestId("adhan-since").textContent).toMatch(/^أذّن منذ (دقيقتين|\d+ دقائق)$/);
-    expect(screen.queryByTestId("hero-countdown")).toBeNull();
+/* The Home screen wiring, exactly as Index.tsx does it: one selection shared by the card and the strip. */
+function HomeHarness() {
+  const [selected, setSelected] = useState<PrayerKey | null>(null);
+  return (
+    <>
+      <HeroPrayerCard selectedKey={selected} />
+      <PrayerStrip selectedKey={selected} onSelect={setSelected} />
+    </>
+  );
+}
+function renderHome() {
+  localStorage.setItem("lang", "ar");
+  return render(
+    <MemoryRouter>
+      <ThemeProvider>
+        <LocaleProvider>
+          <CityProvider>
+            <PrayerCalcProvider>
+              <HomeHarness />
+            </PrayerCalcProvider>
+          </CityProvider>
+        </LocaleProvider>
+      </ThemeProvider>
+    </MemoryRouter>,
+  );
+}
+
+describe("Home — tapping a prayer in the strip moves the MAIN countdown to it", () => {
+  it("Index.tsx shares one selection between the card and the strip", () => {
+    const src = readFileSync("src/pages/Index.tsx", "utf8");
+    expect(src).toMatch(/<HeroPrayerCard[^>]*selectedKey=\{selectedPrayer\}/);
+    expect(src).toMatch(/<PrayerStrip[^>]*selectedKey=\{selectedPrayer\}[^>]*onSelect=\{setSelectedPrayer\}/);
   });
 
-  it("updates by itself every minute", () => {
-    renderPage();
-    const m0 = Number(screen.getByTestId("adhan-since").getAttribute("data-minutes"));
-    act(() => { vi.advanceTimersByTime(60_000); });
-    expect(Number(screen.getByTestId("adhan-since").getAttribute("data-minutes"))).toBe(m0 + 1);
+  it("Asr -> «متبقي على العصر» counting to the real Asr time; Maghrib -> Maghrib; again -> back to next", () => {
+    renderHome();
+    const card = screen.getByTestId("hero-card");
+    const nextKey = card.getAttribute("data-target");
+
+    fireEvent.click(screen.getByTestId("prayer-tile-asr"));
+    expect(card.getAttribute("data-target")).toBe("asr");
+    expect(card.textContent).toMatch(/متبقي على العصر/);
+    expect(card.textContent).toMatch(/الصلاة المختارة/);
+    const toAsr = seconds(screen.getByTestId("hero-countdown").textContent ?? "");
+
+    fireEvent.click(screen.getByTestId("prayer-tile-maghrib"));
+    expect(card.getAttribute("data-target")).toBe("maghrib");
+    expect(card.textContent).toMatch(/متبقي على المغرب/);
+    const toMaghrib = seconds(screen.getByTestId("hero-countdown").textContent ?? "");
+    expect(toMaghrib).toBeGreaterThan(toAsr); // the real times: Maghrib is after Asr
+
+    // the strip's atmosphere follows the selection and stays (no 5-second revert)
+    expect(screen.getByTestId("prayer-atmosphere").getAttribute("data-atmosphere")).toBe("maghrib");
+    act(() => { vi.advanceTimersByTime(10_000); });
+    expect(screen.getByTestId("prayer-atmosphere").getAttribute("data-atmosphere")).toBe("maghrib");
+    expect(card.getAttribute("data-target")).toBe("maghrib");
+
+    fireEvent.click(screen.getByTestId("prayer-tile-maghrib"));
+    expect(card.getAttribute("data-target")).toBe(nextKey);
+    expect(card.textContent).toMatch(/الصلاة القادمة/);
   });
 
-  it("after 30 minutes it returns to the normal countdown to the next prayer", () => {
-    renderPage();
-    act(() => { vi.advanceTimersByTime(30 * 60_000); });
-    const bar = screen.getByTestId("next-prayer-bar");
-    expect(bar.getAttribute("data-mode")).toBe("countdown");
-    expect(bar.getAttribute("data-target")).toBe("asr");
-    expect(bar.textContent).toMatch(/متبقي على العصر/);
-  });
-
-  it("with a prayer selected, «أذّن منذ…» belongs to that prayer only", () => {
-    renderPage();
-    const bar = screen.getByTestId("next-prayer-bar");
-    fireEvent.click(screen.getByTestId("prayer-row-asr")); // not yet: a countdown
-    expect(bar.getAttribute("data-mode")).toBe("countdown");
-    expect(bar.textContent).toMatch(/متبقي على العصر/);
-    fireEvent.click(screen.getByTestId("prayer-row-dhuhr")); // its adhan just passed
-    expect(bar.getAttribute("data-mode")).toBe("since");
-    expect(bar.getAttribute("data-target")).toBe("dhuhr");
-    expect(screen.getByTestId("adhan-since").textContent).toMatch(/^أذّن منذ/);
-  });
-
-  it("Arabic minute forms: دقيقة، دقيقتين، 3–10 دقائق، 11+ دقيقة", () => {
-    renderPage();
-    fireEvent.click(screen.getByTestId("prayer-row-dhuhr"));
-    const seen = new Set<string>();
-    for (let i = 0; i < 26; i++) {
-      seen.add(screen.getByTestId("adhan-since").textContent ?? "");
-      act(() => { vi.advanceTimersByTime(60_000); });
-    }
-    const all = [...seen].join(" | ");
-    expect(all).toMatch(/أذّن منذ 10 دقائق/);
-    expect(all).toMatch(/أذّن منذ 11 دقيقة/);
+  it("a selected prayer already passed today counts to tomorrow's, and ticks every second", () => {
+    renderHome();
+    fireEvent.click(screen.getByTestId("prayer-tile-fajr"));
+    const a = seconds(screen.getByTestId("hero-countdown").textContent ?? "");
+    expect(a).toBeGreaterThan(12 * 3600);
+    act(() => { vi.advanceTimersByTime(3000); });
+    expect(a - seconds(screen.getByTestId("hero-countdown").textContent ?? "")).toBe(3);
   });
 });
 
-describe("Prayer Times — «أذّن منذ دقيقة/دقيقتين» at the start of the window", () => {
-  it("counts دقيقة then دقيقتين right after the adhan", () => {
-    // Walk back from 12:00 to the first minute after Dhuhr, reading the minutes shown.
-    renderPage();
-    const m = Number(screen.getByTestId("adhan-since").getAttribute("data-minutes"));
+// 09:00Z is 12:00 in Buraydah, a few minutes after Dhuhr (≈11:56).
+describe("«منذ MM:SS» under the countdown after a prayer's time", () => {
+  const sinceSeconds = () => Number(screen.getByTestId("adhan-since").getAttribute("data-seconds"));
+
+  it("Home: shows «منذ MM:SS» UNDER the countdown; the countdown and «الصلاة القادمة» stay", () => {
+    renderHome();
+    const card = screen.getByTestId("hero-card");
+    expect(screen.getByTestId("hero-countdown").textContent).toMatch(/^\d{2}:\d{2}:\d{2}$/);
+    expect(card.textContent).toMatch(/الصلاة القادمة/);
+    expect(card.textContent).toMatch(/متبقي على العصر/);
+    expect(screen.getByTestId("adhan-since").textContent).toMatch(/^منذ \d{2}:\d{2}$/);
+  });
+
+  it("starts at 00:00 when the prayer time enters, and counts minutes AND seconds", () => {
+    renderHome();
+    const age = sinceSeconds();
     cleanup();
-    vi.setSystemTime(new Date(Date.now() - (m - 1) * 60_000));
+    vi.setSystemTime(new Date(Date.now() - age * 1000)); // the exact moment Dhuhr entered
+    renderHome();
+    expect(screen.getByTestId("adhan-since").textContent).toBe("منذ 00:00");
+    act(() => { vi.advanceTimersByTime(1000); });
+    expect(screen.getByTestId("adhan-since").textContent).toBe("منذ 00:01");
+    act(() => { vi.advanceTimersByTime(15 * 60_000 + 31_000); });
+    expect(screen.getByTestId("adhan-since").textContent).toBe("منذ 15:32");
+  });
+
+  it("lasts 45 minutes only (never shows hours), then only «منذ» disappears", () => {
+    renderHome();
+    const age = sinceSeconds();
+    act(() => { vi.advanceTimersByTime((45 * 60 - 1 - age) * 1000); });
+    expect(screen.getByTestId("adhan-since").textContent).toBe("منذ 44:59");
+    act(() => { vi.advanceTimersByTime(1000); });
+    expect(screen.queryByTestId("adhan-since")).toBeNull();
+    expect(screen.getByTestId("hero-countdown")).toBeTruthy();
+    expect(screen.getByTestId("hero-card").textContent).toMatch(/الصلاة القادمة/);
+  });
+
+  it("Prayer Times screen: the same «منذ» line under its countdown", () => {
     renderPage();
-    expect(screen.getByTestId("adhan-since").textContent).toBe("أذّن منذ دقيقة");
-    act(() => { vi.advanceTimersByTime(60_000); });
-    expect(screen.getByTestId("adhan-since").textContent).toBe("أذّن منذ دقيقتين");
+    expect(screen.getByTestId("hero-countdown")).toBeTruthy();
+    expect(screen.getByTestId("next-prayer-bar").textContent).toMatch(/متبقي على العصر/);
+    expect(screen.getByTestId("adhan-since").textContent).toMatch(/^منذ \d{2}:\d{2}$/);
+  });
+
+  it("with a prayer selected, «منذ» belongs to that prayer only", () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId("prayer-row-asr")); // Asr has not entered: no «منذ»
+    expect(screen.queryByTestId("adhan-since")).toBeNull();
+    fireEvent.click(screen.getByTestId("prayer-row-dhuhr")); // Dhuhr just entered
+    expect(screen.getByTestId("adhan-since")).toBeTruthy();
+    expect(screen.getByTestId("hero-countdown")).toBeTruthy(); // counts to tomorrow's Dhuhr
   });
 });

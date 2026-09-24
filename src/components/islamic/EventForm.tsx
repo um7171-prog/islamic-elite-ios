@@ -7,6 +7,7 @@ import { SettingsGroup } from "@/components/site/SettingsUI";
 import { REMINDER_SOUNDS, previewSound, type ReminderSoundId } from "@/lib/notifications/NotificationSounds";
 import { EVENT_CATEGORIES, REMINDER_CHOICES, REPEAT_CHOICES, ymd, type EventCategory, type Repeat } from "@/lib/events";
 import { cn } from "@/lib/utils";
+import { EventIconPicker } from "./EventIcons";
 
 export interface EventDraft {
   title: string;
@@ -18,6 +19,8 @@ export interface EventDraft {
   remindMinutesBefore: number | null;
   sound: ReminderSoundId;
   category: EventCategory;
+  /** icon id from the appointment icon library */
+  icon: string;
 }
 
 export const CATEGORY_ICON: Record<EventCategory, ElementType> = {
@@ -216,7 +219,7 @@ export function EventForm({ open, onOpenChange, draft, setDraft, editing, onSave
                 <Switch
                   aria-label={t("Notification", "التنبيه")}
                   checked={notifOn}
-                  onCheckedChange={(v) => set("remindMinutesBefore", v ? 10 : null)}
+                  onCheckedChange={(v) => set("remindMinutesBefore", v ? 0 : null)}
                 />
               </Row>
               {notifOn && (
@@ -224,7 +227,7 @@ export function EventForm({ open, onOpenChange, draft, setDraft, editing, onSave
                   <Row icon={Clock} label={t("Remind me", "وقت التذكير")} htmlFor="ev-lead">
                     <SelectValue
                       id="ev-lead"
-                      value={draft.remindMinutesBefore ?? 10}
+                      value={draft.remindMinutesBefore ?? 0}
                       onChange={(v) => set("remindMinutesBefore", v)}
                       options={leadOptions}
                     />
@@ -252,6 +255,7 @@ export function EventForm({ open, onOpenChange, draft, setDraft, editing, onSave
             </SettingsGroup>
 
             <SettingsGroup>
+              <EventIconPicker value={draft.icon} onChange={(v) => set("icon", v)} />
               <Row icon={Tag} label={t("Category", "الفئة")} htmlFor="ev-cat">
                 <SelectValue
                   id="ev-cat"

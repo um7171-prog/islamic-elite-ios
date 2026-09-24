@@ -9,14 +9,18 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 let available = true;
 const scanDocument = vi.fn<(lang: string) => Promise<unknown>>();
 const cancelScan = vi.fn(async () => undefined);
+const savePagesToPhotos = vi.fn<(urls: string[]) => Promise<number>>(async (urls) => urls.length);
 vi.mock("@/lib/scanner/nativeScanner", () => ({
   isScannerAvailable: () => available,
   scanDocument: (lang: string) => scanDocument(lang),
   cancelScan: () => cancelScan(),
+  savePagesToPhotos: (urls: string[]) => savePagesToPhotos(urls),
 }));
 const downloadBlob = vi.fn<(blob: Blob, name: string) => Promise<void>>(async () => undefined);
 vi.mock("@/lib/aiImage", () => ({ downloadBlob: (blob: Blob, name: string) => downloadBlob(blob, name) }));
-vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
+const toastError = vi.fn();
+const toastSuccess = vi.fn();
+vi.mock("sonner", () => ({ toast: { error: (...a: unknown[]) => toastError(...a), success: (...a: unknown[]) => toastSuccess(...a), info: vi.fn() } }));
 // applyFilterToDataUrl needs real <canvas> pixel APIs jsdom does not implement; stand in with a
 // deterministic, distinguishable "processed" marker per filter so the UI/PDF wiring is provable.
 // A valid JPEG must stay embeddable in the real PDF, so the mock keeps the SAME bytes and only
@@ -127,6 +131,37 @@ describe("scanner screen (JS side of the native contract)", () => {
     expect(head).toBe("%PDF-");
   });
 
+  it("Save to Photos saves every page as its FINAL (filtered) image; the PDF button is still there", async () => {
+    scanDocument.mockResolvedValueOnce(page(1)).mockResolvedValueOnce(page(2));
+    savePagesToPhotos.mockClear();
+    render(<Host />);
+    await waitFor(() => expect(screen.getAllByTestId("scan-page")).toHaveLength(1));
+    fireEvent.click(screen.getByTestId("scan-add"));
+    await waitFor(() => expect(screen.getAllByTestId("scan-page")).toHaveLength(2));
+    await waitFor(() => expect(screen.getByTestId("scan-filter-magic").getAttribute("data-active")).toBe("true"));
+    fireEvent.click(screen.getByTestId("scan-save-photos"));
+    await waitFor(() => expect(savePagesToPhotos).toHaveBeenCalledTimes(1));
+    const urls = savePagesToPhotos.mock.calls[0][0];
+    expect(urls).toHaveLength(2);
+    // the filtered variant (the mock marks Magic by its width) is what gets saved
+    expect(applyFilterToDataUrl).toHaveBeenCalledWith(expect.any(String), "magic");
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalled());
+    expect(screen.getByTestId("scan-save-pdf")).toBeTruthy();
+  });
+
+  it("Save to Photos: a refused Photos permission says how to allow it (no fake success)", async () => {
+    scanDocument.mockResolvedValue(page());
+    savePagesToPhotos.mockRejectedValueOnce(new Error("PHOTOS_DENIED"));
+    toastError.mockClear();
+    toastSuccess.mockClear();
+    render(<Host />);
+    await waitFor(() => expect(screen.getAllByTestId("scan-page")).toHaveLength(1));
+    fireEvent.click(screen.getByTestId("scan-save-photos"));
+    await waitFor(() => expect(toastError).toHaveBeenCalled());
+    expect(String(toastError.mock.calls[0][0])).toMatch(/إعدادات iPhone/);
+    expect(toastSuccess).not.toHaveBeenCalled();
+  });
+
   it("outside the iPhone app the scanner is honestly unavailable (no fake camera, no scan call)", () => {
     available = false;
     render(<Host />);
@@ -199,6 +234,17 @@ describe("native project wiring (what the iPhone build actually contains)", () =
     expect(vc).toMatch(/viewWillDisappear[\s\S]*stopCamera\(\)/);
     expect(vc).toMatch(/supportedInterfaceOrientations[^\n]*\.portrait/);
     expect(read("ios/App/App/DocumentScannerPlugin.swift")).toMatch(/The scanner is already open/);
+  });
+
+  it("Save to Photos is really native: add-only Photos permission, PHAssetCreationRequest, usage string", () => {
+    const plugin = read("ios/App/App/DocumentScannerPlugin.swift");
+    expect(plugin).toMatch(/import Photos/);
+    expect(plugin).toMatch(/CAPPluginMethod\(name: "saveToPhotos"/);
+    expect(plugin).toMatch(/requestAuthorization\(for: \.addOnly\)/);
+    expect(plugin).toMatch(/PHAssetCreationRequest\.forAsset\(\)/);
+    expect(plugin).toMatch(/PHOTOS_DENIED/);
+    expect(read("ios/App/App/Info.plist")).toMatch(/NSPhotoLibraryAddUsageDescription/);
+    expect(read("src/lib/scanner/nativeScanner.ts")).toMatch(/saveToPhotos\(\{ images \}\)/);
   });
 
   it("camera permission has a usage string and a denied path that opens Settings", () => {

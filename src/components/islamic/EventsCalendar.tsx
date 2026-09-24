@@ -27,6 +27,7 @@ import { getPermissionStatus } from "@/lib/notifications/NotificationPermissionS
 import { requestReopenNotificationOnboarding } from "@/components/notifications/NotificationOnboardingCard";
 import { isIOSNativeApp } from "@/lib/platform";
 import { CATEGORY_ICON, EventForm, type EventDraft } from "./EventForm";
+import { DEFAULT_EVENT_ICON, eventIconFor } from "./EventIcons";
 
 const MODE_KEY = "elite.calendar.mode.v1";
 type Mode = "gregorian" | "hijri";
@@ -51,9 +52,10 @@ const emptyDraft = (date: Date): EventDraft => ({
   date,
   time: defaultTimeFor(date),
   repeat: "none" as Repeat,
-  remindMinutesBefore: 10,
+  remindMinutesBefore: 0, // default: remind at the appointment time itself ("عند الموعد")
   sound: DEFAULT_REMINDER_SOUND as ReminderSoundId,
   category: "general",
+  icon: DEFAULT_EVENT_ICON,
 });
 
 function fmtMonth(d: Date, lang: "ar" | "en", calendar: "gregory" | "islamic-umalqura") {
@@ -180,6 +182,8 @@ export function EventsCalendar({ hideHeading = false }: { hideHeading?: boolean 
       remindMinutesBefore: e.remindMinutesBefore,
       sound: (e.sound ?? DEFAULT_REMINDER_SOUND) as ReminderSoundId,
       category: e.category ?? "general",
+      // older appointments have no icon of their own: start from their category's (same picture)
+      icon: e.icon ?? e.category ?? DEFAULT_EVENT_ICON,
     });
     setFormOpen(true);
   };
@@ -210,6 +214,7 @@ export function EventsCalendar({ hideHeading = false }: { hideHeading?: boolean 
       remindMinutesBefore: draft.remindMinutesBefore,
       sound: draft.sound,
       category: draft.category,
+      icon: draft.icon,
       createdAt: existing?.createdAt ?? Date.now(),
     };
     setEvents((p) => (existing ? p.map((x) => (x.id === ev.id ? ev : x)) : [...p, ev]));
@@ -245,7 +250,7 @@ export function EventsCalendar({ hideHeading = false }: { hideHeading?: boolean 
   const secondaryTitle = mode === "hijri" ? fmtMonth(month, L, "gregory") : hijriMonthTitle(month, L);
 
   const renderRow = (e: CalEvent, subtitle?: string) => {
-    const Icon = CATEGORY_ICON[e.category ?? "general"];
+    const Icon = eventIconFor(e, CATEGORY_ICON[e.category ?? "general"]);
     return (
       <li key={e.id + (subtitle ?? "")} className="flex items-center gap-2 px-1 py-1" data-event-id={e.id}>
         <button

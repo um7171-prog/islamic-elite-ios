@@ -32,9 +32,10 @@ export function PrayerStrip({
   onSelect,
 }: {
   variant?: "strip" | "list";
-  /** List variant only: the prayer the user tapped (its row is highlighted). */
+  /** The prayer the user tapped (its row/tile is highlighted). */
   selectedKey?: PrayerKey | null;
-  /** List variant only: makes each row tappable; tapping the selected row again clears it. */
+  /** Makes each row/tile SELECT its prayer; tapping the selected one again clears it. Without it,
+   * the strip keeps its short atmosphere preview on tap. */
   onSelect?: (key: PrayerKey | null) => void;
 }) {
   const { lang, t, dir } = useLocale();
@@ -75,8 +76,12 @@ export function PrayerStrip({
   }, [previewKey]);
   useEffect(() => setPreviewKey(null), [realAtmosphere.key]); // the real time moved on — drop any stale preview
 
-  const shownAtmosphere = (previewKey && entries.find((e) => e.key === previewKey)) || realAtmosphere;
-  const previewing = previewKey !== null && previewKey !== realAtmosphere.key;
+  // With `onSelect` (Home), a tap SELECTS the prayer instead: it stays selected (the Home card's
+  // countdown follows it) until tapped again, and the atmosphere follows the selection.
+  const selecting = variant === "strip" && !!onSelect;
+  const shownKey = selecting ? selectedKey : previewKey;
+  const shownAtmosphere = (shownKey && entries.find((e) => e.key === shownKey)) || realAtmosphere;
+  const previewing = shownKey !== null && shownKey !== realAtmosphere.key;
 
   // Cross-fade between gradients: CSS cannot interpolate one gradient into another directly, so the
   // new gradient fades in over the old one (a single opacity animation — no JS animation loop), then
@@ -202,19 +207,25 @@ export function PrayerStrip({
             const style = STYLES[p.key] ?? STYLES.dhuhr;
             const Icon = style.Icon;
             const isNext = p.key === next.key;
+            // The highlighted tile: the selected prayer when one is selected, otherwise the next one.
+            const lit = selecting && selectedKey ? p.key === selectedKey : isNext;
             return (
               <button
                 type="button"
                 key={p.key}
                 data-testid={`prayer-tile-${p.key}`}
-                onClick={() => setPreviewKey((cur) => (cur === p.key ? null : p.key))}
-                aria-pressed={previewKey === p.key}
-                aria-label={t(`Preview ${p.nameEn} atmosphere`, `معاينة أجواء ${p.nameAr}`)}
+                onClick={() =>
+                  selecting
+                    ? onSelect!(selectedKey === p.key ? null : p.key)
+                    : setPreviewKey((cur) => (cur === p.key ? null : p.key))
+                }
+                aria-pressed={shownKey === p.key}
+                aria-label={selecting ? t(`Choose ${p.nameEn}`, `اختيار ${p.nameAr}`) : t(`Preview ${p.nameEn} atmosphere`, `معاينة أجواء ${p.nameAr}`)}
                 className={`flex-1 min-w-0 flex flex-col items-center px-0.5 py-2.5 rounded-xl transition ${
-                  isNext ? "bg-white/15 ring-1 ring-accent" : "opacity-80 hover:opacity-100"
+                  lit ? "bg-white/15 ring-1 ring-accent" : "opacity-80 hover:opacity-100"
                 }`}
               >
-                <div className={`text-[11px] min-[400px]:text-label mb-1.5 whitespace-nowrap max-w-full ${isNext ? "text-accent" : "text-white/90"}`}>
+                <div className={`text-[11px] min-[400px]:text-label mb-1.5 whitespace-nowrap max-w-full ${lit ? "text-accent" : "text-white/90"}`}>
                   {t(p.nameEn, p.nameAr)}
                 </div>
                 <div className="relative h-10 w-10 mb-1.5">
@@ -237,7 +248,7 @@ export function PrayerStrip({
                 </div>
                 <div
                   className={`font-time text-[12px] sm:text-body-sm font-bold tabular-nums whitespace-nowrap ${
-                    isNext ? "text-elite-gold" : "text-white"
+                    lit ? "text-elite-gold" : "text-white"
                   }`}
                 >
                   {formatTime(p.time, locale)}

@@ -14,6 +14,7 @@ import {
 import { isDryRun, registerNotificationRebuildHandler } from "@/lib/notifications/NotificationScheduler";
 import { syncPrayerNotifications } from "@/lib/notifications/PrayerNotificationService";
 import { syncAppointmentNotifications } from "@/lib/notifications/AppointmentNotificationService";
+import { syncNightNotifications } from "@/lib/notifications/NightNotificationService";
 import {
   loadPrayerNotificationSettings,
   savePrayerNotificationSettings,
@@ -94,6 +95,9 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       days.push({ sunrise: times.sunrise, maghrib: times.maghrib });
     }
     await syncAthkarReminders(loadAthkarSettings(), days, l);
+
+    // Middle of the night + last third: their own id range and sound; same location/calculation.
+    await syncNightNotifications({ lat: c.lat, lng: c.lng, madhab: m, calc: cc, lang: l });
   }, [native]);
 
   const rebuild = useCallback(async () => {

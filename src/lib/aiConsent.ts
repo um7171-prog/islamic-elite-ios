@@ -15,8 +15,8 @@ export function ensureExternalAIConsent(lang: "ar" | "en"): boolean {
   }
 
   const message = lang === "ar"
-    ? "لإتمام هذه العملية، سيتم إرسال النص أو الصورة التي تختارها إلى خادمنا ثم إلى مزود ذكاء اصطناعي خارجي (Google Gemini عبر Lovable AI Gateway) لمعالجتها. لن يتم الإرسال إلا بعد موافقتك. هل توافق؟"
-    : "To complete this action, the text or image you choose will be sent to our server and then to an external AI provider (Google Gemini through Lovable AI Gateway) for processing. Nothing is sent until you consent. Do you agree?";
+    ? "لإتمام هذه العملية، سيتم إرسال النص أو الصورة التي تختارها إلى خادمنا ثم إلى مزوّد خارجي للترجمة أو الذكاء الاصطناعي (مثل Google أو MyMemory) لمعالجتها. لن يتم الإرسال إلا بعد موافقتك. هل توافق؟"
+    : "To complete this action, the text or image you choose will be sent to our server and then to an external translation or AI provider (such as Google or MyMemory) for processing. Nothing is sent until you consent. Do you agree?";
 
   const accepted = window.confirm(message);
   if (accepted) {
