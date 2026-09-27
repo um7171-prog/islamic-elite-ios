@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { BellOff, BellRing, Megaphone, Settings as SettingsIcon } from "lucide-react";
+import { BellOff, BellRing, Settings as SettingsIcon } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
 import { PageShell, HeaderIconButton } from "@/components/site/PageHeader";
 import { IconBadge } from "@/components/site/IconBadge";
@@ -59,7 +59,7 @@ export default function NotificationCenterPage() {
           <ul className="space-y-3">
             {entries.map((n) => (
               <li key={n.id} data-notification={n.id} data-age-minutes={Math.floor((now - n.receivedAt) / 60_000)} className="glass flex gap-3 rounded-2xl p-4">
-                <IconBadge icon={n.kind === "announcement" ? Megaphone : BellRing} size="md" />
+                <IconBadge icon={BellRing} size="md" />
                 <div className="min-w-0 flex-1 space-y-1">
                   <h3 className="font-display text-body-lg font-bold leading-tight">{n.title}</h3>
                   {n.body && <p className="whitespace-pre-wrap text-body-sm leading-relaxed text-foreground/80">{n.body}</p>}

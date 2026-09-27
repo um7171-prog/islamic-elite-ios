@@ -515,17 +515,17 @@ export function DownloadManager() {
                           <FileText className="h-4 w-4 text-accent shrink-0" />
                           <span className="text-xs flex-1 truncate" title={j.name}>{j.name}</span>
                           {j.status === "downloading" && (
-                            <button onClick={() => pause(j.id)} className="p-1 rounded hover:bg-secondary text-foreground/70" aria-label="pause">
+                            <button onClick={() => pause(j.id)} type="button" className="h-10 w-10 grid place-items-center rounded-lg hover:bg-secondary text-foreground/70" aria-label={t("Pause", "إيقاف مؤقت")}>
                               <Pause className="h-3.5 w-3.5" />
                             </button>
                           )}
                           {(j.status === "paused" || j.status === "error") && (
-                            <button onClick={() => resume(j.id)} className="p-1 rounded hover:bg-secondary text-foreground/70" aria-label="resume">
+                            <button onClick={() => resume(j.id)} type="button" className="h-10 w-10 grid place-items-center rounded-lg hover:bg-secondary text-foreground/70" aria-label={t("Resume", "استئناف")}>
                               <Play className="h-3.5 w-3.5" />
                             </button>
                           )}
-                          <button onClick={() => cancel(j.id)} className="p-1 rounded hover:bg-secondary text-destructive" aria-label="cancel">
-                            <X className="h-3.5 w-3.5" />
+                          <button onClick={() => cancel(j.id)} type="button" className="h-10 w-10 grid place-items-center rounded-lg hover:bg-secondary text-destructive" aria-label={t("Cancel", "إلغاء")}>
+                            <X className="h-4 w-4" />
                           </button>
                         </div>
                         <Progress value={pct} className="h-1.5" />

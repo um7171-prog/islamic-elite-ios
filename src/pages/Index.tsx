@@ -14,6 +14,7 @@ import type { PrayerKey } from "@/lib/prayer";
 import { QuickShortcuts } from "@/components/islamic/QuickShortcuts";
 import { HomeHeader } from "@/components/islamic/HomeHeader";
 import { DailyDhikrCard } from "@/components/islamic/DailyDhikrCard";
+import { JourneyHome } from "@/components/journey/JourneyHome";
 import { PageShell } from "@/components/site/PageHeader";
 import { InstallPrompt } from "@/components/islamic/InstallPrompt";
 import { DownloadManager } from "@/components/islamic/DownloadManager";
@@ -109,6 +110,10 @@ function Dashboard() {
             <div className="rise-in" style={{ animationDelay: "80ms" }}><HeroPrayerCard className="relative z-10" selectedKey={selectedPrayer} /></div>
             <div className="rise-in" style={{ animationDelay: "180ms" }}><PrayerStrip selectedKey={selectedPrayer} onSelect={setSelectedPrayer} /></div>
           </section>
+
+          <div className="rise-in mt-5" style={{ animationDelay: "230ms" }}>
+            <JourneyHome />
+          </div>
 
           <div className="rise-in mt-5" style={{ animationDelay: "280ms" }}>
             <DailyDhikrCard />

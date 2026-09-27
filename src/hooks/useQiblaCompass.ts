@@ -14,12 +14,18 @@ import {
  *    state, never an exception that can unwind into the WKWebView.
  *  - Exactly one `deviceorientation` listener can exist at a time (ref guard),
  *    and it is always removed on stop/unmount — no leaks, no duplicate events.
- *  - Nothing starts automatically before permissions are granted.
+ *  - The compass starts on its own when the Qibla screen opens. iOS only lets
+ *    `DeviceOrientationEvent.requestPermission()` run inside a user gesture, so
+ *    the tap that OPENS the screen primes it (`requestMotionPermission()`), and
+ *    the answer is remembered for the rest of the session — never asked twice.
+ *    If no gesture was available (deep link, cold launch straight into /qibla),
+ *    the status is "needs-gesture" and the very next tap anywhere starts it.
  */
 
 export type CompassStatus =
   | "idle"
   | "requesting"
+  | "needs-gesture"
   | "running"
   | "denied"
   | "unsupported"
@@ -46,13 +52,63 @@ function hasOrientationSupport(): boolean {
   }
 }
 
+/** iOS 13+ adds a static requestPermission() to DeviceOrientationEvent (not in the DOM typings). */
+type OrientationEventWithPermission = { requestPermission?: () => Promise<unknown> };
+const orientationEventClass = () =>
+  (window as unknown as { DeviceOrientationEvent?: OrientationEventWithPermission }).DeviceOrientationEvent;
+
 function needsExplicitPermission(): boolean {
   try {
-    const DOE = (window as any).DeviceOrientationEvent;
+    const DOE = orientationEventClass();
     return !!DOE && typeof DOE.requestPermission === "function";
   } catch {
     return false;
   }
+}
+
+export type MotionPermissionResult = "granted" | "denied" | "needs-gesture";
+
+/** Session memory of the iOS Motion & Orientation answer (module level: survives closing/reopening the screen). */
+let motionGranted = false;
+let pendingPermission: Promise<MotionPermissionResult> | null = null;
+
+/**
+ * Asks for Motion & Orientation access where the platform needs it (iOS 13+), once per session.
+ * Call it synchronously from a tap handler (e.g. the tap that opens the Qibla screen): iOS rejects
+ * the request outside a user gesture — that rejection is "needs-gesture", NOT a denial.
+ * Everywhere else (Android, desktop) it resolves "granted" immediately.
+ */
+export function requestMotionPermission(): Promise<MotionPermissionResult> {
+  if (!needsExplicitPermission() || motionGranted) return Promise.resolve("granted");
+  if (pendingPermission) return pendingPermission;
+  let raw: Promise<unknown>;
+  try {
+    raw = Promise.resolve(orientationEventClass()!.requestPermission!());
+  } catch {
+    return Promise.resolve("needs-gesture");
+  }
+  pendingPermission = raw
+    .then(
+      (res): MotionPermissionResult => {
+        if (res === "granted") {
+          motionGranted = true;
+          return "granted";
+        }
+        return "denied";
+      },
+      // Thrown when not triggered by a user gesture — the user hasn't said no.
+      (): MotionPermissionResult => "needs-gesture",
+    )
+    .finally(() => {
+      pendingPermission = null;
+    });
+  return pendingPermission;
+}
+
+/** Test hook: forget the session's permission answer. */
+export function __resetMotionPermissionForTests() {
+  motionGranted = false;
+  pendingPermission = null;
 }
 
 export function useQiblaCompass(active: boolean) {
@@ -66,8 +122,13 @@ export function useQiblaCompass(active: boolean) {
   const estimator = useRef(new AccuracyEstimator());
   const listenerRef = useRef<((e: Event) => void) | null>(null);
   const gotDataRef = useRef(false);
+  const watchdogRef = useRef<number | null>(null);
 
   const stop = useCallback(() => {
+    if (watchdogRef.current != null) {
+      window.clearTimeout(watchdogRef.current);
+      watchdogRef.current = null;
+    }
     const h = listenerRef.current;
     if (h) {
       try {
@@ -110,7 +171,7 @@ export function useQiblaCompass(active: boolean) {
         try {
           screenAngle =
             (typeof screen !== "undefined" && screen.orientation && screen.orientation.angle) ||
-            (window as any).orientation ||
+            (window as unknown as { orientation?: number }).orientation ||
             0;
         } catch {
           screenAngle = 0;
@@ -141,6 +202,9 @@ export function useQiblaCompass(active: boolean) {
     }
   }, []);
 
+  const activeRef = useRef(active);
+  activeRef.current = active;
+
   const start = useCallback(async () => {
     if (!hasOrientationSupport()) {
       setStatus("unsupported");
@@ -149,17 +213,14 @@ export function useQiblaCompass(active: boolean) {
     setError(null);
     if (needsExplicitPermission()) {
       setStatus("requesting");
-      try {
-        const DOE = (window as any).DeviceOrientationEvent;
-        const res = await DOE.requestPermission();
-        if (res !== "granted") {
-          setStatus("denied");
-          return;
-        }
-      } catch (e: any) {
-        // Thrown when not triggered by a user gesture, or in an insecure context.
+      const res = await requestMotionPermission();
+      if (!activeRef.current) return; // screen closed while iOS was answering
+      if (res === "denied") {
         setStatus("denied");
-        setError(String(e?.message ?? e ?? "permission"));
+        return;
+      }
+      if (res === "needs-gesture") {
+        setStatus("needs-gesture");
         return;
       }
     }
@@ -170,10 +231,28 @@ export function useQiblaCompass(active: boolean) {
     // instead of spinning on "Move device to activate compass" forever.
     // Previously this re-set "running" to "running" — a no-op that never
     // actually surfaced the existing "unsupported" message panel.
-    window.setTimeout(() => {
+    if (watchdogRef.current != null) window.clearTimeout(watchdogRef.current);
+    watchdogRef.current = window.setTimeout(() => {
+      watchdogRef.current = null;
       if (!gotDataRef.current && listenerRef.current) setStatus("unsupported");
     }, 4000);
   }, [attach]);
+
+  // iOS refused to ask without a gesture: the next tap anywhere on the screen starts the compass.
+  useEffect(() => {
+    if (!active || status !== "needs-gesture") return;
+    const onGesture = () => {
+      window.removeEventListener("touchend", onGesture, true);
+      window.removeEventListener("click", onGesture, true);
+      void start();
+    };
+    window.addEventListener("touchend", onGesture, true);
+    window.addEventListener("click", onGesture, true);
+    return () => {
+      window.removeEventListener("touchend", onGesture, true);
+      window.removeEventListener("click", onGesture, true);
+    };
+  }, [active, status, start]);
 
   // Always tear everything down when the screen closes or unmounts.
   useEffect(() => {
@@ -197,10 +276,24 @@ export function useQiblaCompass(active: boolean) {
   };
 }
 
+/** The last GPS fix this session. Reopening the Qibla screen reuses it instead of asking for the
+ * location again; it's refreshed only when older than this (the Qibla bearing barely moves). */
+export const LOCATION_REUSE_MS = 30 * 60_000;
+let lastFix: { coords: Coords; at: number } | null = null;
+
+function freshFix(): Coords | null {
+  return lastFix && Date.now() - lastFix.at < LOCATION_REUSE_MS ? lastFix.coords : null;
+}
+
+/** Test hook: forget the session's GPS fix. */
+export function __resetLocationCacheForTests() {
+  lastFix = null;
+}
+
 /** Geolocation with explicit, non-throwing error states. */
 export function useUserLocation(active: boolean) {
-  const [coords, setCoords] = useState<Coords | null>(null);
-  const [status, setStatus] = useState<LocationStatus>("idle");
+  const [coords, setCoords] = useState<Coords | null>(() => freshFix());
+  const [status, setStatus] = useState<LocationStatus>(() => (freshFix() ? "ready" : "idle"));
   const mounted = useRef(true);
 
   useEffect(() => {
@@ -225,6 +318,7 @@ export function useUserLocation(active: boolean) {
             setStatus("error");
             return;
           }
+          lastFix = { coords: { lat: latitude, lng: longitude }, at: Date.now() };
           setCoords({ lat: latitude, lng: longitude });
           setStatus("ready");
         },
@@ -246,7 +340,15 @@ export function useUserLocation(active: boolean) {
   }, []);
 
   useEffect(() => {
-    if (active && status === "idle") request();
+    if (!active) return;
+    // Reopened within the reuse window: the session's fix is used straight away, no new request.
+    const cached = freshFix();
+    if (cached) {
+      setCoords((c) => c ?? cached);
+      if (status === "idle") setStatus("ready");
+      return;
+    }
+    if (status === "idle") request();
   }, [active, status, request]);
 
   return { coords, status, request };

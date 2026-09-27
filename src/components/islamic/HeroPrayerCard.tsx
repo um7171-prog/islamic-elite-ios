@@ -6,15 +6,13 @@ import { useLocale } from "@/contexts/LocaleContext";
 import { useCity } from "@/contexts/CityContext";
 import { usePrayerCalc } from "@/contexts/PrayerCalcContext";
 import { MosqueArt } from "@/components/site/MosqueArt";
-
-/** How long the "منذ MM:SS" line stays under the countdown after a prayer's time enters. */
-export const SINCE_WINDOW_MINUTES = 45;
+import { getLatestPrayerSince, type PrayerSince } from "@/lib/prayerSince";
 
 /**
  * Shared prayer-card state (ticks every second). With `selectedKey` the countdown targets that
  * prayer (today's time, or tomorrow's once today's has passed); without it, the next prayer.
- * `since` is the time elapsed since the adhan — of the selected prayer when one is selected,
- * otherwise of the prayer that entered most recently — while under SINCE_WINDOW_MINUTES.
+ * `since` is the time elapsed since the adhan of the prayer that entered most recently (never the
+ * selected one) — while under SINCE_WINDOW_MINUTES.
  */
 function usePrayerCountdown(selectedKey: PrayerKey | null) {
   const { city } = useCity();
@@ -62,14 +60,8 @@ function usePrayerCountdown(selectedKey: PrayerKey | null) {
   }
 
   // Straight from the current time and the real prayer times (never from notifications or tick counts).
-  let since: { entry: PrayerEntry; ms: number } | null = null;
-  for (const e of [...yesterdayEntries, ...entries]) {
-    if (e.key === "sunrise") continue; // not a prayer
-    if (chosen && e.key !== chosen.key) continue;
-    const age = now.getTime() - e.time.getTime();
-    if (age < 0 || age >= SINCE_WINDOW_MINUTES * 60_000) continue;
-    if (!since || age < since.ms) since = { entry: e, ms: age };
-  }
+  // Always the prayer that entered most recently — the selection only moves the countdown above.
+  const since = getLatestPrayerSince(now, [...yesterdayEntries, ...entries]);
 
   return { now, entries, chosen, target, ms, since };
 }
@@ -88,12 +80,13 @@ const formatMS = (ms: number) => {
   return `${String(Math.floor(totalSec / 60)).padStart(2, "0")}:${String(totalSec % 60).padStart(2, "0")}`;
 };
 
-/** "منذ 15:32" — shown under the countdown, never instead of it. */
-function SinceLine({ ms, className }: { ms: number; className: string }) {
+/** "الظهر منذ 15:32" — shown under the countdown, never instead of it. */
+function SinceLine({ since, className }: { since: PrayerSince; className: string }) {
   const { t } = useLocale();
+  const { entry, ms } = since;
   return (
-    <div data-testid="adhan-since" data-seconds={Math.floor(ms / 1000)} className={className}>
-      <span className="font-arabic">{t("Since", "منذ")}</span>{" "}
+    <div data-testid="adhan-since" data-prayer={entry.key} data-seconds={Math.floor(ms / 1000)} className={className}>
+      <span className="font-arabic">{t(`${entry.nameEn} since`, `${entry.nameAr} منذ`)}</span>{" "}
       <span dir="ltr" className="font-time tabular-nums">{formatMS(ms)}</span>
     </div>
   );
@@ -143,7 +136,7 @@ export function HeroPrayerCard({ className = "", selectedKey = null }: { classNa
           {formatHMS(ms)}
         </div>
         {since && (
-          <SinceLine ms={since.ms} className="mt-2 rounded-full bg-primary/10 px-4 py-1.5 text-body-lg font-bold text-primary" />
+          <SinceLine since={since} className="mt-2 rounded-full bg-primary/10 px-4 py-1.5 text-body-lg font-bold text-primary" />
         )}
       </div>
     </div>
@@ -188,7 +181,7 @@ export function NextPrayerBar({
           <div dir="ltr" className="rtl:text-right ltr:text-left font-time text-[32px] font-bold leading-tight tabular-nums text-[hsl(var(--elite-gold-end))]" data-testid="hero-countdown">
             {formatHMS(ms)}
           </div>
-          {since && <SinceLine ms={since.ms} className="mt-1 text-body-lg font-bold text-white" />}
+          {since && <SinceLine since={since} className="mt-1 text-body-lg font-bold text-white" />}
         </div>
       </div>
     </div>

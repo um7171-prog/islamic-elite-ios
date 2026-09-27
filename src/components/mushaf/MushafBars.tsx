@@ -1,5 +1,7 @@
 import { ArrowRight, Bookmark, BookmarkCheck, Search, LayoutGrid,
-  Play, Pause, SkipBack, SkipForward, Square, Languages, Share2, Copy, BookText, Settings2 } from "lucide-react";
+  Play, Pause, SkipBack, SkipForward, Square, Languages, Share2, Copy, BookText, BookOpenText, Settings2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { readingUrlForPage } from "@/components/quran-reading/position";
 import { toArabicDigits, SURAHS, type PageInfo } from "@/lib/mushaf";
 import { useLocale } from "@/contexts/LocaleContext";
 import { cn } from "@/lib/utils";
@@ -31,7 +33,7 @@ export function MushafTopBar({
       style={{ paddingTop: "env(safe-area-inset-top, 0px)", background: "linear-gradient(to bottom, rgba(0,0,0,.68), rgba(0,0,0,0))" }}
     >
       <div className="flex items-center gap-0.5 px-1.5 py-2">
-        <button onClick={onBack} className={btn} aria-label={t("Back", "رجوع")}><ArrowRight className="h-5 w-5" /></button>
+        <button type="button" onClick={onBack} data-testid="mushaf-back" style={{ touchAction: "manipulation" }} className="h-11 w-11 shrink-0 grid place-items-center rounded-full bg-white/12 text-white active:scale-90 transition-transform" aria-label={t("Back", "رجوع")}><ArrowRight className="h-6 w-6" /></button>
         {/* flex-1 + min-w-0: the surah name is the only pill whose label
             length varies a lot by language (e.g. "الفاتحة" vs "Al-Faatiha",
             or much longer names like "Aal-i-Imraan") — without room to grow
@@ -86,8 +88,11 @@ export function MushafBottomBar({
   onSettings: () => void;
 }) {
   const { t, lang } = useLocale();
+  const navigate = useNavigate();
   const items = [
     { key: "audio", Icon: playing ? Pause : Play, label: t("Audio", "الصوت"), on: onAudio },
+    // Reading mode (/mushaf/read) at the first ayah of this page; replace: the two modes are one screen.
+    { key: "read", Icon: BookOpenText, label: t("Reading", "القراءة"), on: () => navigate(readingUrlForPage(info.page), { replace: true }) },
     { key: "translation", Icon: Languages, label: t("Translation", "الترجمة"), on: onTranslation },
     { key: "tafsir", Icon: BookText, label: t("Tafsir", "التفسير"), on: onTafsir },
     { key: "copy", Icon: Copy, label: t("Copy", "نسخ"), on: onCopy },

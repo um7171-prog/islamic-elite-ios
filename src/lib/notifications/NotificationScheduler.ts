@@ -17,13 +17,22 @@ export const NOTIFICATION_RANGES = {
   prayer: { min: 41000, max: 41999, cap: 42 },
   /** Morning/evening Athkar reminders. */
   athkar: { min: 42000, max: 42999, cap: 6 },
-  /** Appointment (calendar) reminders. */
-  calendar: { min: 43000, max: 43999, cap: 12 },
+  /** Appointment (calendar) reminders. (11 — one slot is reserved for the Voice Lab below.) */
+  calendar: { min: 43000, max: 43999, cap: 11 },
   /** Middle of the night + start of its last third (two nights ahead). */
   night: { min: 44000, max: 44999, cap: 4 },
+  /** Voice Lab prototype: ONE test notification that proves a downloaded clip in Library/Sounds
+   * plays as a notification sound. Never part of the production schedule. */
+  lab: { min: 49000, max: 49009, cap: 1 },
 } as const;
 
 export type NotificationGroup = keyof typeof NOTIFICATION_RANGES;
+
+/** True when `id` belongs to `group`'s exclusive range. */
+export function isInGroup(group: NotificationGroup, id: number): boolean {
+  const r = NOTIFICATION_RANGES[group];
+  return id >= r.min && id <= r.max;
+}
 
 export interface ScheduleItemInput {
   id: number;

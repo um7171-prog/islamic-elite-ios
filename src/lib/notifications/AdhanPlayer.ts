@@ -34,6 +34,25 @@ export function playFullAdhan(sound: AthanSoundId, notificationId: number): void
   }
 }
 
+/**
+ * Plays a full athan from an explicit URL — e.g. a recording the user downloaded to the device
+ * (Voice Lab prototype). Shares the single <audio> slot with playFullAdhan, so the two never
+ * overlap. Additive only: playFullAdhan and its de-duplication are unchanged.
+ */
+export function playAdhanFromUrl(url: string): HTMLAudioElement | null {
+  if (!url) return null;
+  try {
+    currentAudio?.pause();
+    currentId = null;
+    const audio = new Audio(url);
+    currentAudio = audio;
+    void audio.play().catch(() => undefined);
+    return audio;
+  } catch {
+    return null;
+  }
+}
+
 export function stopAdhanPlayback(): void {
   try {
     currentAudio?.pause();

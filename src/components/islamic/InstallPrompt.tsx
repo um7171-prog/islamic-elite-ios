@@ -30,7 +30,7 @@ export function InstallPrompt() {
     }
 
     const isStandalone = window.matchMedia("(display-mode: standalone)").matches ||
-                         (window.navigator as any).standalone === true;
+                         (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
     if (isStandalone) {
       setDismissed(true);
       return;
@@ -76,10 +76,12 @@ export function InstallPrompt() {
           </div>
           <button
             onClick={handleClose}
-            className="shrink-0 p-1 rounded-full hover:bg-foreground/10 transition-colors"
+            type="button"
+            className="shrink-0 -m-2 h-11 w-11 grid place-items-center rounded-full hover:bg-foreground/10 transition-colors"
+            style={{ touchAction: "manipulation" }}
             aria-label={t("Close", "إغلاق")}
           >
-            <X className="h-4 w-4 text-foreground/60" />
+            <X className="h-5 w-5 text-foreground/70" />
           </button>
         </div>
 

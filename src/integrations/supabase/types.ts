@@ -14,48 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      announcements: {
-        Row: {
-          body_ar: string
-          body_en: string
-          created_at: string
-          id: string
-          kind: string
-          link: string | null
-          published: boolean
-          push_sent_at: string | null
-          title_ar: string
-          title_en: string
-          updated_at: string
-        }
-        Insert: {
-          body_ar: string
-          body_en?: string
-          created_at?: string
-          id?: string
-          kind?: string
-          link?: string | null
-          published?: boolean
-          push_sent_at?: string | null
-          title_ar: string
-          title_en?: string
-          updated_at?: string
-        }
-        Update: {
-          body_ar?: string
-          body_en?: string
-          created_at?: string
-          id?: string
-          kind?: string
-          link?: string | null
-          published?: boolean
-          push_sent_at?: string | null
-          title_ar?: string
-          title_en?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       contact_messages: {
         Row: {
           created_at: string

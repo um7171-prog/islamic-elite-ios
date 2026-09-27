@@ -72,6 +72,25 @@ describe("Translator", () => {
     expect(String(toastError.mock.calls[0][0])).toMatch(/طلبات كثيرة/);
   });
 
+  it("text translated but the image service is off: shows the text and a clear image-only message", async () => {
+    invoke.mockResolvedValue({ translation: "Welcome", imageSkipped: true });
+    renderTranslator();
+    typeAndTranslate("مرحبا بك");
+    await waitFor(() => expect(outputText()).toMatch(/Welcome/));
+    expect(String(toastError.mock.calls[0][0])).toMatch(/ترجمة الصور غير متاحة/);
+  });
+
+  it("the Back button closes the translator", () => {
+    const onOpenChange = vi.fn();
+    render(
+      <LocaleProvider>
+        <TranslatorDialog open onOpenChange={onOpenChange} hideTrigger />
+      </LocaleProvider>,
+    );
+    fireEvent.click(screen.getByTestId("translator-back"));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
   it("no real translation (empty / service error) is a failure, never shown as success", async () => {
     invoke.mockResolvedValue({ error: "service" });
     renderTranslator();

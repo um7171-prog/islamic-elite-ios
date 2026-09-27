@@ -113,7 +113,7 @@ export function TranslatorDialog({ open: openProp, onOpenChange, hideTrigger }: 
     setOutput("");
     try {
       const image = imageDataUrl ? await shrinkImage(imageDataUrl) : null;
-      const { translation, error: failure } = await requestTranslation({ text, from, to, imageDataUrl: image });
+      const { translation, error: failure, imageSkipped } = await requestTranslation({ text, from, to, imageDataUrl: image });
       if (failure || !translation) {
         // Never a fake success: no real translated text -> a clear error, and the output stays empty.
         if (failure === "rate_limit") toast.error(t("Too many requests, try again shortly.", "طلبات كثيرة، حاول بعد قليل."));
@@ -124,6 +124,7 @@ export function TranslatorDialog({ open: openProp, onOpenChange, hideTrigger }: 
         return;
       }
       setOutput(translation);
+      if (imageSkipped) toast.error(t("Translating images isn't available right now — only the typed text was translated.", "ترجمة الصور غير متاحة حالياً — تُرجم النص المكتوب فقط."));
     } catch {
       toast.error(t("Translation failed.", "فشلت الترجمة."));
     } finally {
@@ -152,7 +153,7 @@ export function TranslatorDialog({ open: openProp, onOpenChange, hideTrigger }: 
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent dir={dir} className="max-w-3xl w-[96vw] h-[92vh] sm:h-[88vh] overflow-hidden flex flex-col p-4 sm:p-6">
+        <DialogContent dir={dir} className="max-w-3xl w-[96vw] h-[92vh] sm:h-[88vh] overflow-hidden flex flex-col p-4 sm:p-6 [&>button]:hidden">
           <DialogHeader>
             <div className="flex items-center justify-between gap-2">
               <DialogTitle className="text-elite-gold flex items-center gap-2">
@@ -162,10 +163,12 @@ export function TranslatorDialog({ open: openProp, onOpenChange, hideTrigger }: 
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="h-9 px-3 rounded-lg border border-foreground/10 bg-secondary/40 hover:bg-secondary text-xs flex items-center gap-1.5 transition"
+                className="h-11 min-w-11 shrink-0 px-3.5 rounded-xl border border-foreground/10 bg-secondary/60 hover:bg-secondary active:scale-95 text-sm font-semibold flex items-center gap-1.5 transition"
+                style={{ touchAction: "manipulation" }}
                 aria-label={t("Back", "رجوع")}
+                data-testid="translator-back"
               >
-                {dir === "rtl" ? <ArrowRight className="h-4 w-4" /> : <ArrowLeft className="h-4 w-4" />}
+                {dir === "rtl" ? <ArrowRight className="h-5 w-5" /> : <ArrowLeft className="h-5 w-5" />}
                 {t("Back", "رجوع")}
               </button>
             </div>

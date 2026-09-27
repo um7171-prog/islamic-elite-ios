@@ -51,6 +51,13 @@ const AI = lazy(() => import("./pages/AI.tsx"));
 const BackgroundRemoverPage = lazy(() => import("./pages/ai/BackgroundRemover.tsx"));
 const ImageEnhancerPage = lazy(() => import("./pages/ai/ImageEnhancer.tsx"));
 const OcrPage = lazy(() => import("./pages/ai/Ocr.tsx"));
+// Voice Lab prototype (one licensed athan) — lazy so it never loads unless opened.
+const VoiceLabPage = lazy(() => import("./pages/VoiceLabPage.tsx"));
+// The user's journey: «جلسة الآن» and «رحلتي» (Home shows «يومك في النخبة» / «أكمل رحلتي»).
+const SessionPage = lazy(() => import("./pages/SessionPage.tsx"));
+const JourneyPage = lazy(() => import("./pages/JourneyPage.tsx"));
+// Quran reading mode (real reflowing text) next to the image Mushaf at /mushaf.
+const QuranReading = lazy(() => import("./pages/QuranReading.tsx"));
 
 const queryClient = new QueryClient();
 
@@ -105,6 +112,7 @@ const AppShell = () => {
           ))}
           {iosNative && <Route path="/media" element={<Navigate to="/tools" replace />} />}
           <Route path="/mushaf" element={<Mushaf />} />
+          <Route path="/mushaf/read" element={<QuranReading />} />
           <Route path="/convert" element={<FileConverterPage />} />
           <Route path="/ai" element={<AI />} />
           <Route path="/ai/background-remover" element={<BackgroundRemoverPage />} />
@@ -130,6 +138,9 @@ const AppShell = () => {
           <Route path="/date-converter" element={<DateConverterPage />} />
           <Route path="/quran" element={<QuranIndexPage />} />
           <Route path="/more" element={<MorePage />} />
+          <Route path="/labs/voice" element={<VoiceLabPage />} />
+          <Route path="/session" element={<SessionPage />} />
+          <Route path="/journey" element={<JourneyPage />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

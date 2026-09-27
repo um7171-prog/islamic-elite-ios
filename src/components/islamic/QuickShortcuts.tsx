@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { BookOpen, CalendarClock, CalendarDays, Calculator, Clock, Compass, Heart, LayoutGrid, Repeat } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
 import { IconBadge } from "@/components/site/IconBadge";
+import { requestMotionPermission } from "@/hooks/useQiblaCompass";
 
 interface Shortcut {
   en: string;
@@ -36,7 +37,12 @@ export function QuickShortcuts() {
           key={s.to}
           type="button"
           data-shortcut={s.to}
-          onClick={() => navigate(s.to)}
+          onClick={() => {
+            // iOS only allows the Motion & Orientation request inside a tap: ask on the tap that
+            // opens the Qibla screen, so its compass starts by itself (the answer is reused there).
+            if (s.to === "/qibla") void requestMotionPermission();
+            navigate(s.to);
+          }}
           className="group flex min-w-0 flex-col items-center gap-2 rounded-2xl py-1 transition active:scale-95"
           style={{ touchAction: "manipulation" }}
         >

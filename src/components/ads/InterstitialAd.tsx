@@ -49,9 +49,12 @@ export function InterstitialAd({ open, slot, onClose, delay = 3 }: Props) {
           type="button"
           onClick={onClose}
           disabled={left > 0}
-          className="h-9 min-w-9 px-3 rounded-xl glass text-xs font-bold flex items-center gap-1.5 transition disabled:opacity-50"
+          aria-label={t("Close", "إغلاق")}
+          data-testid="ad-close"
+          style={{ touchAction: "manipulation" }}
+          className="h-11 min-w-11 px-3.5 rounded-xl glass text-sm font-bold flex items-center justify-center gap-1.5 transition active:scale-95 disabled:opacity-50"
         >
-          <X className="h-4 w-4" />
+          <X className="h-5 w-5" />
           {left > 0 ? `${left}` : t("Close", "إغلاق")}
         </button>
       </div>

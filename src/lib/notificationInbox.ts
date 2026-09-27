@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
  * from this inbox (a display list). This has nothing to do with scheduling:
  * prayer / Athkar / appointment notifications scheduled natively are untouched.
  */
-export type InboxKind = "announcement" | "push" | "local";
+export type InboxKind = "push" | "local";
 
 export interface InboxItem {
   id: string;

@@ -36,6 +36,30 @@ describe("ONE notification architecture (the old system is gone)", () => {
     }
   });
 
+  it("iOS's 64-pending limit is structural: disjoint ranges whose caps sum to AT MOST 64 (lab included, no exemption)", async () => {
+    const { NOTIFICATION_RANGES } = await import("@/lib/notifications/NotificationScheduler");
+    const g = Object.values(NOTIFICATION_RANGES);
+    for (let i = 0; i < g.length; i++) for (let j = i + 1; j < g.length; j++) expect(g[i].max < g[j].min || g[i].min > g[j].max).toBe(true);
+    expect(g.reduce((s, r) => s + r.cap, 0)).toBeLessThanOrEqual(64);
+    expect(NOTIFICATION_RANGES.lab.cap).toBe(1);
+  });
+
+  it("the Voice Lab schedules only through the scheduler's own 'lab' group, and nothing in production uses that group", () => {
+    const labUse = /(replaceGroup|cancelGroup|pendingIds)\(\s*"lab"/;
+    for (const f of srcFiles) {
+      if (f === "src/lib/voiceLab/voiceStore.ts") continue;
+      expect(read(f), f).not.toMatch(labUse);
+    }
+    const lab = read("src/lib/voiceLab/voiceStore.ts");
+    expect(lab).toMatch(labUse);
+    // it never schedules into, or cancels, a production group
+    expect(lab).not.toMatch(/(replaceGroup|cancelGroup)\(\s*"(prayer|athkar|calendar|night)"/);
+  });
+
+  it("Voice Lab test notifications are kept out of the Notification Center inbox", () => {
+    expect(read("src/components/notifications/NotificationRouter.tsx")).toMatch(/if \(isInGroup\("lab", n\.id\)\) return;/);
+  });
+
   it("delivery never depends on the web: no JS timers or browser Notification API in the scheduling code", () => {
     for (const f of ["NotificationScheduler", "PrayerNotificationService", "AppointmentNotificationService", "NotificationPermissionService"]) {
       const text = read(`src/lib/notifications/${f}.ts`);

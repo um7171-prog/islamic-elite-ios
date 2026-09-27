@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, MapPin, Compass as CompassIcon, Map, Box, SunMoon, HelpCircle, Crosshair, RefreshCw, Settings as SettingsIcon, Loader2, AlertTriangle } from "lucide-react";
+import { ChevronLeft, MapPin, Compass as CompassIcon, HelpCircle, Crosshair, RefreshCw, Settings as SettingsIcon, Loader2, AlertTriangle } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -13,16 +13,6 @@ import { useQiblaCompass, useUserLocation } from "@/hooks/useQiblaCompass";
 import { isNativeApp, openNativeAppSettings } from "@/lib/platform";
 import { hapticQiblaAligned, hapticTick, unlockAudio } from "@/lib/haptics";
 import { toast } from "sonner";
-
-// Convert decimal degrees to D° M' S" format
-function toDMS(deg: number) {
-  const abs = Math.abs(deg);
-  const d = Math.floor(abs);
-  const mFloat = (abs - d) * 60;
-  const m = Math.floor(mFloat);
-  const s = Math.round((mFloat - m) * 60);
-  return `${d}° ${m}' ${s}"`;
-}
 
 /** Compass point labels in Arabic UI (N/E/S/W → ش/ق/ج/غ). */
 const AR_COMPASS: Record<string, string> = { N: "ش", E: "ق", S: "ج", W: "غ", NE: "شق", SE: "جق", SW: "جغ", NW: "شغ" };
@@ -139,24 +129,25 @@ export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChang
     }
   }, [open]);
 
-  // Auto-start only when the platform grants motion access without a prompt
-  // (Android / desktop). iOS always waits for a real user gesture, which it
-  // gets from tapping the Compass tab (see onTabTap below) — there's no
-  // separate "Enable compass" button anymore.
+  // The compass starts by itself as soon as the screen opens — on every
+  // platform. On iOS the Motion & Orientation request was already made by the
+  // tap that opened this screen (requestMotionPermission() in the Services
+  // tile / Home shortcut handlers) and is remembered for the session, so
+  // start() just awaits that answer. If iOS still needs a gesture (deep link),
+  // the hook reports "needs-gesture" and the next tap anywhere starts it.
   // Depends on the specific primitive fields actually read here (not the
   // whole `compass` object, which useQiblaCompass returns as a brand-new
   // object every render) so this doesn't re-run on every re-render while
   // the dialog stays open.
   useEffect(() => {
     if (!open) return;
-    if (compass.needsPermission) return;
     if (compass.status !== "idle") return;
     void compass.start().catch(() => undefined);
     // Deliberately narrower than the whole `compass` object (a new object
     // literal every render) — every field this effect actually reads is
     // already listed above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, compass.needsPermission, compass.status, compass.start]);
+  }, [open, compass.status, compass.start]);
 
   // Alignment feedback derived from the hook's heading — pure, cannot throw.
   useEffect(() => {
@@ -212,49 +203,6 @@ export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChang
   const roseRotation = heading == null ? -qibla : -heading; // so Kaaba (fixed at top) corresponds to qibla
   const delta = heading == null ? null : Math.abs(angleDiff(qibla, heading));
 
-  // Tab taps: the Compass tab is the only view this dialog actually
-  // renders — Map / AR / Sun & Moon have no implementation anywhere in
-  // this project (no map or AR library is installed, and there is no
-  // sun/moon Qibla-finding feature; the unrelated "Desert Mode" moon-phase
-  // panel is a different feature entirely). Rather than silently doing
-  // nothing (the previous behavior — these were plain <div>s with no
-  // onClick at all) or faking a screen for them, each tap gives real
-  // feedback: a haptic tick plus an honest "not available yet" toast.
-  const onTabTap = (id: "compass" | "map" | "ar" | "sun-moon") => {
-    hapticTick();
-    if (id === "compass") {
-      // Already the active/only view — but it's also the one real user
-      // gesture always available to (re)start things that need one:
-      // - if we're sitting on the "enable location" screen, re-check location.
-      // - if the compass sensor still needs its iOS permission prompt (which
-      //   browsers only allow from inside a real click handler), start it
-      //   here instead of a separate "Enable compass" button — removes the
-      //   old standalone button/panel without losing the ability to grant
-      //   compass access at all.
-      if (!hasFix && locStatus !== "loading") requestLocation();
-      if (compass.needsPermission && compassStatus !== "running" && compassStatus !== "requesting") {
-        void enableCompass();
-      }
-      return;
-    }
-    const messages: Record<Exclude<typeof id, "compass">, [string, string]> = {
-      map: ["Map view isn't available yet.", "عرض الخريطة غير متاح حاليًا."],
-      ar: ["Augmented reality view isn't available yet.", "الواقع المعزز غير متاح حاليًا."],
-      "sun-moon": ["Sun & Moon view isn't available yet.", "عرض الشمس والقمر غير متاح حاليًا."],
-    };
-    const [en, ar] = messages[id];
-    toast(t(en, ar));
-  };
-
-  // Tabs — same icons/order/appearance as the reference design; only the
-  // tap behavior above is new (previously visual-only, no onClick at all).
-  const tabs = [
-    { id: "compass" as const, icon: CompassIcon, label: t("Compass", "البوصلة"), active: true },
-    { id: "map" as const, icon: Map, label: t("Map", "الخارطة") },
-    { id: "ar" as const, icon: Box, label: t("AR", "الواقع المعزز"), lock: true },
-    { id: "sun-moon" as const, icon: SunMoon, label: t("Sun & Moon", "الشمس والقمر") },
-  ];
-
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else onOpenChange(true); }}>
       <DialogContent
@@ -267,7 +215,7 @@ export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChang
           transition: dragY > 0 ? "none" : "transform 220ms cubic-bezier(0.22, 1, 0.36, 1), opacity 220ms",
           opacity: dragY > 0 ? Math.max(0.5, 1 - dragY / 400) : 1,
         }}
-        className="qibla-fullscreen qibla-hide-default-close p-0 gap-0 overflow-y-auto bg-[hsl(var(--qibla-page-bg))] text-[hsl(var(--qibla-page-fg))]"
+        className="qibla-fullscreen qibla-hide-default-close [&>button]:hidden p-0 gap-0 overflow-y-auto bg-[hsl(var(--qibla-page-bg))] text-[hsl(var(--qibla-page-fg))]"
       >
         <DialogTitle className="sr-only">{t("Qibla Direction", "اتجاه القبلة")}</DialogTitle>
 
@@ -288,56 +236,20 @@ export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChang
             <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-white/40" aria-hidden />
             <div className="flex items-center justify-between">
               <button
+                type="button"
                 onClick={handleClose}
-                className="h-10 w-10 rounded-full bg-white/15 hover:bg-white/25 active:bg-white/30 active:scale-95 transition flex items-center justify-center"
+                data-testid="qibla-close"
+                style={{ touchAction: "manipulation" }}
+                className="h-11 w-11 rounded-full bg-white/15 hover:bg-white/25 active:bg-white/30 active:scale-95 transition flex items-center justify-center"
                 aria-label={t("Close", "إغلاق")}
               >
                 <ChevronLeft className={`h-6 w-6 ${dir === "rtl" ? "rotate-180" : ""}`} strokeWidth={2.5} />
               </button>
               <h1 className="text-lg font-semibold">{t("Qibla", "القبلة")}</h1>
-              <div className="w-10" />
+              <div className="w-11" />
             </div>
           </div>
 
-          {/* Dark blue tabs band */}
-          <div className="bg-[hsl(var(--qibla-header-mid))] px-2 pt-3 pb-2">
-            <div className="flex items-end justify-around">
-              {tabs.map((tab) => {
-                const Icon = tab.icon;
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => onTabTap(tab.id)}
-                    className={`relative flex-1 flex flex-col items-center gap-1 pb-1 active:scale-95 transition-transform ${
-                      tab.active ? "text-white" : "text-white/70"
-                    }`}
-                  >
-                    <div className="relative">
-                      <Icon className="h-6 w-6" strokeWidth={2} />
-                      {tab.lock && (
-                        <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-[hsl(var(--qibla-cardinal-n))] flex items-center justify-center">
-                          <span className="block h-1.5 w-1.5 rounded-[1px] bg-white" />
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-xs">{tab.label}</span>
-                    {tab.active && (
-                      <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 h-1 w-10 rounded-t-full bg-[hsl(var(--qibla-ring-blue))]" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Location bar */}
-          <div className="bg-[hsl(var(--qibla-header-mid))] pb-3 px-4">
-            <div className="mx-auto max-w-xs rounded-full bg-[hsl(var(--qibla-loc-pill))] border border-white/10 py-2 px-4 flex items-center justify-center gap-2 text-white">
-              <span className="text-sm font-semibold">{t(city.en, city.ar)}</span>
-              <MapPin className="h-4 w-4" />
-            </div>
-          </div>
         </div>
 
         {/* ===== BODY ===== */}
@@ -406,11 +318,6 @@ export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChang
             </div>
           ) : (
           <>
-          {/* Coordinates row */}
-          <div className="text-center text-[13px] text-[hsl(var(--qibla-coord-fg))] font-medium">
-            {t("Latitude", "خط العرض")}: <span dir="ltr">{toDMS(lat)}</span> · {t("Longitude", "خط الطول")}: <span dir="ltr">{toDMS(lng)}</span>
-          </div>
-
           {/* Help circle (top corner) */}
           <button
             type="button"
@@ -712,8 +619,8 @@ export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChang
               <p className="text-[12px] text-[hsl(var(--qibla-muted-fg))]">
                 {compassStatus === "requesting"
                   ? t("Requesting compass access…", "جارٍ طلب إذن البوصلة…")
-                  : compass.needsPermission
-                    ? t("Tap Compass above to activate it", "اضغط على البوصلة أعلاه لتفعيلها")
+                  : compassStatus === "needs-gesture"
+                    ? t("Tap anywhere to start the compass", "المس الشاشة لتشغيل البوصلة")
                     : t("Move device to activate compass", "حرّك الجهاز لتفعيل البوصلة")}
               </p>
             ) : aligned ? (
@@ -745,7 +652,15 @@ export function QiblaDialog({ open, onOpenChange }: { open: boolean; onOpenChang
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[hsl(var(--destructive))]" />
                 <div className="space-y-1">
                   {compassStatus === "denied" && (
-                    <p>{t("Compass access was denied. Allow motion & orientation access, then retry.", "تم رفض إذن البوصلة. اسمح بالوصول للحركة والاتجاه ثم أعد المحاولة.")}</p>
+                    <>
+                      <p className="font-semibold">{t("Motion & Orientation access was denied.", "تم رفض إذن الحركة والاتجاه.")}</p>
+                      <p>
+                        {t(
+                          "The compass needs it to read which way your phone is pointing. Tap Retry and choose Allow. If it isn't asked again, fully close the app and reopen it (in Safari: Settings › Safari › Motion & Orientation Access).",
+                          "البوصلة تحتاجه لمعرفة اتجاه جهازك. اضغط «إعادة المحاولة» واختر «سماح». إذا لم يظهر الطلب، أغلق التطبيق تمامًا ثم افتحه من جديد (في Safari: الإعدادات › Safari › الوصول إلى الحركة والاتجاه).",
+                        )}
+                      </p>
+                    </>
                   )}
                   {compassStatus === "unsupported" && (
                     <p>{t("This device does not provide compass data. The Qibla angle below is still correct.", "هذا الجهاز لا يوفر بيانات البوصلة. زاوية القبلة بالأسفل صحيحة رغم ذلك.")}</p>

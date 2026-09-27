@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, LogOut, Users, Download, Globe, Smartphone, Megaphone, Trash2, Shield, Mail, Lock, Eye, EyeOff, RefreshCw, BarChart2, CheckCircle, AlertCircle, Bell } from "lucide-react";
+import { Loader2, LogOut, Users, Download, Globe, Smartphone, Shield, Mail, Lock, Eye, EyeOff, RefreshCw, BarChart2, CheckCircle, AlertCircle, Bell } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { SEO } from "@/components/SEO";
 
@@ -29,16 +29,6 @@ type DownloadEvent = {
   file_name: string;
   device_type: string;
   country_code: string | null;
-  created_at: string;
-};
-
-type Announcement = {
-  id: string;
-  title_ar: string;
-  body_ar: string;
-  title_en: string;
-  body_en: string;
-  published: boolean;
   created_at: string;
 };
 
@@ -279,12 +269,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [visitors, setVisitors] = useState<Visitor[]>([]);
   const [downloads, setDownloads] = useState<DownloadEvent[]>([]);
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // announcement form
-  const [titleAr, setTitleAr] = useState("");
-  const [bodyAr, setBodyAr] = useState("");
 
   // push notification form
   const [pushTitle, setPushTitle] = useState("");
@@ -314,15 +299,13 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
 
   const refresh = async () => {
     setLoading(true);
-    const [v, d, a, t] = await Promise.all([
+    const [v, d, t] = await Promise.all([
       supabase.from("visitors").select("*").order("created_at", { ascending: false }).limit(1000),
       supabase.from("download_events").select("*").order("created_at", { ascending: false }).limit(1000),
-      supabase.from("announcements").select("*").order("created_at", { ascending: false }),
       supabase.from("device_tokens").select("id", { count: "exact", head: true }).eq("enabled", true),
     ]);
     setVisitors((v.data as Visitor[]) || []);
     setDownloads((d.data as DownloadEvent[]) || []);
-    setAnnouncements((a.data as Announcement[]) || []);
     setDeviceCount(t.count ?? 0);
     setLoading(false);
 
@@ -389,25 +372,6 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     if (m.includes("jwt") || m.includes("expired") || m.includes("invalid token")) return "انتهت صلاحية الجلسة. سجّل الدخول مجدداً";
     if (m.includes("rate limit") || m.includes("too many")) return "محاولات كثيرة. انتظر قليلاً ثم أعد المحاولة";
     return "حدث خطأ غير متوقع. أعد المحاولة";
-  };
-
-  const publishAnnouncement = async () => {
-    if (!titleAr.trim() || !bodyAr.trim()) return;
-    const { error } = await supabase.from("announcements").insert({
-      title_ar: titleAr.trim(),
-      body_ar: bodyAr.trim(),
-      published: true,
-    });
-    if (error) return toast({ title: "فشل النشر", description: translateDbError(error.message), variant: "destructive" });
-    setTitleAr(""); setBodyAr("");
-    toast({ title: "تم نشر الإعلان" });
-    refresh();
-  };
-
-  const deleteAnnouncement = async (id: string) => {
-    const { error } = await supabase.from("announcements").delete().eq("id", id);
-    if (error) return toast({ title: "فشل الحذف", description: translateDbError(error.message), variant: "destructive" });
-    refresh();
   };
 
   const sendPush = async () => {
@@ -482,11 +446,10 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
       </header>
 
       <Tabs defaultValue="overview">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview">نظرة عامة</TabsTrigger>
           <TabsTrigger value="visitors">الزوار</TabsTrigger>
           <TabsTrigger value="downloads">التنزيلات</TabsTrigger>
-          <TabsTrigger value="announcements">الإعلانات</TabsTrigger>
           <TabsTrigger value="push">الإشعارات</TabsTrigger>
         </TabsList>
 
@@ -647,39 +610,6 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
               </tbody>
             </table>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="announcements" className="space-y-3 pt-4">
-          <Card className="p-4 space-y-3">
-            <h3 className="font-bold text-sm flex items-center gap-2"><Megaphone className="h-4 w-4" /> نشر إعلان جديد</h3>
-            <Input placeholder="العنوان" value={titleAr} onChange={(e) => setTitleAr(e.target.value)} />
-            <textarea
-              placeholder="نص الإعلان"
-              value={bodyAr}
-              onChange={(e) => setBodyAr(e.target.value)}
-              rows={4}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            />
-            <Button onClick={publishAnnouncement} disabled={!titleAr.trim() || !bodyAr.trim()} className="w-full">
-              نشر
-            </Button>
-          </Card>
-
-          <div className="space-y-2">
-            {announcements.map((a) => (
-              <Card key={a.id} className="p-3 flex justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="font-bold text-sm">{a.title_ar}</div>
-                  <div className="text-xs text-foreground/70 mt-1 line-clamp-2">{a.body_ar}</div>
-                  <div className="text-[10px] text-foreground/50 mt-1">{new Date(a.created_at).toLocaleString("ar")}</div>
-                </div>
-                <Button variant="ghost" size="icon" aria-label="حذف الإعلان" title="حذف الإعلان" className="min-h-11 min-w-11" onClick={() => deleteAnnouncement(a.id)}>
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
-              </Card>
-            ))}
-            {announcements.length === 0 && <p className="text-xs text-foreground/50 text-center py-4">لا توجد إعلانات</p>}
-          </div>
         </TabsContent>
 
         <TabsContent value="push" className="space-y-3 pt-4">

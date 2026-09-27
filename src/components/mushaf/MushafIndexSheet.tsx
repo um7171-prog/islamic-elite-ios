@@ -43,7 +43,7 @@ export function MushafIndexSheet({ open, onClose, currentPage, bookmarks, onGoTo
     const raw = q.trim();
     if (!raw) return;
     // "2:255" or "البقرة 255" style verse lookup
-    const m = raw.match(/^(\d{1,3})\s*[:\-\/]\s*(\d{1,3})$/);
+    const m = raw.match(/^(\d{1,3})\s*[:\-/]\s*(\d{1,3})$/);
     if (m) {
       setBusy(true);
       const page = await findVersePage(+m[1], +m[2]);
@@ -66,8 +66,8 @@ export function MushafIndexSheet({ open, onClose, currentPage, bookmarks, onGoTo
       >
         <div className="flex items-center justify-between px-4 pt-3">
           <span className="mx-auto h-1 w-10 rounded-full bg-foreground/20" />
-          <button onClick={onClose} aria-label={t("Close", "إغلاق")} className="absolute left-3 top-3 h-8 w-8 grid place-items-center rounded-full bg-foreground/10">
-            <X className="h-4 w-4" />
+          <button type="button" onClick={onClose} aria-label={t("Close", "إغلاق")} data-testid="sheet-close" className="absolute left-2 top-2 z-10 h-11 w-11 grid place-items-center rounded-full bg-foreground/10 active:scale-95 transition" style={{ touchAction: "manipulation" }}>
+            <X className="h-5 w-5" />
           </button>
         </div>
 
@@ -170,7 +170,7 @@ export function MushafIndexSheet({ open, onClose, currentPage, bookmarks, onGoTo
                 <button
                   className="text-label text-accent shrink-0"
                   onClick={async () => {
-                    const m = verse.trim().match(/^(\d{1,3})\s*[:\-\/]\s*(\d{1,3})$/);
+                    const m = verse.trim().match(/^(\d{1,3})\s*[:\-/]\s*(\d{1,3})$/);
                     if (!m) return;
                     setBusy(true);
                     const page = await findVersePage(+m[1], +m[2]);

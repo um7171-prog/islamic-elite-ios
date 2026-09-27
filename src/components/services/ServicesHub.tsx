@@ -30,6 +30,7 @@ import { AsmaAlHusnaDialog } from "@/components/islamic/AsmaAlHusnaDialog";
 import { TasbeehWidget } from "@/components/islamic/TasbeehWidget";
 import { isIOSNativeApp } from "@/lib/platform";
 import { IconBadge } from "@/components/site/IconBadge";
+import { requestMotionPermission } from "@/hooks/useQiblaCompass";
 
 type CategoryKey = "religious" | "docs" | "calc" | "events";
 
@@ -223,6 +224,8 @@ export function ServicesHub({ initialOpen = null, initialCategory = null }: Prop
 
   const onTap = (tool: Tool) => {
     remember(tool.id);
+    // iOS: Motion & Orientation can only be requested inside this tap — the compass then starts on open.
+    if (tool.id === "qibla") void requestMotionPermission();
     if (tool.action.kind === "route") { navigate(tool.action.to); return; }
     if (tool.action.kind === "dialog") { setOpenDialog(tool.id); return; }
     setOpenId(tool.id);
@@ -390,7 +393,7 @@ export function ServicesHub({ initialOpen = null, initialCategory = null }: Prop
       {/* Self-contained dialogs for "dialog" tools — each already owns its
           own <Dialog>, so these render as siblings, not nested inside the
           shared wrapper above. Reused as-is from the rest of the app. */}
-      <AthkarDialog open={openDialog === "athkar"} onOpenChange={(v) => !v && setOpenDialog(null)} />
+      <AthkarDialog open={openDialog === "athkar"} onOpenChange={(v) => !v && setOpenDialog(null)} initialList={searchParams.get("list")} />
       <QiblaDialog open={openDialog === "qibla"} onOpenChange={(v) => !v && setOpenDialog(null)} />
       <TranslatorDialog open={openDialog === "translate"} onOpenChange={(v) => !v && setOpenDialog(null)} hideTrigger />
       <QRScannerDialog open={openDialog === "scanner"} onOpenChange={(v) => !v && setOpenDialog(null)} />

@@ -1,10 +1,10 @@
 import { ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
 import { SEO } from "@/components/SEO";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SideMenu } from "@/components/site/SideMenu";
+import { useGoBack } from "@/components/site/PageHeader";
 
 interface Props {
   title: string;
@@ -18,7 +18,7 @@ interface Props {
 
 export function StaticPageShell({ title, description, path, heading, intro, jsonLd, children }: Props) {
   const { t, dir, lang } = useLocale();
-  const navigate = useNavigate();
+  const goBack = useGoBack("/");
   const BackIcon = dir === "rtl" ? ArrowRight : ArrowLeft;
 
   return (
@@ -39,7 +39,9 @@ export function StaticPageShell({ title, description, path, heading, intro, json
       >
         <header className="flex items-center justify-between gap-2 mb-4">
           <button
-            onClick={() => navigate(-1)}
+            type="button"
+            onClick={goBack}
+            data-testid="static-back"
             aria-label={t("Back", "رجوع")}
             className="h-11 px-3.5 rounded-xl glass shadow-sm flex items-center gap-1.5 text-xs font-semibold hover:scale-105 transition"
             style={{ touchAction: "manipulation" }}

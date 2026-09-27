@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useGoBack } from "@/components/site/PageHeader";
 import { toast } from "sonner";
 import { MushafPageView } from "./MushafPageView";
 import { MushafTopBar, MushafBottomBar } from "./MushafBars";
@@ -13,12 +13,14 @@ import {
 } from "@/lib/mushaf";
 import { getReciter, getSelectedReciterId, setSelectedReciterId, ayahUrl, setMediaSession } from "@/lib/reciters";
 import { SURAHS } from "@/lib/mushaf";
+import { noteQuranReading } from "@/lib/journey/sources";
 import { pageStartAyah, pageOfAyah, nextAyah, prevAyah, type AyahRef } from "@/lib/quranAudio";
 
 const SWIPE_PX = 55;
 
 export function MushafReader() {
-  const navigate = useNavigate();
+  // Back returns to the previous screen; opened directly (no history) it goes to the Quran index.
+  const goBack = useGoBack("/quran");
   const { theme } = useTheme();
   const { t } = useLocale();
   const night = theme === "night";
@@ -44,7 +46,7 @@ export function MushafReader() {
   const slots = useMemo(() => [page - 1, page, page + 1].filter((p) => p >= 1 && p <= TOTAL_PAGES), [page]);
 
   /* ---------- persistence + preloading ---------- */
-  useEffect(() => { savePosition(page); preloadWindow(page, 2); }, [page]);
+  useEffect(() => { savePosition(page); preloadWindow(page, 2); noteQuranReading(page); }, [page]);
 
   /* ---------- auto-hide toolbars ---------- */
   const scheduleHide = useCallback(() => {
@@ -125,7 +127,7 @@ export function MushafReader() {
     const target = forward ? page + 1 : page - 1;
     if (target < 1 || target > TOTAL_PAGES) { settle(0); window.setTimeout(clearTrack, 270); return; }
     settle(forward ? w : -w);
-    window.setTimeout(() => { clearTrack(); forward ? nextPage() : prevPage(); }, 240);
+    window.setTimeout(() => { clearTrack(); if (forward) nextPage(); else prevPage(); }, 240);
   };
 
   /* ---------- keyboard ---------- */
@@ -133,11 +135,11 @@ export function MushafReader() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "ArrowLeft") nextPage();
       else if (e.key === "ArrowRight") prevPage();
-      else if (e.key === "Escape") navigate(-1);
+      else if (e.key === "Escape") goBack();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [nextPage, prevPage, navigate]);
+  }, [nextPage, prevPage, goBack]);
 
   /* ---------- audio (page-aware, ayah by ayah) ---------- */
   // Playback always starts at the first ayah printed on the CURRENT page
@@ -310,7 +312,7 @@ export function MushafReader() {
         visible={bars}
         info={info}
         bookmarked={bookmarked}
-        onBack={() => navigate(-1)}
+        onBack={goBack}
         onBookmark={onBookmark}
         onOpen={(t) => { setIndexTab(t); setBars(true); }}
       />

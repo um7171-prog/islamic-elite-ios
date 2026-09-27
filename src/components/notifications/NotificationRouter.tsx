@@ -5,6 +5,7 @@ import { ANNOUNCEMENT_PUSH_CHANGED_EVENT, getAnnouncementPushEnabled, registerPu
 import { useLocale } from "@/contexts/LocaleContext";
 import { addInboxItem } from "@/lib/notificationInbox";
 import { playFullAdhan } from "@/lib/notifications/AdhanPlayer";
+import { isInGroup } from "@/lib/notifications/NotificationScheduler";
 
 /**
  * Native-only: opens the right screen when the user taps a notification, and
@@ -45,6 +46,8 @@ export function NotificationRouter() {
           if (extra?.kind === "athan" && extra.sound) playFullAdhan(extra.sound as Parameters<typeof playFullAdhan>[0], id);
         };
         const received = await LocalNotifications.addListener("localNotificationReceived", (n) => {
+          // Voice Lab test notifications stay out of the Notification Center / inbox entirely.
+          if (isInGroup("lab", n.id)) return;
           const extra = n.extra as { route?: string; kind?: string; sound?: string } | undefined;
           addInboxItem({ kind: "local", id: `local-${n.id}-${Math.floor(Date.now() / 60_000)}`, title: n.title ?? "", body: n.body ?? "", route: extra?.route });
           playIfAthan(extra, n.id);

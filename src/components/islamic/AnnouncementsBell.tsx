@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useNotificationCenter } from "@/lib/notificationCenter";
 
-/** Header bell: opens the Notification Center (received announcements) with an
+/** Header bell: opens the Notification Center (received push / local notifications) with an
  * unread badge. Notification *settings* live under Settings, not here. */
 export function AnnouncementsBell({ tone = "card" }: { tone?: "card" | "header" }) {
   const { t } = useLocale();

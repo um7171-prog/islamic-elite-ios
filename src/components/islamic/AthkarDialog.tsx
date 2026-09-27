@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, Search, Sunrise, Sunset, BedDouble, CheckCircle2, X } from "lucide-react";
 import { FullScreenDialog } from "@/components/site/FullScreenDialog";
 import { EVENING, MORNING, POST_PRAYER, SLEEP, type Athkar } from "@/lib/athkarData";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLocale } from "@/contexts/LocaleContext";
 import { cn } from "@/lib/utils";
+import { isAthkarListKey, loadAthkarCounts, localDayKey, saveAthkarCounts, type AthkarListKey } from "@/lib/athkarProgress";
+import { noteAthkarProgress } from "@/lib/journey/sources";
 
 
 /** Diacritics-insensitive matching for the search box. */
@@ -14,37 +16,24 @@ const normalize = (x: string) =>
 // The app advertises "progress saved" for Athkar, but tallies were only ever
 // in-memory React state — closing the dialog (a Radix Dialog, unmounted on
 // close) silently lost all progress. Persist per list, keyed by today's date
-// so tomorrow's Athkar start fresh rather than carrying over yesterday's tally.
-function todayKey(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function List({ items, storageKey, query }: { items: Athkar[]; storageKey: string; query: string }) {
-  const fullKey = `athkar.counts.${storageKey}.${todayKey()}`;
-  const [counts, setCounts] = useState<number[]>(() => {
-    try {
-      const raw = localStorage.getItem(fullKey);
-      const arr = raw ? JSON.parse(raw) : null;
-      if (Array.isArray(arr) && arr.length === items.length && arr.every((n) => typeof n === "number")) {
-        return arr;
-      }
-    } catch {
-      /* ignore malformed/unavailable storage */
-    }
-    return items.map(() => 0);
-  });
+// so tomorrow's Athkar start fresh rather than carrying over yesterday's tally
+// (see athkarProgress — shared with «جلسة الآن» and «رحلتي»).
+function List({ items, storageKey, query }: { items: Athkar[]; storageKey: AthkarListKey; query: string }) {
+  const day = localDayKey();
+  const [counts, setCounts] = useState<number[]>(() => loadAthkarCounts(storageKey));
+  // Only the user's own taps are journey activity (opening a tab is not).
+  const counted = useRef(false);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(fullKey, JSON.stringify(counts));
-    } catch {
-      /* storage unavailable */
-    }
-  }, [counts, fullKey]);
+    saveAthkarCounts(storageKey, counts);
+    if (counted.current) noteAthkarProgress(storageKey, counts);
+  }, [counts, storageKey, day]);
 
   const { lang, t } = useLocale();
-  const tap = (i: number) => setCounts(c => c.map((v, idx) => idx === i ? Math.min(v + 1, items[i].count) : v));
+  const tap = (i: number) => {
+    counted.current = true;
+    setCounts(c => c.map((v, idx) => idx === i ? Math.min(v + 1, items[i].count) : v));
+  };
   const nq = normalize(query);
   const doneCount = items.filter((it, i) => counts[i] >= it.count).length;
   return (
@@ -114,7 +103,7 @@ function List({ items, storageKey, query }: { items: Athkar[]; storageKey: strin
 const tabTrigger =
   "min-w-0 flex-col h-auto gap-1 rounded-full py-2 px-1 whitespace-normal text-center leading-tight data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm";
 
-export function AthkarDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+export function AthkarDialog({ open, onOpenChange, initialList = null }: { open: boolean; onOpenChange: (v: boolean) => void; initialList?: string | null }) {
   const { t } = useLocale();
   const [query, setQuery] = useState("");
   return (
@@ -141,7 +130,7 @@ export function AthkarDialog({ open, onOpenChange }: { open: boolean; onOpenChan
         </div>
       }
     >
-      <Tabs defaultValue="morning" className="min-w-0">
+      <Tabs defaultValue={isAthkarListKey(initialList) ? initialList : "morning"} className="min-w-0">
         <TabsList className="grid h-auto w-full min-w-0 grid-cols-4 gap-1 rounded-full bg-foreground/[0.06] p-1">
           <TabsTrigger value="morning" className={tabTrigger}>
             <Sunrise className="h-4 w-4" />

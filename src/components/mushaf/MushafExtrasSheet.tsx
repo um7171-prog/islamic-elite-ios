@@ -64,8 +64,8 @@ export function MushafExtrasSheet({ mode, onClose, info, reciterId, onReciterCha
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-border/30 gap-2">
           <h2 className="text-h3 text-foreground truncate">{title} · {t(`Page ${info.page}`, `صفحة ${toArabicDigits(info.page)}`)}</h2>
-          <button onClick={onClose} aria-label={t("Close", "إغلاق")} className="h-8 w-8 shrink-0 grid place-items-center rounded-full bg-foreground/10">
-            <X className="h-4 w-4" />
+          <button type="button" onClick={onClose} aria-label={t("Close", "إغلاق")} data-testid="sheet-close" className="h-11 w-11 shrink-0 grid place-items-center rounded-full bg-foreground/10 active:scale-95 transition" style={{ touchAction: "manipulation" }}>
+            <X className="h-5 w-5" />
           </button>
         </div>
 

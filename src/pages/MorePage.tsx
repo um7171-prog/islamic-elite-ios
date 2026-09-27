@@ -1,4 +1,4 @@
-import { Bell, LayoutGrid, Mail, Settings as SettingsIcon, Share2 } from "lucide-react";
+import { Bell, FlaskConical, Footprints, LayoutGrid, Mail, Settings as SettingsIcon, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { useLocale } from "@/contexts/LocaleContext";
 import { PageShell } from "@/components/site/PageHeader";
@@ -43,9 +43,11 @@ export default function MorePage() {
       <div className="space-y-6">
         <SettingsSection id="more-explore" title={t("Explore", "استكشف")}>
           <SettingsGroup>
+            <SettingsRow icon={Footprints} to="/journey" label={t("My Journey", "رحلتي")} data-more="journey" />
             <SettingsRow icon={LayoutGrid} to="/tools" label={t("All Services", "كل الخدمات")} />
             <SettingsRow icon={Bell} to="/notifications" label={t("Notification Center", "مركز الإشعارات")} />
             <SettingsRow icon={SettingsIcon} to="/settings" label={t("Settings", "الإعدادات")} />
+            <SettingsRow icon={FlaskConical} to="/labs/voice" label={t("Voice Lab (prototype)", "مختبر الأصوات (تجريبي)")} data-more="voice-lab" />
           </SettingsGroup>
         </SettingsSection>
 

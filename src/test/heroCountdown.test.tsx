@@ -42,9 +42,11 @@ describe("Home hero — next-prayer phrase", () => {
     expect(screen.getByTestId("hero-countdown").textContent).toMatch(/^\d{2}:\d{2}:\d{2}$/);
   });
 
-  it("names the prayer exactly once inside the card", () => {
+  it("names the next prayer exactly once (the «<الصلاة> منذ» line names the prayer that entered)", () => {
     const { container } = renderHero("ar");
-    const names = (container.textContent ?? "").match(/الفجر|الشروق|الظهر|العصر|المغرب|العشاء/g) ?? [];
+    const since = screen.queryByTestId("adhan-since")?.textContent ?? "";
+    const text = (container.textContent ?? "").replace(since, "");
+    const names = text.match(/الفجر|الشروق|الظهر|العصر|المغرب|العشاء/g) ?? [];
     expect(names).toHaveLength(1);
   });
 

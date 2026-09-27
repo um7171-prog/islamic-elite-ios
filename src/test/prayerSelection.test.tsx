@@ -177,7 +177,7 @@ describe("«منذ MM:SS» under the countdown after a prayer's time", () => {
     expect(screen.getByTestId("hero-countdown").textContent).toMatch(/^\d{2}:\d{2}:\d{2}$/);
     expect(card.textContent).toMatch(/الصلاة القادمة/);
     expect(card.textContent).toMatch(/متبقي على العصر/);
-    expect(screen.getByTestId("adhan-since").textContent).toMatch(/^منذ \d{2}:\d{2}$/);
+    expect(screen.getByTestId("adhan-since").textContent).toMatch(/^الظهر منذ \d{2}:\d{2}$/);
   });
 
   it("starts at 00:00 when the prayer time enters, and counts minutes AND seconds", () => {
@@ -186,18 +186,18 @@ describe("«منذ MM:SS» under the countdown after a prayer's time", () => {
     cleanup();
     vi.setSystemTime(new Date(Date.now() - age * 1000)); // the exact moment Dhuhr entered
     renderHome();
-    expect(screen.getByTestId("adhan-since").textContent).toBe("منذ 00:00");
+    expect(screen.getByTestId("adhan-since").textContent).toBe("الظهر منذ 00:00");
     act(() => { vi.advanceTimersByTime(1000); });
-    expect(screen.getByTestId("adhan-since").textContent).toBe("منذ 00:01");
+    expect(screen.getByTestId("adhan-since").textContent).toBe("الظهر منذ 00:01");
     act(() => { vi.advanceTimersByTime(15 * 60_000 + 31_000); });
-    expect(screen.getByTestId("adhan-since").textContent).toBe("منذ 15:32");
+    expect(screen.getByTestId("adhan-since").textContent).toBe("الظهر منذ 15:32");
   });
 
   it("lasts 45 minutes only (never shows hours), then only «منذ» disappears", () => {
     renderHome();
     const age = sinceSeconds();
     act(() => { vi.advanceTimersByTime((45 * 60 - 1 - age) * 1000); });
-    expect(screen.getByTestId("adhan-since").textContent).toBe("منذ 44:59");
+    expect(screen.getByTestId("adhan-since").textContent).toBe("الظهر منذ 44:59");
     act(() => { vi.advanceTimersByTime(1000); });
     expect(screen.queryByTestId("adhan-since")).toBeNull();
     expect(screen.getByTestId("hero-countdown")).toBeTruthy();
@@ -208,15 +208,24 @@ describe("«منذ MM:SS» under the countdown after a prayer's time", () => {
     renderPage();
     expect(screen.getByTestId("hero-countdown")).toBeTruthy();
     expect(screen.getByTestId("next-prayer-bar").textContent).toMatch(/متبقي على العصر/);
-    expect(screen.getByTestId("adhan-since").textContent).toMatch(/^منذ \d{2}:\d{2}$/);
+    expect(screen.getByTestId("adhan-since").textContent).toMatch(/^الظهر منذ \d{2}:\d{2}$/);
   });
 
-  it("with a prayer selected, «منذ» belongs to that prayer only", () => {
+  it("selecting a prayer never changes «منذ»: it stays on the prayer that actually entered (Dhuhr)", () => {
     renderPage();
-    fireEvent.click(screen.getByTestId("prayer-row-asr")); // Asr has not entered: no «منذ»
-    expect(screen.queryByTestId("adhan-since")).toBeNull();
-    fireEvent.click(screen.getByTestId("prayer-row-dhuhr")); // Dhuhr just entered
-    expect(screen.getByTestId("adhan-since")).toBeTruthy();
-    expect(screen.getByTestId("hero-countdown")).toBeTruthy(); // counts to tomorrow's Dhuhr
+    fireEvent.click(screen.getByTestId("prayer-row-asr")); // Asr has not entered yet
+    expect(screen.getByTestId("next-prayer-bar").getAttribute("data-target")).toBe("asr");
+    expect(screen.getByTestId("adhan-since").getAttribute("data-prayer")).toBe("dhuhr");
+    expect(screen.getByTestId("adhan-since").textContent).toMatch(/^الظهر منذ \d{2}:\d{2}$/);
+    fireEvent.click(screen.getByTestId("prayer-row-fajr")); // Fajr entered hours ago
+    expect(screen.getByTestId("adhan-since").getAttribute("data-prayer")).toBe("dhuhr");
+    expect(screen.getByTestId("hero-countdown")).toBeTruthy(); // the main countdown stays
+  });
+
+  it("Home: selecting Asr moves only the main countdown; «منذ» stays «الظهر منذ»", () => {
+    renderHome();
+    fireEvent.click(screen.getByTestId("prayer-tile-asr"));
+    expect(screen.getByTestId("hero-card").textContent).toMatch(/متبقي على العصر/);
+    expect(screen.getByTestId("adhan-since").textContent).toMatch(/^الظهر منذ \d{2}:\d{2}$/);
   });
 });

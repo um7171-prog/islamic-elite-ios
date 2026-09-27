@@ -1,6 +1,7 @@
 /**
- * Server-side translation core, used by the Vercel function api/translate.ts (never by the app
- * bundle: the app only calls that endpoint, so no secret key ever ships inside the app).
+ * Server-side translation core, used by the Vercel function api/translate.ts. The app bundle only
+ * reuses its keyless MyMemory path (translateClient.ts, text fallback when the endpoint can't
+ * answer) — keys come only from the server's environment, so no secret ever ships inside the app.
  *
  * Text:  Google Cloud Translation (v2) when GOOGLE_TRANSLATE_API_KEY is set on the server;
  *        otherwise the free MyMemory API (no key; MYMEMORY_EMAIL, optional, raises its daily quota).
