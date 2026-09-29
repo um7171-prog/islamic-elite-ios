@@ -1,4 +1,4 @@
-import { Bell, FlaskConical, Footprints, LayoutGrid, Mail, Settings as SettingsIcon, Share2, UserRound } from "lucide-react";
+import { Bell, BookOpenCheck, FlaskConical, Footprints, Headphones, LayoutGrid, Mail, Settings as SettingsIcon, Share2, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { useLocale } from "@/contexts/LocaleContext";
 import { PageShell } from "@/components/site/PageHeader";
@@ -45,6 +45,8 @@ export default function MorePage() {
           <SettingsGroup>
             <SettingsRow icon={UserRound} to="/account" label={t("Account", "الحساب")} data-more="account" />
             <SettingsRow icon={Footprints} to="/journey" label={t("My Journey", "رحلتي")} data-more="journey" />
+            <SettingsRow icon={Headphones} to="/reciters" label={t("Reciters", "القرّاء")} data-more="reciters" />
+            <SettingsRow icon={BookOpenCheck} to="/recite" label={t("Recite with a Teacher", "القراءة مع المعلم")} data-more="recite" />
             <SettingsRow icon={LayoutGrid} to="/tools" label={t("All Services", "كل الخدمات")} />
             <SettingsRow icon={Bell} to="/notifications" label={t("Notification Center", "مركز الإشعارات")} />
             <SettingsRow icon={SettingsIcon} to="/settings" label={t("Settings", "الإعدادات")} />
