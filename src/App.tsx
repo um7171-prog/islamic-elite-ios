@@ -61,6 +61,9 @@ const AccountPage = lazy(() => import("./pages/AccountPage.tsx"));
 // Quran audio library and recitation practice — lazy, loaded only when opened.
 const RecitersPage = lazy(() => import("./pages/RecitersPage.tsx"));
 const RecitePage = lazy(() => import("./pages/RecitePage.tsx"));
+// Memorization plan and personal stats — lazy as well.
+const HifzPage = lazy(() => import("./pages/HifzPage.tsx"));
+const StatsPage = lazy(() => import("./pages/StatsPage.tsx"));
 // Quran reading mode (real reflowing text) next to the image Mushaf at /mushaf.
 const QuranReading = lazy(() => import("./pages/QuranReading.tsx"));
 
@@ -149,6 +152,8 @@ const AppShell = () => {
           <Route path="/account" element={<AccountPage />} />
           <Route path="/reciters" element={<RecitersPage />} />
           <Route path="/recite" element={<RecitePage />} />
+          <Route path="/hifz" element={<HifzPage />} />
+          <Route path="/stats" element={<StatsPage />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

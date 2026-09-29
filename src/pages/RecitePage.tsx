@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Headphones, Loader2, Mic, Square, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -29,11 +30,22 @@ const levelLabel = (l: MemorizationLevel, t: T) =>
  */
 export default function RecitePage() {
   const { t, lang } = useLocale();
+  // A portion can be opened ready to practise (e.g. from the memorization plan): ?surah=&from=&to=&mode=
+  const [params] = useSearchParams();
+  const initial = useMemo(() => {
+    const n = Number(params.get("surah"));
+    const surah = Number.isInteger(n) && n >= 1 && n <= 114 ? n : 1;
+    const f = Number(params.get("from"));
+    const t2 = Number(params.get("to"));
+    const ok = validRange(surah, f, t2);
+    return { surah, from: ok ? f : 1, to: ok ? t2 : SURAHS[surah - 1].ayahs, mode: (params.get("mode") === "review" ? "review" : "memorize") as PracticeMode };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [sessions, setSessions] = useState<PracticeSession[]>(() => loadSessions());
-  const [surah, setSurah] = useState(1);
-  const [from, setFrom] = useState(1);
-  const [to, setTo] = useState(SURAHS[0].ayahs);
-  const [mode, setMode] = useState<PracticeMode>("memorize");
+  const [surah, setSurah] = useState(initial.surah);
+  const [from, setFrom] = useState(initial.from);
+  const [to, setTo] = useState(initial.to);
+  const [mode, setMode] = useState<PracticeMode>(initial.mode);
   const [ayahs, setAyahs] = useState<QuranAyah[] | null>(null);
   const [rating, setRating] = useState<SelfRating | null>(null);
   const [notes, setNotes] = useState("");

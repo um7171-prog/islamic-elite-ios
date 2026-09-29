@@ -1,9 +1,11 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, BookOpen, Footprints, MoonStar, Play, Sparkles, Timer } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, Footprints, MoonStar, Play, Sparkles, Target, Timer } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useJourneyNow, type JourneyNow } from "@/hooks/useJourney";
 import { activityProgressText, durationText } from "@/lib/journey/format";
 import { SESSION_LENGTHS } from "@/lib/journey/types";
+import { loadPlan, planProgress } from "@/lib/hifzPlan";
+import { loadSessions } from "@/lib/recitePractice";
 
 /**
  * Home's journey section: «يومك في النخبة» (the day + one suggestion) and «أكمل رحلتي» (the last
@@ -89,7 +91,33 @@ function YourDayCard({ data }: { data: JourneyNow }) {
           ))}
         </div>
       )}
+
+      <HifzToday />
     </section>
+  );
+}
+
+/** Today's memorization portion — only when the user has made a plan (/hifz). Real counts only. */
+function HifzToday() {
+  const { t } = useLocale();
+  const navigate = useNavigate();
+  const plan = loadPlan();
+  if (!plan) return null;
+  const p = planProgress(plan, loadSessions());
+  return (
+    <div className="relative mt-4 flex items-center gap-2 border-t border-foreground/[0.07] pt-3" data-testid="your-day-hifz">
+      <span className="inline-flex min-w-0 flex-1 items-center gap-1 text-body-sm font-semibold text-foreground/60">
+        <Target className="h-4 w-4 shrink-0" />
+        <span className="truncate">
+          {p.todayDone
+            ? t("Memorization: today's goal done", "الحفظ: أنجزت هدف اليوم")
+            : t(`Memorization today: ${p.todayAyahs}/${p.dailyAyahs} ayahs`, `ورد الحفظ اليوم: ${p.todayAyahs}/${p.dailyAyahs} آيات`)}
+        </span>
+      </span>
+      <button type="button" onClick={() => navigate("/hifz")} className="min-h-9 shrink-0 rounded-full bg-foreground/[0.06] px-3 text-body-sm font-semibold text-foreground/80 transition active:scale-95">
+        {t("Open", "افتح")}
+      </button>
+    </div>
   );
 }
 
