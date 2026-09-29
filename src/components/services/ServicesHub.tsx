@@ -217,8 +217,13 @@ export function ServicesHub({ initialOpen = null, initialCategory = null }: Prop
   useEffect(() => { localStorage.setItem(FAV_KEY, JSON.stringify(favorites)); }, [favorites]);
   useEffect(() => { localStorage.setItem(RECENT_KEY, JSON.stringify(recents)); }, [recents]);
 
+  // The toggle is applied to the favorites as they are stored NOW (not to this screen's copy),
+  // so data written while the screen was open (e.g. by an account sync) is never overwritten.
   const toggleFav = (id: string) =>
-    setFavorites((f) => (f.includes(id) ? f.filter((x) => x !== id) : [...f, id]));
+    setFavorites(() => {
+      const f = readList(FAV_KEY);
+      return f.includes(id) ? f.filter((x) => x !== id) : [...f, id];
+    });
 
   const remember = (id: string) => setRecents((r) => [id, ...r.filter((x) => x !== id)].slice(0, 8));
 

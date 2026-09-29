@@ -56,6 +56,8 @@ const VoiceLabPage = lazy(() => import("./pages/VoiceLabPage.tsx"));
 // The user's journey: «جلسة الآن» and «رحلتي» (Home shows «يومك في النخبة» / «أكمل رحلتي»).
 const SessionPage = lazy(() => import("./pages/SessionPage.tsx"));
 const JourneyPage = lazy(() => import("./pages/JourneyPage.tsx"));
+// Account sign-in (email code) — lazy so the accounts client only loads when the screen is opened.
+const AccountPage = lazy(() => import("./pages/AccountPage.tsx"));
 // Quran reading mode (real reflowing text) next to the image Mushaf at /mushaf.
 const QuranReading = lazy(() => import("./pages/QuranReading.tsx"));
 
@@ -141,6 +143,7 @@ const AppShell = () => {
           <Route path="/labs/voice" element={<VoiceLabPage />} />
           <Route path="/session" element={<SessionPage />} />
           <Route path="/journey" element={<JourneyPage />} />
+          <Route path="/account" element={<AccountPage />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

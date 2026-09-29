@@ -32,7 +32,15 @@ function List({ items, storageKey, query }: { items: Athkar[]; storageKey: Athka
   const { lang, t } = useLocale();
   const tap = (i: number) => {
     counted.current = true;
-    setCounts(c => c.map((v, idx) => idx === i ? Math.min(v + 1, items[i].count) : v));
+    // Count on top of the tallies as they are stored NOW (never below this screen's own count),
+    // so counts written while the dialog was open (e.g. by an account sync) are never lost.
+    setCounts(c => {
+      const stored = loadAthkarCounts(storageKey);
+      return c.map((v, idx) => {
+        const base = Math.max(v, stored[idx] ?? 0);
+        return idx === i ? Math.min(base + 1, items[i].count) : base;
+      });
+    });
   };
   const nq = normalize(query);
   const doneCount = items.filter((it, i) => counts[i] >= it.count).length;

@@ -214,7 +214,13 @@ function DhikrPart({ session, step, onDone }: { session: JourneySession; step: S
   const progress = useMemo(() => athkarListProgress(list, counts), [list, counts]);
 
   const tap = (i: number) => {
-    const next = counts.map((v, idx) => (idx === i ? Math.min(v + 1, items[i].count) : v));
+    // Count on top of the larger of this screen's copy and the tallies stored NOW, so counts written
+    // while the session was open (e.g. by an account sync) are never overwritten.
+    const stored = loadAthkarCounts(list);
+    const next = counts.map((v, idx) => {
+      const base = Math.max(v, stored[idx] ?? 0);
+      return idx === i ? Math.min(base + 1, items[i].count) : base;
+    });
     setCounts(next);
     saveAthkarCounts(list, next);
     noteAthkarProgress(list, next);
