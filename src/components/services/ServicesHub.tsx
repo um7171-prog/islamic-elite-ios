@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Baby, BadgeDollarSign, Bookmark, BookOpen, CalendarDays, CalendarHeart, CalendarRange,
-  Clock4, Coins, Compass, Download, Flag, GraduationCap, Heart, Landmark, Languages, Moon,
+  Clock4, Coins, Compass, Download, Flag, GraduationCap, Heart, Landmark, Languages, MapPinned, Moon,
   PiggyBank, Repeat, Ruler, Scale, ScanLine, ScanText, Search, Sparkles, Star, Sun, Timer, X,
 } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -64,7 +64,7 @@ interface Tool {
 
 // Display order inside a section (ids not listed keep their declaration order).
 const DISPLAY_ORDER = [
-  "prayer-times", "qibla", "athkar", "quran", "tasbeeh", "calendar", "asmaAlHusna",
+  "prayer-times", "qibla", "mosques", "athkar", "quran", "tasbeeh", "calendar", "asmaAlHusna",
   "docscan", "scanner", "convert", "media", "translate",
   "zakat", "inheritance", "age", "loan", "commission", "currency", "units", "retirement", "hijri",
 ];
@@ -89,6 +89,7 @@ const TOOLS: Tool[] = [
   // feature's label on the Home QuickShortcuts tile — same dialog/route,
   // was just displayed under two different Arabic names across the app.
   { id: "qibla", en: "Qibla", ar: "القبلة", descEn: "Compass to the Kaaba", descAr: "بوصلة نحو الكعبة", category: "religious", Icon: Compass, gradient: BLUE, keywords: "قبلة بوصلة اتجاه القبلة qibla compass", action: { kind: "dialog" } },
+  { id: "mosques", en: "Nearby Mosques", ar: "المساجد القريبة", descEn: "Find the mosques near you", descAr: "اعثر على المساجد القريبة منك", category: "religious", Icon: MapPinned, gradient: EMERALD, keywords: "مساجد مسجد جامع قريب القريبة أقرب مسجد nearby mosque mosques masjid", action: { kind: "route", to: "/mosques" } },
   { id: "calendar", en: "Calendar", ar: "التقويم", descEn: "Hijri & Gregorian, appointments", descAr: "هجري وميلادي ومواعيدك", category: "religious", Icon: CalendarHeart, gradient: EMERALD, keywords: "تقويم مناسبات موعد calendar", action: { kind: "route", to: "/calendar" } },
   { id: "asmaAlHusna", en: "99 Names of Allah", ar: "أسماء الله الحسنى", descEn: "Names, transliteration & meaning", descAr: "الأسماء واللفظ والمعنى", category: "religious", Icon: Sparkles, gradient: GOLD, keywords: "أسماء الله الحسنى names of allah asma husna", action: { kind: "dialog" } },
   { id: "tasbeeh", en: "Tasbeeh", ar: "السبحة الرقمية", descEn: "Digital dhikr counter", descAr: "عداد ذكر رقمي", category: "religious", Icon: Bookmark, gradient: GOLD, keywords: "سبحة تسبيح ذكر tasbeeh dhikr", action: { kind: "dialog" } },

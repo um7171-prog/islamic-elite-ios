@@ -1,4 +1,4 @@
-import { BarChart3, Bell, BookOpenCheck, FlaskConical, Footprints, Headphones, LayoutGrid, Mail, Settings as SettingsIcon, Share2, Target, UserRound } from "lucide-react";
+import { BarChart3, Bell, BookOpenCheck, FlaskConical, Footprints, Headphones, LayoutGrid, Mail, MapPinned, Settings as SettingsIcon, Share2, Target, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { useLocale } from "@/contexts/LocaleContext";
 import { PageShell } from "@/components/site/PageHeader";
@@ -49,6 +49,7 @@ export default function MorePage() {
             <SettingsRow icon={BookOpenCheck} to="/recite" label={t("Recite with a Teacher", "القراءة مع المعلم")} data-more="recite" />
             <SettingsRow icon={Target} to="/hifz" label={t("Memorization plan", "خطة الحفظ والمراجعة")} data-more="hifz" />
             <SettingsRow icon={BarChart3} to="/stats" label={t("Your stats", "إحصائياتك")} data-more="stats" />
+            <SettingsRow icon={MapPinned} to="/mosques" label={t("Nearby Mosques", "المساجد القريبة")} data-more="mosques" />
             <SettingsRow icon={LayoutGrid} to="/tools" label={t("All Services", "كل الخدمات")} />
             <SettingsRow icon={Bell} to="/notifications" label={t("Notification Center", "مركز الإشعارات")} />
             <SettingsRow icon={SettingsIcon} to="/settings" label={t("Settings", "الإعدادات")} />

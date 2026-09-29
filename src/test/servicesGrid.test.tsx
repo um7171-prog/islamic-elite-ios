@@ -17,7 +17,7 @@ const REGISTERED_ROUTES = new Set([
   "/asma-al-husna", "/about", "/admin", "/ai", "/ai/background-remover",
   "/ai/image-enhancer", "/ai/ocr", "/contact", "/convert", "/cookies", "/disclaimer",
   "/faq", "/mushaf", "/privacy",
-  "/reset-password", "/settings", "/sitemap", "/terms",
+  "/reset-password", "/settings", "/sitemap", "/terms", "/mosques",
 ]);
 
 const navigateMock = vi.fn();
@@ -112,6 +112,12 @@ describe("Unified Services grid — navigation actually works", () => {
     renderGrid();
     fireEvent.click(screen.getByText("مواقيت الصلاة"));
     expect(navigateMock).toHaveBeenCalledWith("/prayer-times");
+  });
+
+  it("tapping the Nearby Mosques tile navigates to /mosques", () => {
+    renderGrid();
+    fireEvent.click(screen.getByText("المساجد القريبة"));
+    expect(navigateMock).toHaveBeenCalledWith("/mosques");
   });
 
   it("tapping the Calendar tile navigates to /calendar", () => {
