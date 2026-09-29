@@ -24,6 +24,7 @@ import {
   Volume2,
   Calculator,
   Megaphone,
+  UserRound,
 } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useTheme, type ThemeMode } from "@/contexts/ThemeContext";
@@ -124,6 +125,13 @@ export default function Settings() {
       />
 
       <div className="space-y-6">
+        {/* ============ Account ============ */}
+        <SettingsSection id="account" title={t("Account", "الحساب")}>
+          <SettingsGroup>
+            <SettingsRow icon={UserRound} to="/account" label={t("Account", "الحساب")} description={t("Sign in with your email", "تسجيل الدخول بالبريد الإلكتروني")} />
+          </SettingsGroup>
+        </SettingsSection>
+
         {/* ============ General ============ */}
         <SettingsSection id="general" title={t("General", "عام")}>
           <SettingsGroup>
