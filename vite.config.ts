@@ -1,9 +1,10 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import fs from "fs";
 import { execSync } from "child_process";
 import { componentTagger } from "lovable-tagger";
+import { supabaseEnvProblems } from "./src/lib/supabaseEnv";
 
 // Build-time verification that a notification sound is really part of the iOS
 // App Bundle (file on disk AND listed in Copy Bundle Resources). Anything that
@@ -60,8 +61,18 @@ function gitInfo(): { commit: string; branch: string } {
 }
 const GIT_INFO = gitInfo();
 
+// A malformed Supabase value (e.g. quotes pasted into a CI variable) builds "successfully" but the
+// app then dies while loading — a black screen on iOS. Refuse to build it instead (names only in
+// the message, never values). Missing values are allowed: the app runs without them.
+function assertBuildEnv(mode: string) {
+  const problems = supabaseEnvProblems(loadEnv(mode, process.cwd(), "VITE_"));
+  if (problems.length) throw new Error(`Invalid build environment:\n  - ${problems.join("\n  - ")}`);
+}
+
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ mode, command }) => {
+  if (command === "build") assertBuildEnv(mode);
+  return {
   define: {
     __PRE_REMINDER_CAF_BUNDLED__: JSON.stringify(bundledCafs().includes("pre_athan_alert.caf")),
     __BUNDLED_CAFS__: JSON.stringify(bundledCafs()),
@@ -85,4 +96,5 @@ export default defineConfig(({ mode }) => ({
     },
     dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime", "@tanstack/react-query", "@tanstack/query-core"],
   },
-}));
+  };
+});
