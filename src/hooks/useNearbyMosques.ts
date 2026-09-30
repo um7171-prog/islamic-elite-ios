@@ -3,8 +3,6 @@ import { getPosition, queryGeoPermission, type GeoFailure, type GeoFix, type Geo
 import {
   APPROXIMATE_LOCATION_M,
   DEFAULT_RADIUS_M,
-  FEW_RESULTS,
-  FIRST_RADIUS_M,
   LOCATION_MAX_AGE_MS,
   LOCATION_TIMEOUT_MS,
   RADIUS_DEBOUNCE_MS,
@@ -36,8 +34,6 @@ export interface NearbyState {
   listRadiusM: number;
   errorKind: MosqueSearchErrorKind | null;
   locationTimedOut: boolean;
-  /** The first search found too few mosques and widened itself once. */
-  autoExpanded: boolean;
   /** A position fix is held (in memory only). */
   located: boolean;
   /** How precise that fix is, in metres as the device reported it (null when unknown). */
@@ -52,12 +48,11 @@ export interface NearbyDeps {
 
 const INITIAL: NearbyState = {
   phase: "checking",
-  radiusM: FIRST_RADIUS_M,
+  radiusM: DEFAULT_RADIUS_M,
   mosques: [],
-  listRadiusM: FIRST_RADIUS_M,
+  listRadiusM: DEFAULT_RADIUS_M,
   errorKind: null,
   locationTimedOut: false,
-  autoExpanded: false,
   located: false,
   accuracyM: null,
 };
@@ -96,7 +91,7 @@ export function useNearbyMosques(deps: NearbyDeps = {}) {
   }, []);
 
   const search = useCallback(
-    async function run(radiusM: number, opts: { force?: boolean; autoExpand?: boolean; ticket?: number } = {}): Promise<void> {
+    async function run(radiusM: number, opts: { force?: boolean; ticket?: number } = {}): Promise<void> {
       const origin = originRef.current;
       if (!origin) return;
       const ticket = opts.ticket ?? nextTicket();
@@ -112,10 +107,6 @@ export function useNearbyMosques(deps: NearbyDeps = {}) {
           provider: depsRef.current.provider,
         });
         if (ticket !== seqRef.current) return;
-        if (opts.autoExpand && mosques.length < FEW_RESULTS && radiusM < DEFAULT_RADIUS_M) {
-          setState((s) => ({ ...s, autoExpanded: true }));
-          return run(DEFAULT_RADIUS_M, { ticket: nextTicket() });
-        }
         setState((s) => ({ ...s, phase: mosques.length ? "results" : "empty", mosques, listRadiusM: radiusM, radiusM }));
       } catch (e) {
         if (ticket !== seqRef.current) return;
@@ -132,7 +123,7 @@ export function useNearbyMosques(deps: NearbyDeps = {}) {
   );
 
   const locateAndSearch = useCallback(
-    async (radiusM: number, opts: { force?: boolean; autoExpand?: boolean } = {}) => {
+    async (radiusM: number, opts: { force?: boolean } = {}) => {
       const ticket = nextTicket();
       setState((s) => ({ ...s, phase: "locating", errorKind: null, locationTimedOut: false }));
       let fix: GeoFix;
@@ -166,7 +157,7 @@ export function useNearbyMosques(deps: NearbyDeps = {}) {
       .catch((): GeoPermission => "unknown")
       .then((p) => {
         if (cancelled) return;
-        if (p === "granted") void locateAndSearch(FIRST_RADIUS_M, { autoExpand: true });
+        if (p === "granted") void locateAndSearch(DEFAULT_RADIUS_M);
         else setState((s) => ({ ...s, phase: p === "denied" ? "denied" : p === "unsupported" ? "unsupported" : "idle" }));
       });
     return () => {
@@ -175,11 +166,11 @@ export function useNearbyMosques(deps: NearbyDeps = {}) {
     };
   }, [locateAndSearch, nextTicket]);
 
-  /** First search (user tap): smallest radius, widened automatically if too few. */
+  /** First search (user tap): one wide search, ranked from the exact position (nearest first). */
   const start = useCallback(() => {
     if (isBusy(stateRef.current.phase)) return;
-    setState((s) => ({ ...s, radiusM: FIRST_RADIUS_M, autoExpanded: false }));
-    void locateAndSearch(FIRST_RADIUS_M, { autoExpand: true });
+    setState((s) => ({ ...s, radiusM: DEFAULT_RADIUS_M }));
+    void locateAndSearch(DEFAULT_RADIUS_M);
   }, [locateAndSearch]);
 
   /** After a failure: repeat the search, or the location step if that is what failed. */
@@ -191,7 +182,7 @@ export function useNearbyMosques(deps: NearbyDeps = {}) {
       return;
     }
     const fresh = !originRef.current;
-    void locateAndSearch(fresh ? FIRST_RADIUS_M : s.radiusM, { autoExpand: fresh });
+    void locateAndSearch(fresh ? DEFAULT_RADIUS_M : s.radiusM);
   }, [locateAndSearch, search]);
 
   /** Manual refresh: a new position fix and fresh data for the current radius. */
@@ -202,7 +193,6 @@ export function useNearbyMosques(deps: NearbyDeps = {}) {
       start();
       return;
     }
-    setState((p) => ({ ...p, autoExpanded: false }));
     void locateAndSearch(s.radiusM, { force: true });
   }, [locateAndSearch, start]);
 
@@ -214,7 +204,7 @@ export function useNearbyMosques(deps: NearbyDeps = {}) {
       const ticket = nextTicket();
       const origin = originRef.current;
       if (!origin) {
-        setState((s) => ({ ...s, radiusM: r, autoExpanded: false }));
+        setState((s) => ({ ...s, radiusM: r }));
         return;
       }
       const cached = cachedNearbyMosques(origin, r);
@@ -226,11 +216,10 @@ export function useNearbyMosques(deps: NearbyDeps = {}) {
           mosques: cached,
           phase: cached.length ? "results" : "empty",
           errorKind: null,
-          autoExpanded: false,
         }));
         return;
       }
-      setState((s) => ({ ...s, radiusM: r, phase: "searching", errorKind: null, autoExpanded: false }));
+      setState((s) => ({ ...s, radiusM: r, phase: "searching", errorKind: null }));
       timerRef.current = window.setTimeout(() => {
         if (ticket === seqRef.current) void search(r, { ticket });
       }, RADIUS_DEBOUNCE_MS);

@@ -37,6 +37,11 @@ const east = (m: number, from = USER): LatLng => ({ lat: from.lat, lng: from.lng
 const MOSQUE = { amenity: "place_of_worship", religion: "muslim" };
 const node = (id: number, p: LatLng, tags: Record<string, string> = MOSQUE) => ({ type: "node", id, lat: p.lat, lon: p.lng, tags });
 const way = (id: number, p: LatLng, tags: Record<string, string>) => ({ type: "way", id, center: { lat: p.lat, lon: p.lng }, tags });
+/** A square building outline `size` metres wide whose south-west corner is at `sw` (as `out geom` returns it). */
+const building = (id: number, sw: LatLng, size: number, tags: Record<string, string>) => {
+  const pts = [sw, east(size, sw), north(size, east(size, sw)), north(size, sw), sw];
+  return { type: "way", id, geometry: pts.map((p) => ({ lat: p.lat, lon: p.lng })), tags };
+};
 
 /** Three mosques inside 1 km, deliberately out of distance order. */
 const THREE = [
@@ -135,7 +140,7 @@ describe("Nearby Mosques — permission and location states", () => {
     expect(screen.getAllByText("الطريق")).toHaveLength(3);
     expect(screen.getAllByText("فتح في الخرائط")).toHaveLength(3);
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(radiusOf(fetchMock.mock.calls[0])).toBe(1150);
+    expect(radiusOf(fetchMock.mock.calls[0])).toBe(5150);
   });
 
   it("location already allowed: searches on open without a tap", async () => {
@@ -230,14 +235,24 @@ describe("Nearby Mosques — data source failures", () => {
 });
 
 describe("Nearby Mosques — results and radius", () => {
-  it("too few within 1 km: widens once, automatically, to 2 km", async () => {
+  it("the mosque in front of the house is never missed: one 5 km search, nearest first (350 m, 500 m, 1.8 km, 2.2 km)", async () => {
     permission = "granted";
-    fetchMock.mockResolvedValue(respond([node(1, north(400), { ...MOSQUE, name: "مسجد الحي" }), node(2, east(1600), { ...MOSQUE, name: "جامع الشارع" })]));
+    // Returned far-first, with differently tagged mosques (islam / amenity=mosque / no religion / a way).
+    fetchMock.mockResolvedValue(
+      respond([
+        node(4, east(-2200), { amenity: "mosque", name: "جامع الشارع" }),
+        way(3, north(-1800), { building: "mosque", name: "جامع الوسط" }),
+        node(1, north(350), { amenity: "place_of_worship", religion: "islam", name: "مسجد الحي" }),
+        node(2, east(500), { amenity: "place_of_worship", name: "مسجد السلام" }),
+      ]),
+    );
     render(page());
-    await waitFor(() => expect(screen.getAllByTestId("mosque-item")).toHaveLength(2));
-    expect(fetchMock.mock.calls.map(radiusOf)).toEqual([1150, 2150]);
-    expect(screen.getByTestId("mosques-auto-expanded")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "2 كم" })).toHaveAttribute("aria-pressed", "true");
+    await waitFor(() => expect(screen.getAllByTestId("mosque-item")).toHaveLength(4));
+    expect(names()).toEqual(["مسجد الحي", "مسجد السلام", "جامع الوسط", "جامع الشارع"]);
+    expect(texts("mosque-distance")).toEqual(["350 م", "500 م", "1.8 كم", "2.2 كم"]);
+    expect(fetchMock.mock.calls.map(radiusOf)).toEqual([5150]);
+    expect(screen.getByRole("button", { name: "5 كم" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getAllByTestId("mosque-item")[0]).toHaveTextContent("الأقرب");
   });
 
   it("no mosques: an empty state that offers a wider search", async () => {
@@ -245,13 +260,13 @@ describe("Nearby Mosques — results and radius", () => {
     fetchMock.mockResolvedValue(respond([]));
     render(page());
     expect(await screen.findByTestId("mosques-empty")).toBeInTheDocument();
-    expect(screen.getByText(/لا توجد مساجد مسجّلة ضمن\s*2 كم/)).toBeInTheDocument();
-    expect(fetchMock.mock.calls.map(radiusOf)).toEqual([1150, 2150]);
-    fetchMock.mockResolvedValue(respond([node(9, north(4000), { ...MOSQUE, name: "جامع الضاحية" })]));
+    expect(screen.getByText(/لا توجد مساجد مسجّلة ضمن\s*5 كم/)).toBeInTheDocument();
+    expect(fetchMock.mock.calls.map(radiusOf)).toEqual([5150]);
+    fetchMock.mockResolvedValue(respond([node(9, north(8000), { ...MOSQUE, name: "جامع الضاحية" })]));
     fireEvent.click(screen.getByTestId("mosques-expand"));
     await waitFor(() => expect(names()).toEqual(["جامع الضاحية"]));
-    expect(radiusOf(fetchMock.mock.calls[2])).toBe(5150);
-    expect(screen.getByRole("button", { name: "5 كم" })).toHaveAttribute("aria-pressed", "true");
+    expect(radiusOf(fetchMock.mock.calls[1])).toBe(10_150);
+    expect(screen.getByRole("button", { name: "10 كم" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("the same mosque mapped more than once is listed once", async () => {
@@ -259,7 +274,7 @@ describe("Nearby Mosques — results and radius", () => {
     fetchMock.mockResolvedValue(
       respond([
         node(1, north(300), { ...MOSQUE, name: "مسجد التقوى" }),
-        way(2, north(315), { building: "mosque" }),
+        building(2, east(-15, north(285)), 30, { building: "mosque" }), // its outline holds the point above
         node(1, north(300), { ...MOSQUE, name: "مسجد التقوى" }),
         node(3, east(500), { ...MOSQUE, name: "جامع الهدى" }),
         node(4, east(-800), { ...MOSQUE, name: "مسجد الرحمة" }),
@@ -270,11 +285,17 @@ describe("Nearby Mosques — results and radius", () => {
     expect(names()).toEqual(["مسجد التقوى", "جامع الهدى", "مسجد الرحمة"]);
   });
 
-  it("quick radius changes send one request for the last choice; a smaller radius reuses the cache", async () => {
+  it("a smaller radius is served from the 5 km search; a wider one sends one request for the last choice", async () => {
     permission = "granted";
     fetchMock.mockResolvedValue(respond(THREE));
     render(page());
     await screen.findAllByTestId("mosque-item");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "1 كم" }));
+    fireEvent.click(screen.getByRole("button", { name: "2 كم" }));
+    expect(screen.getByTestId("mosques-count")).toHaveTextContent("2 كم");
+    await pause(450);
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByRole("button", { name: "5 كم" }));
@@ -282,11 +303,6 @@ describe("Nearby Mosques — results and radius", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(radiusOf(fetchMock.mock.calls[1])).toBe(10_150);
     await waitFor(() => expect(screen.getByTestId("mosques-count")).toHaveTextContent("10 كم"));
-
-    fireEvent.click(screen.getByRole("button", { name: "2 كم" }));
-    expect(screen.getByTestId("mosques-count")).toHaveTextContent("2 كم");
-    await pause(450);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("refresh takes a new position fix and searches again", async () => {
@@ -332,11 +348,11 @@ describe("Nearby Mosques — maps, platforms, languages and privacy", () => {
     await screen.findAllByTestId("mosque-item");
     const p = east(350);
     const directions = screen.getAllByTestId("mosque-directions")[0];
-    expect(directions).toHaveAttribute("href", `https://www.google.com/maps/dir/?api=1&destination=${p.lat.toFixed(6)},${p.lng.toFixed(6)}`);
+    expect(directions).toHaveAttribute("href", `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}`);
     expect(directions).toHaveAttribute("target", "_blank");
     expect(directions.getAttribute("rel")).toContain("noopener");
-    expect(screen.getAllByTestId("mosque-open-map")[0]).toHaveAttribute("href", `https://www.google.com/maps/search/?api=1&query=${p.lat.toFixed(6)},${p.lng.toFixed(6)}`);
-    const userPair = `${USER.lat.toFixed(6)},${USER.lng.toFixed(6)}`;
+    expect(screen.getAllByTestId("mosque-open-map")[0]).toHaveAttribute("href", `https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lng}`);
+    const userPair = `${USER.lat},${USER.lng}`;
     for (const a of [...screen.getAllByTestId("mosque-directions"), ...screen.getAllByTestId("mosque-open-map")]) {
       expect(a.getAttribute("href")).not.toContain(userPair);
     }
@@ -402,8 +418,8 @@ describe("Nearby Mosques — maps, platforms, languages and privacy", () => {
 describe("Nearby Mosques — maps app on the iPhone (Apple Maps or Google Maps)", () => {
   const MAPS_KEY = "elite.mapsApp.v1";
   const p = east(350); // the nearest mosque in THREE (listed first)
-  const c = `${p.lat.toFixed(6)},${p.lng.toFixed(6)}`;
-  const userPair = `${USER.lat.toFixed(6)},${USER.lng.toFixed(6)}`;
+  const c = `${p.lat},${p.lng}`;
+  const userPair = `${USER.lat},${USER.lng}`;
   const openedUrls = () => mapsPlugin.open.mock.calls.map((call) => (call[0] as { url: string }).url);
 
   async function iosResults(choice?: "apple" | "google") {
@@ -461,6 +477,17 @@ describe("Nearby Mosques — maps app on the iPhone (Apple Maps or Google Maps)"
     expect(openedUrls()[0]).toBe(`https://maps.apple.com/?daddr=${c}`);
     expect(openedUrls()[1].startsWith(`https://maps.apple.com/?ll=${c}&q=`)).toBe(true);
     for (const u of openedUrls()) expect(u).not.toContain(userPair);
+  });
+
+  it("Google Maps «open» searches a named mosque by its own name at its exact point; directions end at that point", async () => {
+    await iosResults("google");
+    const q = north(-600); // «جامع الوسط», second in the list
+    const c2 = `${q.lat},${q.lng}`;
+    fireEvent.click(screen.getAllByTestId("mosque-open-map")[1]);
+    fireEvent.click(screen.getAllByTestId("mosque-directions")[1]);
+    await waitFor(() => expect(mapsPlugin.open).toHaveBeenCalledTimes(2));
+    expect(openedUrls()[0]).toBe(`comgooglemaps://?q=${encodeURIComponent("جامع الوسط")}&center=${c2}&zoom=18`);
+    expect(openedUrls()[1]).toBe(`comgooglemaps://?daddr=${c2}&directionsmode=driving`);
   });
 
   it("when no maps app can open, the user is told instead of nothing happening", async () => {

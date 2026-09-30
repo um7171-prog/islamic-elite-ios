@@ -18,6 +18,8 @@ interface Props {
   page: number | null;
   /** "pageTafsir" opens straight on the whole page's tafsir. */
   initialView?: AyahSheetView;
+  /** Opens with this ayah already selected (the one held in reading zoom), e.g. "2:255". */
+  initialAyahKey?: string | null;
   night: boolean;
   onClose: () => void;
   /** Recite the selection, from its first ayah to its last, with the Mushaf's player. */
@@ -32,7 +34,7 @@ const quranFont = { fontFamily: QURAN_READING_FONT.family, fontWeight: QURAN_REA
  * KFGQPC data (Hafs text + Al-Muyassar, see src/lib/quran), mapped to this page through the same
  * verified PAGE_START table as the Mushaf and its audio. Nothing is read from the page image.
  */
-export function MushafAyahSheet({ page, initialView = "list", night, onClose, onListen }: Props) {
+export function MushafAyahSheet({ page, initialView = "list", initialAyahKey = null, night, onClose, onListen }: Props) {
   const { t, lang } = useLocale();
   const [ayahs, setAyahs] = useState<QuranAyah[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -51,12 +53,14 @@ export function MushafAyahSheet({ page, initialView = "list", night, onClose, on
         if (!alive) return;
         setAyahs(list);
         setFailed(list.length === 0);
+        const held = initialAyahKey ? list.find((a) => a.key === initialAyahKey) : undefined;
+        if (held) setSel(selectAyah(null, held));
       })
       .catch(() => alive && setFailed(true));
     return () => {
       alive = false;
     };
-  }, [page, initialView]);
+  }, [page, initialView, initialAyahKey]);
 
   const chosen = useMemo(() => (ayahs ? selectedAyahs(sel, ayahs) : []), [ayahs, sel]);
   const label = sel ? selectionLabel(sel, lang === "ar" ? "ar" : "en") : "";

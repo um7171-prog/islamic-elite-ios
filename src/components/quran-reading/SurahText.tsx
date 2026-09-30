@@ -2,6 +2,7 @@ import { memo, useMemo } from "react";
 import { toArabicDigits } from "@/lib/mushaf";
 import type { QuranAyah, QuranSurah } from "@/lib/quran";
 import { ayahBody, surahNameAr } from "./ayahDisplay";
+import { AyahMarker } from "./AyahMarker";
 import { QURAN_READING_FONT } from "./readingPrefs";
 
 interface Props {
@@ -88,13 +89,7 @@ export const SurahText = memo(function SurahText({ surah, basmala, fontSize, nig
               >
                 {ayahBody(a)}
                 {"\u00A0"}
-                <span
-                  aria-label={`آية ${a.ayah}`}
-                  className="inline-grid min-w-[1.6em] place-items-center rounded-full border align-middle font-display leading-none tabular-nums"
-                  style={{ fontSize: "0.5em", padding: "0.35em 0.4em", borderColor: "hsl(var(--elite-gold-start) / .7)", color: night ? "hsl(var(--elite-gold-end))" : "hsl(var(--elite-gold-start))" }}
-                >
-                  {toArabicDigits(a.ayah)}
-                </span>{" "}
+                <AyahMarker ayah={a.ayah} night={night} />{" "}
               </span>
             ))}
           </p>

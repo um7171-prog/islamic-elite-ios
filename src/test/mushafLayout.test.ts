@@ -4,9 +4,6 @@ import {
   EDGE_GAP, MAX_PAGE_WIDTH, SIDE_GUTTER, computeLayout, pageAtScroll, pageAtY, pageTop, readingAnchor,
   scrollStep, scrollTopForAnchor, scrollTopForPage, visiblePart, visibleRange, type ReaderViewport,
 } from "@/components/mushaf/readerLayout";
-import {
-  DOUBLE_TAP_ZOOM, FIT, MAX_ZOOM, MIN_ZOOM, clampPan, clampZoom, isZoomed, panBy, pinchZoom, settleZoom, zoomAt,
-} from "@/components/mushaf/pageZoom";
 import { createScrollAnimator, HOLD_PX_PER_S } from "@/components/mushaf/smoothScroll";
 
 const vp = (width: number, height: number, safe: Partial<ReaderViewport> = {}): ReaderViewport => ({
@@ -160,71 +157,6 @@ describe("scroll step", () => {
       expect(scrollStep(L), name).toBeLessThanOrEqual(160);
       expect(scrollStep(L), name).toBeLessThan(L.pageH / 3);
     }
-  });
-});
-
-describe("page zoom math", () => {
-  const W = 374;
-  const H = 605;
-
-  it("minimum is fit width, maximum is a sensible reading zoom", () => {
-    expect(MIN_ZOOM).toBe(1);
-    expect(MAX_ZOOM).toBeGreaterThanOrEqual(2.5);
-    expect(MAX_ZOOM).toBeLessThanOrEqual(4);
-    expect(DOUBLE_TAP_ZOOM).toBeLessThanOrEqual(MAX_ZOOM);
-    expect(clampZoom(0.2)).toBe(MIN_ZOOM);
-    expect(clampZoom(40)).toBe(MAX_ZOOM);
-    expect(clampZoom(Number.NaN)).toBe(MIN_ZOOM);
-  });
-
-  it("zooms around the fingers: the point under them stays under them", () => {
-    const px = 120;
-    const py = 300;
-    const before = { u: (px - FIT.x) / FIT.scale, v: (py - FIT.y) / FIT.scale };
-    const z = zoomAt(FIT, 2, px, py, W, H);
-    expect(z.scale).toBe(2);
-    expect((px - z.x) / z.scale).toBeCloseTo(before.u, 9);
-    expect((py - z.y) / z.scale).toBeCloseTo(before.v, 9);
-  });
-
-  it("a pinch follows the fingers' midpoint", () => {
-    const z = pinchZoom(FIT, 2, { x: 100, y: 200 }, { x: 130, y: 260 }, W, H);
-    // The image point that was under (100,200) is now under (130,260).
-    expect(z.x + 100 * z.scale).toBeCloseTo(130, 9);
-    expect(z.y + 200 * z.scale).toBeCloseTo(260, 9);
-  });
-
-  it("the zoomed image always covers its page box: it can't slide away or leave a gap", () => {
-    for (const s of [1.2, 2, 3]) {
-      for (const [x, y] of [[1e6, 1e6], [-1e6, -1e6], [50, -9e5]]) {
-        const z = clampPan({ scale: s, x, y }, W, H);
-        expect(z.x).toBeLessThanOrEqual(0);
-        expect(z.y).toBeLessThanOrEqual(0);
-        expect(z.x + W * z.scale).toBeGreaterThanOrEqual(W - 1e-9);
-        expect(z.y + H * z.scale).toBeGreaterThanOrEqual(H - 1e-9);
-      }
-    }
-  });
-
-  it("back at minimum zoom the page is exactly in place (centred, fit width)", () => {
-    expect(clampPan({ scale: 1, x: -80, y: 40 }, W, H)).toEqual(FIT);
-    expect(zoomAt({ scale: 2.4, x: -200, y: -300 }, 0.1, 10, 10, W, H)).toEqual(FIT);
-    expect(settleZoom({ scale: 1.03, x: -5, y: -9 }, W, H)).toEqual(FIT);
-    expect(settleZoom({ scale: 1.8, x: -5, y: -9 }, W, H)).toEqual({ scale: 1.8, x: -5, y: -9 });
-    expect(isZoomed(FIT)).toBe(false);
-  });
-
-  it("a pan past the page's edge hands the rest back (so the reader can scroll on)", () => {
-    const z = { scale: 2, x: -100, y: -H }; // at the bottom edge
-    const up = panBy(z, 0, -120, W, H); // finger moves up: wants to see further down
-    expect(up.zoom.y).toBe(-H);
-    expect(up.restY).toBe(-120);
-    const down = panBy(z, 0, 50, W, H);
-    expect(down.zoom.y).toBe(-H + 50);
-    expect(down.restY).toBe(0);
-    const side = panBy(z, 400, 0, W, H);
-    expect(side.zoom.x).toBe(0);
-    expect(side.restX).toBe(300);
   });
 });
 

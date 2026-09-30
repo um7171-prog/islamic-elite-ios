@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { getPosition, haversineKm } from "@/lib/geo";
-import { MAX_QUERY_RADIUS_M, OVERPASS_ENDPOINTS, OVERPASS_USER_AGENT, QUERY_PADDING_M } from "@/lib/mosques/config";
+import { DEFAULT_RADIUS_M, MAX_QUERY_RADIUS_M, OVERPASS_ENDPOINTS, OVERPASS_USER_AGENT, QUERY_PADDING_M } from "@/lib/mosques/config";
 import { bearingDegrees, compassPoint, distanceMeters, formatDistance, formatRadius, rankByDistance } from "@/lib/mosques/distance";
 import { areaPoint, insideRings } from "@/lib/mosques/geometry";
 import {
@@ -178,12 +178,21 @@ describe("OSM normalization", () => {
     expect(normalizeElement(node(9, north(10)))?.address).toBeUndefined();
   });
 
-  it("accepts every common mosque tagging, and nothing else", () => {
+  it("accepts every way a mosque is tagged in OSM, and nothing else", () => {
     expect(isMosqueTagged({ amenity: "place_of_worship", religion: "muslim" })).toBe(true);
+    expect(isMosqueTagged({ amenity: "place_of_worship", religion: "islam" })).toBe(true);
     expect(isMosqueTagged({ amenity: "place_of_worship", place_of_worship: "mosque" })).toBe(true);
+    expect(isMosqueTagged({ amenity: "mosque" })).toBe(true);
     expect(isMosqueTagged({ building: "mosque" })).toBe(true);
     expect(isMosqueTagged({ building: "mosque", religion: "islam" })).toBe(true);
-    expect(isMosqueTagged({ amenity: "place_of_worship" })).toBe(false);
+    // A place of worship with no religion: a mosque when it says so, or when nothing says otherwise.
+    expect(isMosqueTagged({ amenity: "place_of_worship", name: "مسجد الحي" })).toBe(true);
+    expect(isMosqueTagged({ amenity: "place_of_worship" })).toBe(true);
+    expect(isMosqueTagged({ amenity: "place_of_worship", name: "St Mary's" })).toBe(false);
+    expect(isMosqueTagged({ amenity: "place_of_worship", name: "كنيسة" })).toBe(false);
+    // A name alone is not a mosque tag: a road «مسجد النور» or a university «جامعة …» never is.
+    expect(isMosqueTagged({ highway: "residential", name: "مسجد النور" })).toBe(false);
+    expect(isMosqueTagged({ amenity: "university", name: "جامعة الملك سعود" })).toBe(false);
     expect(isMosqueTagged({ amenity: "place_of_worship", religion: "christian" })).toBe(false);
     expect(isMosqueTagged({ building: "mosque", disused: "yes" })).toBe(false);
     expect(isMosqueTagged({ building: "yes" })).toBe(false);
@@ -338,9 +347,15 @@ describe("duplicate removal", () => {
     expect(dedupeMosques([bld, women])).toHaveLength(2);
   });
 
-  it("two unnamed mosques 35 m apart stay two; unnamed duplicates on practically the same spot merge", () => {
+  it("distance alone never removes a mosque: unnamed mosques 35 m or even 10 m apart stay two", () => {
     expect(dedupeMosques([place("osm/node/1", north(100)), place("osm/node/2", north(135))])).toHaveLength(2);
-    expect(dedupeMosques([place("osm/node/1", north(100)), place("osm/way/2", north(110))])).toHaveLength(1);
+    expect(dedupeMosques([place("osm/node/1", north(100)), place("osm/way/2", north(110))])).toHaveLength(2);
+  });
+
+  it("the same OSM element matched by several query filters is kept once", () => {
+    const tags = { amenity: "place_of_worship", religion: "muslim", building: "mosque", name: "مسجد الحي" };
+    const places = normalizeOverpassResponse({ elements: [node(5, north(350), tags), node(5, north(350), tags), node(5, north(350), tags)] });
+    expect(dedupeMosques(places)).toHaveLength(1);
   });
 
   it("keeps genuinely different mosques, even close ones", () => {
@@ -358,13 +373,21 @@ describe("duplicate removal", () => {
 });
 
 describe("Overpass query", () => {
-  it("covers every mosque tagging around the given point only", () => {
-    const q = buildOverpassQuery({ lat: 24.714, lng: 46.675 }, 1150);
+  it("covers every mosque tagging — nodes, ways and relations — around the given point only", () => {
+    const q = buildOverpassQuery({ lat: 24.714, lng: 46.675 }, 5150);
+    const around = "(around:5150,24.714,46.675);";
     expect(q).toContain("[out:json]");
-    expect(q).toContain('nwr["amenity"="place_of_worship"]["religion"="muslim"](around:1150,24.714,46.675);');
-    expect(q).toContain('nwr["amenity"="place_of_worship"]["place_of_worship"="mosque"](around:1150,24.714,46.675);');
-    expect(q).toContain('nwr["building"="mosque"](around:1150,24.714,46.675);');
+    // nwr = node + way + relation in one filter; the union returns each element once.
+    expect(q).toContain(`nwr["amenity"="place_of_worship"]["religion"="muslim"]${around}`);
+    expect(q).toContain(`nwr["amenity"="place_of_worship"]["religion"="islam"]${around}`);
+    expect(q).toContain(`nwr["amenity"="place_of_worship"]["place_of_worship"="mosque"]${around}`);
+    expect(q).toContain(`nwr["amenity"="mosque"]${around}`);
+    expect(q).toContain(`nwr["building"="mosque"]${around}`);
+    expect(q).toContain(`nwr["amenity"="place_of_worship"][!"religion"]${around}`);
     expect(q).toContain("out geom qt;");
+    expect(q.match(/around:/g)).toHaveLength(6);
+    // Only exact (indexed) tag values: a regex on names made the server time out at 5 km.
+    expect(q).not.toMatch(/\["name"~/);
   });
 
   it("never builds a huge query, and refuses an invalid centre", () => {
@@ -467,10 +490,11 @@ describe("Overpass provider (network, retries, errors)", () => {
 
 describe("nearby search: cache, single-flight and privacy", () => {
   const places = [
-    place("osm/node/1", north(300), { name: "مسجد الأول" }),
-    place("osm/node/2", east(900), { name: "مسجد الثاني" }),
-    place("osm/node/3", north(3000), { name: "مسجد الثالث" }),
-    place("osm/way/4", north(310)), // the building of «مسجد الأول» — a duplicate
+    place("osm/node/1", north(300), { name: "مسجد الأول", osmType: "node" }),
+    place("osm/node/2", east(900), { name: "مسجد الثاني", osmType: "node" }),
+    place("osm/node/3", north(3000), { name: "مسجد الثالث", osmType: "node" }),
+    // The building of «مسجد الأول»: its outline holds that point — a real duplicate.
+    place("osm/way/4", north(310), { osmType: "way", outline: [toLatLng(ringAt(north(290, east(-15)), [[0, 0], [30, 0], [30, 30], [0, 30]]))] }),
   ];
   const fakeProvider = (): MosqueProvider & { search: ReturnType<typeof vi.fn> } => ({ search: vi.fn(async () => places) });
 
@@ -479,6 +503,48 @@ describe("nearby search: cache, single-flight and privacy", () => {
     const { mosques, fromCache } = await findNearbyMosques({ origin: ORIGIN, radiusM: 2000, provider });
     expect(fromCache).toBe(false);
     expect(mosques.map((m) => m.name)).toEqual(["مسجد الأول", "مسجد الثاني"]);
+  });
+
+  it("the nearest mosque is never missed: one wide search, measured from the exact position, nearest first", async () => {
+    const A = place("osm/node/11", north(350), { name: "مسجد الحي" });
+    const B = place("osm/node/12", east(500), { name: "مسجد السلام" });
+    const C = place("osm/way/13", north(-1800), { name: "جامع الوسط" });
+    const D = place("osm/node/14", east(-2200), { name: "جامع الشارع" });
+    const far = place("osm/node/15", north(4800), { name: "جامع الضاحية" });
+    // The source returns them far-first, in no useful order.
+    const provider: MosqueProvider & { search: ReturnType<typeof vi.fn> } = { search: vi.fn(async () => [D, far, C, A, B]) };
+    const { mosques } = await findNearbyMosques({ origin: ORIGIN, radiusM: DEFAULT_RADIUS_M, provider });
+    expect(DEFAULT_RADIUS_M).toBe(5000);
+    expect(provider.search).toHaveBeenCalledTimes(1);
+    expect(provider.search.mock.calls[0][1]).toBe(5000 + QUERY_PADDING_M);
+    expect(mosques.map((m) => m.name)).toEqual(["مسجد الحي", "مسجد السلام", "جامع الوسط", "جامع الشارع", "جامع الضاحية"]);
+    expect(mosques.map((m) => Math.round(m.distanceMeters))).toEqual([350, 500, 1800, 2200, 4800]);
+  });
+
+  it("two different mosques 300 m and 500 m away are both listed, and a very close pair stays two", async () => {
+    const provider: MosqueProvider = {
+      search: async () => [
+        place("osm/node/1", north(300), { name: "مسجد النور", osmType: "node" }),
+        place("osm/node/2", north(500), { name: "مسجد الهدى", osmType: "node" }),
+        place("osm/node/3", east(300), { osmType: "node" }),
+        place("osm/node/4", east(315), { osmType: "node" }),
+      ],
+    };
+    const { mosques } = await findNearbyMosques({ origin: ORIGIN, radiusM: DEFAULT_RADIUS_M, provider });
+    expect(mosques).toHaveLength(4);
+    expect(mosques.map((m) => Math.round(m.distanceMeters))).toEqual([300, 300, 315, 500]);
+  });
+
+  it("distances come from the exact position, not the rounded point sent to the server", async () => {
+    const exact = { lat: 24.71349, lng: 46.67549 }; // rounds to 24.713,46.675 — about 60 m away
+    const provider: MosqueProvider = { search: async () => [place("osm/node/1", north(200, exact), { name: "مسجد الحي" })] };
+    const { mosques } = await findNearbyMosques({ origin: exact, radiusM: DEFAULT_RADIUS_M, provider });
+    expect(Math.round(mosques[0].distanceMeters)).toBe(200);
+  });
+
+  it("no mosque nearby: an empty list, not an error", async () => {
+    const { mosques } = await findNearbyMosques({ origin: ORIGIN, radiusM: DEFAULT_RADIUS_M, provider: { search: async () => [] } });
+    expect(mosques).toEqual([]);
   });
 
   it("sends only a rounded point (≈100 m), padded so no mosque inside the radius is missed", async () => {
@@ -593,18 +659,40 @@ describe("maps links", () => {
   it("iOS app → Apple Maps (official maps.apple.com links)", () => {
     platform.native = true;
     expect(mapsTarget()).toBe("apple");
-    expect(directionsUrl(mosque)).toBe("https://maps.apple.com/?daddr=24.717100,46.678900");
-    expect(mapViewUrl(mosque, "مسجد النور")).toBe(`https://maps.apple.com/?ll=24.717100,46.678900&q=${encodeURIComponent("مسجد النور")}`);
+    expect(directionsUrl(mosque)).toBe("https://maps.apple.com/?daddr=24.7171,46.6789");
+    expect(mapViewUrl(mosque, "مسجد النور")).toBe(`https://maps.apple.com/?ll=24.7171,46.6789&q=${encodeURIComponent("مسجد النور")}`);
   });
 
   it("web → Google Maps universal links", () => {
     expect(mapsTarget()).toBe("google");
-    expect(directionsUrl(mosque)).toBe("https://www.google.com/maps/dir/?api=1&destination=24.717100,46.678900");
-    expect(mapViewUrl(mosque, "x")).toBe("https://www.google.com/maps/search/?api=1&query=24.717100,46.678900");
+    expect(directionsUrl(mosque)).toBe("https://www.google.com/maps/dir/?api=1&destination=24.7171,46.6789");
+    expect(mapViewUrl(mosque, "x")).toBe("https://www.google.com/maps/search/?api=1&query=24.7171,46.6789");
+  });
+
+  it("the mosque's coordinates go into every link exactly as mapped — never rounded", () => {
+    const precise = { latitude: 24.71361234567, longitude: 46.67534987654 };
+    const c = "24.71361234567,46.67534987654";
+    for (const url of [
+      appleMapsUrl("directions", precise),
+      googleMapsAppUrl("directions", precise),
+      googleMapsWebUrl("directions", precise),
+      googleMapsWebUrl("view", precise),
+      googleMapsAppUrl("view", precise, "مسجد النور"),
+    ]) {
+      expect(url).toContain(c);
+    }
+  });
+
+  it("Google Maps «open» searches the mosque's own name at its exact location; unnamed ones use the point", () => {
+    const c = "24.7171,46.6789";
+    expect(googleMapsAppUrl("view", mosque, "جامع الراجحي")).toBe(`comgooglemaps://?q=${encodeURIComponent("جامع الراجحي")}&center=${c}&zoom=18`);
+    expect(googleMapsAppUrl("view", mosque)).toBe(`comgooglemaps://?q=${c}&center=${c}`);
+    // Directions always end at the mosque's own point.
+    expect(googleMapsAppUrl("directions", mosque, "جامع الراجحي")).toBe(`comgooglemaps://?daddr=${c}&directionsmode=driving`);
   });
 
   it("Google Maps app links (comgooglemaps://) and the official web fallback, all at the mosque itself", () => {
-    const c = "24.717100,46.678900";
+    const c = "24.7171,46.6789";
     expect(googleMapsAppUrl("directions", mosque)).toBe(`comgooglemaps://?daddr=${c}&directionsmode=driving`);
     expect(googleMapsAppUrl("view", mosque)).toBe(`comgooglemaps://?q=${c}&center=${c}`);
     expect(googleMapsWebUrl("directions", mosque)).toBe(`https://www.google.com/maps/dir/?api=1&destination=${c}`);
@@ -641,7 +729,7 @@ describe("maps app choice", () => {
 
 describe("opening the maps app (success is checked, not assumed)", () => {
   const mosque = { latitude: 24.7171, longitude: 46.6789 };
-  const c = "24.717100,46.678900";
+  const c = "24.7171,46.6789";
   const opener = (open: (url: string) => boolean | Promise<boolean>): UrlOpener & { urls: string[] } => {
     const urls: string[] = [];
     return {
@@ -656,28 +744,28 @@ describe("opening the maps app (success is checked, not assumed)", () => {
 
   it("Apple Maps: opens maps.apple.com at the mosque", async () => {
     const o = opener(() => true);
-    expect(await openInMaps("apple", "directions", mosque, "مسجد", o)).toEqual({ opened: true, via: "apple" });
+    expect(await openInMaps("apple", "directions", mosque, null, o)).toEqual({ opened: true, via: "apple" });
     expect(o.urls).toEqual([`https://maps.apple.com/?daddr=${c}`]);
   });
 
   it("Google Maps installed: the app opens, and the web is never tried", async () => {
     const o = opener(() => true);
-    expect(await openInMaps("google", "directions", mosque, "مسجد", o)).toEqual({ opened: true, via: "google-app" });
+    expect(await openInMaps("google", "directions", mosque, null, o)).toEqual({ opened: true, via: "google-app" });
     expect(o.urls).toEqual([`comgooglemaps://?daddr=${c}&directionsmode=driving`]);
   });
 
   it("Google Maps not installed: falls back to Google Maps on the web with the mosque's coordinates", async () => {
     const o = opener((url) => !url.startsWith("comgooglemaps://"));
-    expect(await openInMaps("google", "view", mosque, "مسجد", o)).toEqual({ opened: true, via: "google-web" });
+    expect(await openInMaps("google", "view", mosque, null, o)).toEqual({ opened: true, via: "google-web" });
     expect(o.urls).toEqual([`comgooglemaps://?q=${c}&center=${c}`, `https://www.google.com/maps/search/?api=1&query=${c}`]);
   });
 
   it("nothing opens (or the bridge throws): reported as not opened, never as success", async () => {
-    expect(await openInMaps("google", "directions", mosque, "مسجد", opener(() => false))).toEqual({ opened: false, via: null });
+    expect(await openInMaps("google", "directions", mosque, null, opener(() => false))).toEqual({ opened: false, via: null });
     const throwing = opener(() => {
       throw new Error("bridge down");
     });
-    expect(await openInMaps("apple", "directions", mosque, "مسجد", throwing)).toEqual({ opened: false, via: null });
+    expect(await openInMaps("apple", "directions", mosque, null, throwing)).toEqual({ opened: false, via: null });
   });
 
   it("the native opener goes through the MapsLauncher plugin and reads its real result", async () => {

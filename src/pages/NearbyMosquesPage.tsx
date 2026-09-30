@@ -44,14 +44,16 @@ export default function NearbyMosquesPage() {
 
   // iPhone app: the mosque opens in the user's maps app (asked on the first tap, then remembered).
   const [mapsApp, setMapsApp] = useState<MapsApp | null>(() => loadMapsApp());
-  const [pendingOpen, setPendingOpen] = useState<{ action: MapsAction; mosque: Mosque; name: string } | null>(null);
-  const launch = async (app: MapsApp, action: MapsAction, mosque: Mosque, name: string) => {
-    const { opened } = await openInMaps(app, action, mosque, name);
+  const [pendingOpen, setPendingOpen] = useState<{ action: MapsAction; mosque: Mosque } | null>(null);
+  const launch = async (app: MapsApp, action: MapsAction, mosque: Mosque) => {
+    // The mosque's own name as mapped (never the «مسجد قريب» placeholder), with its exact point.
+    const ownName = mosque.name ?? mosque.nameAr ?? mosque.nameEn ?? null;
+    const { opened } = await openInMaps(app, action, mosque, ownName);
     if (!opened) toast.error(t("Couldn't open Maps", "تعذّر فتح الخرائط"));
   };
-  const openMosque = (action: MapsAction, mosque: Mosque, name: string) => {
-    if (mapsApp) void launch(mapsApp, action, mosque, name);
-    else setPendingOpen({ action, mosque, name });
+  const openMosque = (action: MapsAction, mosque: Mosque) => {
+    if (mapsApp) void launch(mapsApp, action, mosque);
+    else setPendingOpen({ action, mosque });
   };
 
   return (
@@ -152,11 +154,6 @@ export default function NearbyMosquesPage() {
                 {t("Results", "النتائج")}: {mosques.length} · {t("within", "ضمن")} {radius(nearby.listRadiusM)}
               </span>
             </div>
-            {nearby.autoExpanded && phase === "results" && (
-              <p className="px-1 text-caption text-foreground/55" data-testid="mosques-auto-expanded">
-                {t("Few mosques very close by, so the search was widened to", "لقلة المساجد القريبة جداً وُسِّع البحث تلقائياً إلى")} {radius(nearby.listRadiusM)}.
-              </p>
-            )}
             {nearby.approximate && nearby.accuracyM !== null && (
               <div data-testid="mosques-approximate" role="status" className={cn(BOX, "border-primary/25 bg-primary/[0.06]")}>
                 <p className="flex items-center gap-2 text-body font-medium">
@@ -314,7 +311,7 @@ export default function NearbyMosquesPage() {
           onChange={(app) => {
             saveMapsApp(app);
             setMapsApp(app);
-            if (pendingOpen) void launch(app, pendingOpen.action, pendingOpen.mosque, pendingOpen.name);
+            if (pendingOpen) void launch(app, pendingOpen.action, pendingOpen.mosque);
           }}
         />
       )}
@@ -334,7 +331,7 @@ function MosqueCard({
   units: DistanceUnits;
   target: MapsTarget;
   /** iPhone app: open in the chosen maps app (and check it opened) instead of following a link. */
-  onOpen?: (action: MapsAction, mosque: Mosque, name: string) => void;
+  onOpen?: (action: MapsAction, mosque: Mosque) => void;
 }) {
   const { t, lang } = useLocale();
   const name = (lang === "ar" ? mosque.nameAr ?? mosque.name : mosque.nameEn ?? mosque.name) ?? t("Nearby mosque", "مسجد قريب");
@@ -382,7 +379,7 @@ function MosqueCard({
           <>
             <button
               type="button"
-              onClick={() => onOpen("directions", mosque, name)}
+              onClick={() => onOpen("directions", mosque)}
               data-testid="mosque-directions"
               className={cn(buttonVariants({ size: "sm" }), link)}
             >
@@ -391,7 +388,7 @@ function MosqueCard({
             </button>
             <button
               type="button"
-              onClick={() => onOpen("view", mosque, name)}
+              onClick={() => onOpen("view", mosque)}
               data-testid="mosque-open-map"
               className={cn(buttonVariants({ variant: "outline", size: "sm" }), link)}
             >

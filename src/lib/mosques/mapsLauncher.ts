@@ -58,20 +58,21 @@ async function tryOpen(opener: UrlOpener, url: string): Promise<boolean> {
 }
 
 /**
- * Opens the mosque in `app`. Google Maps: the app when iOS opens it, otherwise Google Maps on
- * the web. Only an open that iOS confirmed counts as opened.
+ * Opens the mosque in `app`. `name` is the mosque's own name (null when it has none). Google Maps:
+ * the app when iOS opens it, otherwise Google Maps on the web. Only an open that iOS confirmed
+ * counts as opened.
  */
 export async function openInMaps(
   app: MapsApp,
   action: MapsAction,
   p: MapPoint,
-  label: string,
+  name: string | null,
   opener: UrlOpener = nativeMapsOpener,
 ): Promise<MapsOpenResult> {
   if (app === "apple") {
-    return (await tryOpen(opener, appleMapsUrl(action, p, label))) ? { opened: true, via: "apple" } : { opened: false, via: null };
+    return (await tryOpen(opener, appleMapsUrl(action, p, name ?? ""))) ? { opened: true, via: "apple" } : { opened: false, via: null };
   }
-  if (await tryOpen(opener, googleMapsAppUrl(action, p))) return { opened: true, via: "google-app" };
+  if (await tryOpen(opener, googleMapsAppUrl(action, p, name))) return { opened: true, via: "google-app" };
   if (await tryOpen(opener, googleMapsWebUrl(action, p))) return { opened: true, via: "google-web" };
   return { opened: false, via: null };
 }

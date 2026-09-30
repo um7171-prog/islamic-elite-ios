@@ -15,15 +15,14 @@ export const OVERPASS_ENDPOINTS: readonly string[] = [
 export const OVERPASS_USER_AGENT = "IslamicElite/1.0 (+https://www.techsnds.com)";
 
 /** Server-side query limit (seconds) and the client wait per endpoint (ms). */
-export const OVERPASS_SERVER_TIMEOUT_S = 15;
-export const OVERPASS_REQUEST_TIMEOUT_MS = 20_000;
+export const OVERPASS_SERVER_TIMEOUT_S = 25;
+export const OVERPASS_REQUEST_TIMEOUT_MS = 30_000;
 
-/** Radii the user can choose. The first automatic search uses the smallest one and
- * widens to DEFAULT_RADIUS_M once when it finds fewer than FEW_RESULTS mosques. */
+/** Radii the user can choose. Every search starts with one wide query (DEFAULT_RADIUS_M) and
+ * ranks what it finds from the exact position, so the nearest mosque is never left out by a
+ * small first circle; a smaller radius only filters that list, a wider one searches again. */
 export const SEARCH_RADII_M = [1000, 2000, 5000, 10_000] as const;
-export const FIRST_RADIUS_M = 1000;
-export const DEFAULT_RADIUS_M = 2000;
-export const FEW_RESULTS = 3;
+export const DEFAULT_RADIUS_M = 5000;
 /** Hard ceiling on any query, whatever the caller asks for. */
 export const MAX_QUERY_RADIUS_M = 12_000;
 

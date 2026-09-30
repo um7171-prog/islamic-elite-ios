@@ -7,11 +7,10 @@ import { MushafReader } from "@/components/mushaf/MushafReader";
 import {
   EDGE_GAP, computeLayout, pageTop, readingAnchor, scrollStep, scrollTopForAnchor, scrollTopForPage, visibleRange,
 } from "@/components/mushaf/readerLayout";
-import { DOUBLE_TAP_ZOOM, FIT, MAX_ZOOM, comfortableZoom, pinchZoom, zoomTransform } from "@/components/mushaf/pageZoom";
 import { DOUBLE_TAP_MS, LONG_PRESS_MS } from "@/components/mushaf/mushafGestures";
-import { inkBounds } from "@/components/mushaf/pageInk";
+import { LETTER_EM, LONGEST_WORD_LETTERS, readingFontPx } from "@/components/mushaf/readingZoom";
 import { getPage } from "@/lib/quran";
-import { surahNameAr } from "@/components/quran-reading/ayahDisplay";
+import { ayahBody, surahNameAr } from "@/components/quran-reading/ayahDisplay";
 import { TOTAL_PAGES, loadBookmarks, loadPosition, toArabicDigits as ar } from "@/lib/mushaf";
 
 /* ---------- a phone-sized viewport for the reader's scroll container ---------- */
@@ -20,12 +19,20 @@ const layoutFor = (w = viewport.w, h = viewport.h) =>
   computeLayout({ width: w, height: h, safeTop: 0, safeBottom: 0, safeLeft: 0, safeRight: 0 });
 
 beforeAll(() => {
+  const scrollView = (el: HTMLElement) => el.dataset?.testid === "mushaf-scroller" || el.dataset?.testid === "mushaf-reading";
   const size = (dim: "w" | "h") =>
     function (this: HTMLElement) {
-      return this.dataset?.testid === "mushaf-scroller" ? viewport[dim] : 0;
+      return scrollView(this) ? viewport[dim] : 0;
     };
   Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, get: size("w") });
   Object.defineProperty(HTMLElement.prototype, "clientHeight", { configurable: true, get: size("h") });
+  // The reading text is long: room to scroll (jsdom lays nothing out).
+  Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
+    configurable: true,
+    get(this: HTMLElement) {
+      return this.dataset?.testid === "mushaf-reading" ? 100_000 : 0;
+    },
+  });
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
 });
@@ -33,6 +40,7 @@ beforeAll(() => {
 afterAll(() => {
   delete (HTMLElement.prototype as { clientWidth?: number }).clientWidth;
   delete (HTMLElement.prototype as { clientHeight?: number }).clientHeight;
+  delete (HTMLElement.prototype as { scrollHeight?: number }).scrollHeight;
   vi.restoreAllMocks();
 });
 
@@ -64,7 +72,6 @@ const scroller = () => screen.getByTestId("mushaf-scroller");
 const shownPage = () => screen.getByTestId("mushaf-page-number").textContent;
 const mounted = () => screen.getAllByTestId("mushaf-page").map((el) => Number(el.dataset.page));
 const pageBox = (p: number) => document.querySelector<HTMLElement>(`[data-testid="mushaf-page"][data-page="${p}"]`);
-const layerOf = (p: number) => pageBox(p)?.querySelector<HTMLElement>("[data-zoom-layer]") ?? null;
 const px = (n: number) => `${n}px`;
 const pause = (ms: number) => act(() => new Promise<void>((r) => setTimeout(r, ms)));
 const frame = () => act(() => new Promise<void>((r) => requestAnimationFrame(() => r())));
@@ -336,122 +343,187 @@ describe("going to a page: index, search, bookmarks", () => {
   });
 });
 
-describe("pinch zoom", () => {
-  it("zooms the page under the fingers, around them, between fit and the maximum — the page box never grows", () => {
-    renderReader();
-    const L = layoutFor();
-    const cx = L.left + 187;
-    const cy = pageTop(L, 1) + 292; // scrollTop 0: client y = column y
-    pinchAt(cx, cy, 100, 200, false); // fingers twice as far apart → 2x
-    expect(layerOf(1)!.style.transform).toBe("translate(-187px, -292px) scale(2)");
-    expect(layerOf(1)!.style.transformOrigin).toMatch(/^0(px)? 0(px)?/);
-    expect(layerOf(2)!.style.transform).toBe(""); // the next page is untouched
-    expect(pageBox(1)!.style.width).toBe(px(L.pageW));
-    expect(pageBox(1)!.style.height).toBe(px(L.pageH));
-    expect(pageBox(1)!.style.touchAction).toBe("none"); // one finger now pans inside the page
-    expect(pageBox(2)!.style.touchAction).toBe("pan-y");
+describe("reading zoom: pinch, double tap and levels read the page's text, never a cut picture", () => {
+  const COLUMN = viewport.w - 2 * 16; // the reading column on a 390 pt phone
+  const reading = () => screen.queryByTestId("mushaf-reading");
+  const readingText = () => screen.getByTestId("mushaf-reading-text");
+  const fontOf = () => parseFloat(readingText().style.fontSize);
+  /** A viewport height on `page` (`at` of its height) in the page images. */
+  const onPage = (page: number, at = 0.5) => pageTop(layoutFor(), page) - scroller().scrollTop + layoutFor().pageH * at;
+  const twoFingers = (cx: number, cy: number, d: number) => [touch(cx - d / 2, cy), touch(cx + d / 2, cy)];
 
-    act(() => { fireEvent.touchMove(scroller(), { touches: [touch(cx - 900, cy), touch(cx + 900, cy)] }); });
-    expect(layerOf(1)!.style.transform).toMatch(new RegExp(`scale\\(${MAX_ZOOM}\\)$`));
-    act(() => { fireEvent.touchEnd(scroller(), { touches: [] }); });
-    expect(screen.getByTestId("mushaf-zoom-out")).not.toBeDisabled();
-
-    pinchAt(cx, cy, 300, 20); // pinch back in, past the minimum
-    expect(layerOf(1)!.style.transform).toBe("");
-    expect(pageBox(1)!.style.touchAction).toBe("pan-y");
+  it("1x is the printed page: page images, no reading layer, no transform anywhere", () => {
+    renderReader("/mushaf?page=50");
+    expect(reading()).toBeNull();
+    for (const p of mounted()) {
+      expect(pageBox(p)!.querySelector("[style*='transform']")).toBeNull();
+      expect(pageBox(p)!.style.touchAction).toBe("pan-y");
+    }
     expect(screen.getByTestId("mushaf-zoom-out")).toBeDisabled();
-    expect(scroller().scrollLeft).toBe(0);
   });
 
-  it("a second finger landing during a native scroll does not start a zoom that would fight it", () => {
-    renderReader();
-    const L = layoutFor();
-    const cx = L.left + 187;
-    const cy = pageTop(L, 1) + 292;
+  it("pinch start → move → end: past 1.15 the pinched page opens as its text, which grows with the fingers and stays exactly where they leave it", async () => {
+    renderReader("/mushaf?page=50");
+    const cx = 195;
+    const cy = onPage(50);
+    act(() => { fireEvent.touchStart(scroller(), { touches: twoFingers(cx, cy, 100) }); });
+    act(() => { fireEvent.touchMove(scroller(), { touches: twoFingers(cx, cy, 110) }); });
+    expect(reading()).toBeNull(); // 1.1x: still the page
+    act(() => { fireEvent.touchMove(scroller(), { touches: twoFingers(cx, cy, 150) }); });
+    expect(reading()).not.toBeNull(); // 1.5x: reading
+    expect(fontOf()).toBeCloseTo(readingFontPx(1.5, COLUMN), 5);
+    act(() => { fireEvent.touchMove(scroller(), { touches: twoFingers(cx, cy, 237) }); });
+    expect(fontOf()).toBeCloseTo(readingFontPx(2.37, COLUMN), 5);
+    act(() => { fireEvent.touchEnd(scroller(), { touches: [] }); });
+    expect(fontOf()).toBeCloseTo(readingFontPx(2.37, COLUMN), 5); // no snap after lifting
+    expect(localStorage.getItem("mushaf:readingZoom")).toBe("2.37");
+    expect(shownPage()).toBe(ar(50));
+    const expected = await getPage(50);
+    await waitFor(() => expect(reading()!.querySelectorAll(`[data-page="50"][data-ayah]`)).toHaveLength(expected.length));
+  });
+
+  it("zoom levels 1.5x, 2x, 2.5x and 3x are real text sizes — never beyond 3x, and zooming out returns to the page", async () => {
+    localStorage.setItem("mushaf:readingZoom", "1.5");
+    renderReader("/mushaf?page=20");
+    fireEvent.click(screen.getByTestId("mushaf-zoom-in"));
+    expect(fontOf()).toBeCloseTo(readingFontPx(1.5, COLUMN), 5);
+    const sizes = [fontOf()];
+    for (const z of [1.875, 2.34375, 2.9296875, 3]) {
+      fireEvent.click(screen.getByTestId("mushaf-zoom-in"));
+      expect(fontOf()).toBeCloseTo(readingFontPx(z, COLUMN), 5);
+      sizes.push(fontOf());
+    }
+    fireEvent.click(screen.getByTestId("mushaf-zoom-in"));
+    expect(fontOf()).toBeCloseTo(readingFontPx(3, COLUMN), 5); // capped at 3x
+    expect(sizes[1]).toBeGreaterThan(sizes[0]);
+    expect(readingFontPx(2, COLUMN)).toBeGreaterThan(1.9 * readingFontPx(1, COLUMN));
+    for (let i = 0; i < 8 && reading(); i++) fireEvent.click(screen.getByTestId("mushaf-zoom-out"));
+    expect(reading()).toBeNull();
+    expect(shownPage()).toBe(ar(20));
+  });
+
+  it("pinching the text back below 1.1x returns to the printed page, at the page being read", async () => {
+    renderReader("/mushaf?page=50");
+    const cx = 195;
+    const cy = onPage(50);
     act(() => {
-      // The browser is already scrolling: its touch events can't be cancelled.
-      fireEvent.touchStart(scroller(), { touches: [touch(cx - 50, cy), touch(cx + 50, cy)], cancelable: false });
-      fireEvent.touchMove(scroller(), { touches: [touch(cx - 150, cy), touch(cx + 150, cy)], cancelable: false });
+      fireEvent.touchStart(scroller(), { touches: twoFingers(cx, cy, 100) });
+      fireEvent.touchMove(scroller(), { touches: twoFingers(cx, cy, 150) });
       fireEvent.touchEnd(scroller(), { touches: [] });
     });
-    expect(layerOf(1)!.style.transform).toBe("");
-    expect(pageBox(1)!.style.touchAction).toBe("pan-y");
-  });
-
-  it("a one-finger pan stays inside the zoomed page, then carries on as reader scrolling", () => {
-    renderReader();
-    const L = layoutFor();
-    const cx = L.left + L.pageW / 2;
-    const cy = pageTop(L, 1) + L.pageH / 2;
-    pinchAt(cx, cy, 100, 200); // 2x, kept after lifting
-    expect(layerOf(1)!.style.transform).toContain("scale(2)");
-
+    expect(reading()).not.toBeNull();
+    await waitFor(() => expect(reading()!.querySelector("[data-ayah]")).not.toBeNull());
     act(() => {
-      fireEvent.touchStart(scroller(), { touches: [touch(cx, cy)] });
-      fireEvent.touchMove(scroller(), { touches: [touch(cx + 2000, cy + 2000)] });
+      fireEvent.touchStart(reading()!, { touches: twoFingers(cx, 300, 200) });
+      fireEvent.touchMove(reading()!, { touches: twoFingers(cx, 300, 120) }); // 1.5 × 0.6 = 0.9
+      fireEvent.touchEnd(reading()!, { touches: [] });
     });
-    // Pulled far right/down: the page stops at its own top-left corner, nothing blank shows.
-    expect(layerOf(1)!.style.transform).toBe("translate(0px, 0px) scale(2)");
-    expect(scroller().scrollTop).toBe(0);
-
-    act(() => { fireEvent.touchMove(scroller(), { touches: [touch(cx + 2000, cy - 1000)] }); });
-    // Up 3000 px: the page takes what it has (its bottom edge), the reader scrolls the rest.
-    expect(layerOf(1)!.style.transform).toBe(`translate(0px, -${L.pageH}px) scale(2)`);
-    expect(scroller().scrollTop).toBe(3000 - L.pageH);
-    expect(scroller().scrollLeft).toBe(0);
-    act(() => { fireEvent.touchEnd(scroller(), { touches: [] }); });
-  });
-
-  it("double tap zooms at the tapped point; double tap again returns the page to fit, in place", async () => {
-    renderReader();
+    expect(reading()).toBeNull();
+    expect(scroller().style.visibility).toBe("");
+    // Back on page 50 (then refined to the printed line of the ayah that was being read).
     const L = layoutFor();
-    const x = L.left + 100;
-    const y = pageTop(L, 1) + 200;
-    doubleTap(x, y);
-    expect(layerOf(1)!.style.transform).toContain(`scale(${DOUBLE_TAP_ZOOM})`);
-    doubleTap(x, y);
-    expect(layerOf(1)!.style.transform).toBe("");
-    // And reading carries on normally.
-    await scrollTo(scrollTopForPage(L, 5));
-    expect(shownPage()).toBe(ar(5));
+    await waitFor(() => expect(scroller().scrollTop).toBeGreaterThanOrEqual(scrollTopForPage(L, 50)));
+    expect(scroller().scrollTop).toBeLessThan(scrollTopForPage(L, 50) + L.pageH);
+    expect(shownPage()).toBe(ar(50));
   });
 
-  it("zooming another page returns the first one to fit (each page keeps its own zoom)", () => {
-    renderReader();
-    const L = layoutFor();
-    doubleTap(L.left + 100, pageTop(L, 1) + 200);
-    expect(layerOf(1)!.style.transform).toContain("scale(");
-    doubleTap(L.left + 100, pageTop(L, 2) + 100);
-    expect(layerOf(2)!.style.transform).toContain(`scale(${DOUBLE_TAP_ZOOM})`);
-    expect(layerOf(1)!.style.transform).toBe("");
+  it("double tap: the page opens its text at 2x where it was tapped; double tap on the text returns to the page", () => {
+    renderReader("/mushaf?page=120");
+    doubleTap(195, onPage(120, 0.4));
+    expect(reading()).not.toBeNull();
+    expect(fontOf()).toBeCloseTo(readingFontPx(2, COLUMN), 5);
+    expect(shownPage()).toBe(ar(120));
+    act(() => {
+      fireEvent.click(reading()!, { clientX: 195, clientY: 300 });
+      fireEvent.click(reading()!, { clientX: 195, clientY: 300 });
+    });
+    expect(reading()).toBeNull();
+    expect(shownPage()).toBe(ar(120));
   });
 
-  it("a zoomed page that scrolls off screen is back at fit width when it returns", async () => {
-    renderReader();
-    const L = layoutFor();
-    doubleTap(L.left + 100, pageTop(L, 1) + 200);
-    expect(screen.getByTestId("mushaf-zoom-out")).not.toBeDisabled();
-    await scrollTo(scrollTopForPage(L, 20));
-    expect(screen.getByTestId("mushaf-zoom-out")).toBeDisabled();
-    await scrollTo(0);
-    expect(layerOf(1)!.style.transform).toBe("");
+  it("scroll → pinch → scroll: one finger always scrolls natively; two fingers freeze scrolling only while they are down", async () => {
+    renderReader("/mushaf?page=30");
+    await scrollTo(scrollTopForPage(layoutFor(), 31));
+    expect(shownPage()).toBe(ar(31));
+    act(() => { fireEvent.touchStart(scroller(), { touches: twoFingers(195, 300, 100) }); });
+    expect(scroller().style.overflowY).toBe("hidden"); // the scroll can't take the pinch over
+    act(() => { fireEvent.touchEnd(scroller(), { touches: [touch(145, 300)] }); });
+    expect(scroller().style.overflowY).toBe("auto"); // one finger left: scrolling again
+    await scrollTo(scrollTopForPage(layoutFor(), 32));
+    expect(shownPage()).toBe(ar(32));
+    expect(reading()).toBeNull();
   });
 
-  it("zoom works without gestures: buttons, keys, and a «show full page» button while zoomed", async () => {
-    renderReader();
-    fireEvent.click(screen.getByLabelText("تكبير"));
-    expect(layerOf(1)!.style.transform).toContain("scale(1.5)");
-    fireEvent.click(screen.getByLabelText("تصغير"));
-    expect(layerOf(1)!.style.transform).toBe("");
+  it("the zoom stays while reading on: scrolling through pages and going to a far page keep it, and the place is saved", async () => {
+    renderReader("/mushaf?page=100");
+    doubleTap(195, onPage(100));
+    const size = fontOf();
+    // Reading on: the section of page 101 reaches the top of the screen.
+    await waitFor(() => expect(reading()!.querySelector('[data-reading-page="101"]')).not.toBeNull());
+    for (const sec of Array.from(reading()!.querySelectorAll<HTMLElement>("[data-reading-page]"))) {
+      const p = Number(sec.dataset.readingPage);
+      sec.getBoundingClientRect = () => ({ top: p <= 101 ? -50 : 900, bottom: 0, left: 0, right: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
+    }
+    act(() => { fireEvent.scroll(reading()!); });
+    await frame();
+    await frame();
+    expect(shownPage()).toBe(ar(101));
+    expect(fontOf()).toBe(size);
+    // A far page from the index: shown in the text, at the same size.
+    fireEvent.click(screen.getByLabelText("بحث"));
+    fireEvent.click(screen.getByRole("button", { name: ar(300) }));
+    expect(shownPage()).toBe(ar(300));
+    await waitFor(() => expect(reading()!.querySelector('[data-reading-page="300"] [data-ayah]')).not.toBeNull());
+    expect(fontOf()).toBe(size);
+    await pause(500);
+    expect(loadPosition().page).toBe(300);
+  });
 
-    act(() => { fireEvent.keyDown(window, { key: "+" }); });
-    expect(layerOf(1)!.style.transform).toContain("scale(1.5)");
-    // A single tap hides the toolbars; the zoomed page then offers a one-tap way back.
-    act(() => { fireEvent.click(scroller(), { clientX: 50, clientY: 50 }); });
+  it("the text is the local Quran text verbatim, and never cut: sized with font-size (no transform), wrapping, no sideways scroll", async () => {
+    renderReader("/mushaf?page=2");
+    fireEvent.click(screen.getByTestId("mushaf-zoom-in"));
+    const expected = await getPage(2);
+    await waitFor(() => expect(reading()!.querySelectorAll('[data-page="2"][data-ayah]')).toHaveLength(expected.length));
+    for (const a of expected) {
+      expect(reading()!.querySelector(`[data-ayah="${a.key}"]`)!.textContent).toContain(ayahBody(a));
+    }
+    expect(within(reading()!).getByText(`سورة ${surahNameAr(2)}`)).toBeInTheDocument(); // Al-Baqara starts on page 2
+    expect(reading()!.style.overflowX).toBe("hidden");
+    expect(reading()!.style.touchAction).toBe("pan-y");
+    expect(readingText().style.whiteSpace).toBe("normal");
+    expect(readingText().style.overflowWrap).toBe("break-word");
+    expect(readingText().style.maxWidth).toBe("100%");
+    expect(reading()!.querySelector("[style*='transform']")).toBeNull();
+    expect(fontOf() * LONGEST_WORD_LETTERS * LETTER_EM).toBeLessThanOrEqual(COLUMN);
+  });
+
+  it("holding a finger on the text opens that ayah, already selected", async () => {
+    renderReader("/mushaf?page=2");
+    fireEvent.click(screen.getByTestId("mushaf-zoom-in"));
+    await waitFor(() => expect(reading()!.querySelector('[data-ayah="2:3"]')).not.toBeNull());
+    for (const span of Array.from(reading()!.querySelectorAll<HTMLElement>("[data-ayah]"))) {
+      const held = span.dataset.ayah === "2:3";
+      span.getBoundingClientRect = () => ({ top: held ? 280 : 2000, bottom: held ? 330 : 2050, left: 0, right: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
+    }
+    act(() => { fireEvent.touchStart(reading()!, { touches: [touch(195, 300)] }); });
+    await pause(LONG_PRESS_MS + 100);
+    act(() => { fireEvent.touchEnd(reading()!, { touches: [] }); });
+    expect(await screen.findByTestId("mushaf-ayah-sheet")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("mushaf-ayah-selection")).toHaveTextContent(`${surahNameAr(2)} ${ar(3)}`));
+  });
+
+  it("«Show full page» leaves the text for the printed page; Escape does the same", async () => {
+    renderReader("/mushaf?page=40");
+    fireEvent.click(screen.getByTestId("mushaf-zoom-in"));
+    act(() => { fireEvent.click(reading()!, { clientX: 100, clientY: 400 }); }); // a tap hides the toolbars
     await pause(DOUBLE_TAP_MS + 60);
-    fireEvent.click(await screen.findByTestId("mushaf-zoom-fit"));
-    expect(layerOf(1)!.style.transform).toBe("");
-    expect(screen.queryByTestId("mushaf-zoom-fit")).toBeNull();
+    fireEvent.click(screen.getByTestId("mushaf-zoom-fit"));
+    expect(reading()).toBeNull();
+    fireEvent.click(screen.getByTestId("mushaf-zoom-in"));
+    expect(reading()).not.toBeNull();
+    act(() => { fireEvent.keyDown(window, { key: "Escape" }); });
+    expect(reading()).toBeNull();
+    expect(shownPage()).toBe(ar(40));
   });
 });
 
@@ -525,6 +597,7 @@ describe("no leaks", () => {
     try {
       const view = renderReader();
       const el = scroller();
+      const root = el.parentElement as HTMLElement;
       expect(observers).toHaveLength(1);
       expect(observers[0].observe).toHaveBeenCalledWith(el);
       view.unmount();
@@ -532,10 +605,10 @@ describe("no leaks", () => {
 
       const added = [...calls(spies.protoAdd), ...calls(spies.winAdd, window)];
       const removed = [...calls(spies.protoRemove), ...calls(spies.winRemove, window)];
-      const ours = added.filter(({ target, type }) => (target === window || target === document || target === el) && READER_TYPES.has(type));
-      const where = (x: EventTarget) => (x === el ? "scroller" : x === window ? "window" : "document");
+      const ours = added.filter(({ target, type }) => (target === window || target === document || target === el || target === root) && READER_TYPES.has(type));
+      const where = (x: EventTarget) => (x === el ? "scroller" : x === root ? "root" : x === window ? "window" : "document");
       expect(ours.map(({ target, type }) => `${where(target)}:${type}`)).toEqual(
-        expect.arrayContaining(["scroller:scroll", "scroller:touchstart", "scroller:touchmove", "scroller:wheel", "window:keydown", "window:resize", "document:visibilitychange"]),
+        expect.arrayContaining(["scroller:scroll", "root:touchstart", "root:touchmove", "root:wheel", "root:gesturestart", "window:keydown", "window:resize", "document:visibilitychange"]),
       );
       for (const { target, type, listener } of ours) {
         const gone = removed.some((r) => r.target === target && r.type === type && r.listener === listener);
@@ -547,59 +620,9 @@ describe("no leaks", () => {
   });
 });
 
-/* ======================= comfortable zoom, auto-scroll, ayahs ======================= */
+/* ======================= auto-scroll, ayahs ======================= */
 
 const bottomAction = (key: string) => document.querySelector<HTMLElement>(`[data-bar-action="${key}"]`)!;
-
-describe("zoom: the page settles at a comfortable reading position", () => {
-  it("pinch then lift near the left side: it glides to show the end of the lines whole", () => {
-    renderReader();
-    const L = layoutFor();
-    const cx = L.left + 60;
-    const cy = pageTop(L, 1) + 300;
-    pinchAt(cx, cy, 100, 200, false);
-    const during = pinchZoom(FIT, 2, { x: 60, y: 300 }, { x: 60, y: 300 }, L.pageW, L.pageH);
-    expect(layerOf(1)!.style.transform).toBe(zoomTransform(during));
-    act(() => { fireEvent.touchEnd(scroller(), { touches: [] }); });
-    const settled = comfortableZoom(during, L.pageW, L.pageH, inkBounds(1));
-    expect(settled.x).not.toBe(during.x); // it did move: the view is aligned to the text
-    expect(layerOf(1)!.style.transform).toBe(zoomTransform(settled));
-    expect(layerOf(1)!.style.transition).toContain("transform"); // animated, not a jump
-  });
-
-  it("pan to the far right / far left and lift: aligned to the text, never past the page", async () => {
-    renderReader();
-    const L = layoutFor();
-    const cx = L.left + L.pageW / 2;
-    const cy = pageTop(L, 1) + L.pageH / 2;
-    pinchAt(cx, cy, 100, 200); // 2x
-    for (const dx of [-2000, 2000]) {
-      act(() => {
-        fireEvent.touchStart(scroller(), { touches: [touch(cx, cy)] });
-        fireEvent.touchMove(scroller(), { touches: [touch(cx + dx, cy)] });
-        fireEvent.touchEnd(scroller(), { touches: [] });
-      });
-      await frame();
-      await frame();
-      const edge = { scale: 2, x: dx < 0 ? L.pageW - 2 * L.pageW : 0, y: -L.pageH / 2 };
-      const expected = comfortableZoom(edge, L.pageW, L.pageH, inkBounds(1));
-      expect(layerOf(1)!.style.transform).toBe(zoomTransform(expected));
-    }
-    expect(scroller().scrollLeft).toBe(0);
-  });
-
-  it("going to another page while zoomed returns the zoomed page to fit and shows the new page", () => {
-    renderReader();
-    const L = layoutFor();
-    doubleTap(L.left + 100, pageTop(L, 1) + 200);
-    expect(screen.getByTestId("mushaf-zoom-out")).not.toBeDisabled();
-    fireEvent.click(screen.getByLabelText("بحث"));
-    fireEvent.click(screen.getByRole("button", { name: ar(300) }));
-    expect(shownPage()).toBe(ar(300));
-    expect(screen.getByTestId("mushaf-zoom-out")).toBeDisabled();
-    expect(layerOf(300)!.style.transform).toBe("");
-  });
-});
 
 describe("auto-scroll", () => {
   it("plays, pauses in place, resumes from the same place, changes speed, and closes", async () => {
@@ -651,17 +674,20 @@ describe("auto-scroll", () => {
     expect(screen.getByTestId("mushaf-autoscroll-toggle")).toHaveAttribute("aria-pressed", "false");
   });
 
-  it("on a zoomed page it scrolls vertically only — the page's zoom and sideways position are untouched", async () => {
+  it("in reading zoom it scrolls the text vertically — its size and sideways position are untouched", async () => {
     localStorage.setItem("mushaf:autoScrollLevel", "5");
-    renderReader();
-    const L = layoutFor();
-    doubleTap(L.left + 100, pageTop(L, 1) + 150);
-    const zoomed = layerOf(1)!.style.transform;
-    expect(zoomed).toContain("scale(");
+    renderReader("/mushaf?page=10");
+    fireEvent.click(screen.getByTestId("mushaf-zoom-in"));
+    const text = screen.getByTestId("mushaf-reading");
+    const size = screen.getByTestId("mushaf-reading-text").style.fontSize;
+    // The text has loaded and been placed under the reader before auto-scroll is started.
+    await waitFor(() => expect(text.querySelector('[data-page="10"][data-ayah]')).not.toBeNull());
+    await frame();
     fireEvent.click(bottomAction("autoscroll"));
-    await waitFor(() => expect(scroller().scrollTop).toBeGreaterThan(3), { timeout: 3000 });
-    expect(layerOf(1)!.style.transform).toBe(zoomed);
-    expect(scroller().scrollLeft).toBe(0);
+    const from = Math.max(0, text.scrollTop); // jsdom does not clamp a placement at the top
+    await waitFor(() => expect(text.scrollTop).toBeGreaterThan(from + 3), { timeout: 3000 });
+    expect(screen.getByTestId("mushaf-reading-text").style.fontSize).toBe(size);
+    expect(text.scrollLeft).toBe(0);
   });
 
   it("closing the reader stops it (no frame keeps running)", async () => {

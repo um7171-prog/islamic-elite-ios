@@ -10,16 +10,23 @@ import { MushafExtrasSheet, type ExtrasMode } from "./MushafExtrasSheet";
 import { MushafAyahSheet, type AyahSheetView } from "./MushafAyahSheet";
 import { MushafAutoScrollPanel } from "./MushafAutoScrollPanel";
 import {
-  clampScroll, computeLayout, pageAtScroll, pageTop, readingAnchor, sameLayout, scrollStep,
-  scrollTopForAnchor, scrollTopForPage, visiblePart, visibleRange, type ReaderLayout,
+  clampScroll, computeLayout, pageAtScroll, pageAtY, pageTop, readingAnchor, sameLayout, scrollStep,
+  scrollTopForAnchor, scrollTopForPage, visibleRange, type ReaderLayout,
 } from "./readerLayout";
 import { createScrollAnimator, GOTO_MS } from "./smoothScroll";
-import { createMushafGestures, type InputKind } from "./mushafGestures";
-import { ZOOM_STEP } from "./pageZoom";
+import { createMushafGestures } from "./mushafGestures";
+import { MushafReadingView, type MushafReadingHandle, type ReadingStart } from "./MushafReadingView";
+import { createPinchInput, type PinchEvent } from "./pinchInput";
+import { startNativePinch } from "./nativePinch";
+import {
+  ENTER_READING, PAGE_LINES, clampZoom, lineAtFraction, lineTopFraction, loadReadingZoom, nextMode, readingFontPx,
+  saveReadingZoom, stepZoom, type ReaderMode,
+} from "./readingZoom";
 import {
   autoScrollSpeed, clampAutoScrollLevel, createAutoScroller, loadAutoScrollLevel, saveAutoScrollLevel,
 } from "./autoScroll";
-import { globalIdOf } from "@/lib/quran";
+import { QURAN_READING_FONT } from "@/components/quran-reading/readingPrefs";
+import { ayahKey, getPage, globalIdOf } from "@/lib/quran";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import {
@@ -40,6 +47,12 @@ const SAVE_DELAY_MS = 400;
 const BARS_HIDE_MS = 3200;
 /** Scrolling by hand this far hides the toolbars (the Mushaf stays the focus). */
 const HIDE_BARS_ON_SCROLL_PX = 24;
+/** Reading zoom: space around the text (plus the safe areas). */
+const READING_PAD_X = 16;
+const READING_PAD_TOP = 16;
+const READING_PAD_BOTTOM = 72;
+/** Ctrl + wheel steps that stop for this long end the trackpad "pinch". */
+const WHEEL_ZOOM_IDLE_MS = 300;
 
 type Keyed<T> = Record<string, T>;
 const SCROLL_KEYS: Keyed<1 | -1> = { ArrowDown: 1, ArrowLeft: 1, ArrowUp: -1, ArrowRight: -1 };
@@ -97,11 +110,15 @@ export function MushafReader() {
   const [page, setPage] = useState(() => startPage(pageParam));
   const [layout, setLayout] = useState<ReaderLayout | null>(null);
   const [range, setRange] = useState({ first: page, last: page });
-  const [zoomPage, setZoomPage] = useState<number | null>(null);
+  // Reading zoom: "page" = the printed pages at fit width (1x); "reading" = the same pages' ayahs
+  // from the local text, reflowed at `zoom` times the page's letter size (see readingZoom.ts).
+  const [mode, setMode] = useState<ReaderMode>("page");
+  const [zoom, setZoom] = useState(1);
+  const [readingStart, setReadingStart] = useState<ReadingStart>({ page: 1, line: null, clientY: null });
   const [bars, setBars] = useState(true);
   const [indexTab, setIndexTab] = useState<"surah" | "juz" | "hizb" | "page" | "bookmarks" | null>(null);
   const [extras, setExtras] = useState<ExtrasMode>(null);
-  const [ayahSheet, setAyahSheet] = useState<{ page: number; view: AyahSheetView } | null>(null);
+  const [ayahSheet, setAyahSheet] = useState<{ page: number; view: AyahSheetView; ayahKey?: string } | null>(null);
   const [autoMode, setAutoMode] = useState(false);
   const [autoPlaying, setAutoPlaying] = useState(false);
   const [autoLevel, setAutoLevel] = useState(() => loadAutoScrollLevel());
@@ -111,7 +128,13 @@ export function MushafReader() {
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const layers = useRef(new Map<number, HTMLElement>());
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const readingRef = useRef<MushafReadingHandle | null>(null);
+  const modeRef = useRef<ReaderMode>(mode);
+  modeRef.current = mode;
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+  const safeRef = useRef({ top: 0, right: 0, bottom: 0, left: 0 });
   // Always the page on screen (updated together with `page`, never behind it).
   const pageRef = useRef(page);
   const layoutRef = useRef<ReaderLayout | null>(layout);
@@ -142,11 +165,21 @@ export function MushafReader() {
     setPage(p);
   }, []);
 
+  // The view being read — the page images, or the reading text — and its scroll limits.
+  const activeScroller = () => (modeRef.current === "reading" ? readingRef.current?.scroller() ?? null : scrollerRef.current);
+  const clampActive = (y: number) => {
+    if (modeRef.current === "reading") {
+      const el = readingRef.current?.scroller();
+      return el ? Math.min(Math.max(0, el.scrollHeight - el.clientHeight), Math.max(0, y)) : Math.max(0, y);
+    }
+    return layoutRef.current ? clampScroll(layoutRef.current, y) : Math.max(0, y);
+  };
+
   const animator = useMemo(
     () =>
       createScrollAnimator(
-        () => scrollerRef.current,
-        (y) => (layoutRef.current ? clampScroll(layoutRef.current, y) : Math.max(0, y)),
+        () => activeScroller(),
+        (y) => clampActive(y),
         { onFrame: () => { programmaticUntil.current = Date.now() + 150; }, reducedMotion: prefersReducedMotion },
       ),
     [],
@@ -155,8 +188,8 @@ export function MushafReader() {
   // Auto-scroll: requestAnimationFrame only, eased speed, scrollTop only (never sideways).
   const autoScroller = useMemo(
     () =>
-      createAutoScroller(() => scrollerRef.current, {
-        clamp: (y) => (layoutRef.current ? clampScroll(layoutRef.current, y) : Math.max(0, y)),
+      createAutoScroller(() => activeScroller(), {
+        clamp: (y) => clampActive(y),
         onFrame: () => { programmaticUntil.current = Date.now() + 150; },
         onStateChange: setAutoPlaying,
       }),
@@ -170,55 +203,202 @@ export function MushafReader() {
     if (autoModeRef.current) autoScroller.toggle();
     else setBars((v) => !v);
   };
-  const longPressRef = useRef<(page: number) => void>(() => {});
-  longPressRef.current = (p) => {
-    autoScroller.pause();
-    setAyahSheet({ page: p, view: "list" });
-  };
-  const registerLayer = useCallback((p: number, el: HTMLElement | null) => {
-    if (el) layers.current.set(p, el);
-    else layers.current.delete(p);
-  }, []);
 
-  const settleRef = useRef(() => {});
+  /* ---------- reading zoom: the printed page ↔ its text, at the size the fingers set ---------- */
+
+  /** The page, and its printed line, under a viewport height of the page images. */
+  const pagePointAt = (clientY: number): { page: number; line: number } | null => {
+    const L = layoutRef.current;
+    const el = scrollerRef.current;
+    if (!L || !el) return null;
+    const cy = clientY - el.getBoundingClientRect().top + el.scrollTop;
+    const p = pageAtY(L, cy);
+    return { page: p, line: lineAtFraction((cy - pageTop(L, p)) / L.pageH) };
+  };
+
+  /** Reading zoom at `z`, opening on the ayah printed at (the page, line) under `clientY`. */
+  const openReading = (clientY: number, z: number) => {
+    const at = pagePointAt(clientY);
+    autoScroller.pause();
+    animator.stop();
+    setReadingStart({ page: at?.page ?? pageRef.current, line: at?.line ?? null, clientY: at ? clientY : null });
+    zoomRef.current = z;
+    setZoom(z);
+    modeRef.current = "reading";
+    setMode("reading");
+  };
+
+  /** Back to the printed page, at the ayah that was being read (its printed line at the top). */
+  const closeReading = () => {
+    const spot = readingRef.current?.topAyah() ?? null;
+    const target = spot?.page ?? pageRef.current;
+    autoScroller.pause();
+    animator.stop();
+    modeRef.current = "page";
+    setMode("page");
+    zoomRef.current = 1;
+    setZoom(1);
+    const L = layoutRef.current;
+    const el = scrollerRef.current;
+    if (!L || !el) return;
+    const place = (y: number) => {
+      markProgrammatic();
+      el.scrollTop = clampScroll(L, y);
+      lastScrollTop.current = el.scrollTop;
+      setRange(visibleRange(L, el.scrollTop, BUFFER_PAGES));
+      showPage(target);
+    };
+    place(scrollTopForPage(L, target));
+    if (!spot) return;
+    void getPage(spot.page).then((ayahs) => {
+      const a = ayahs.find((x) => x.key === spot.key);
+      if (!a || a.sourcePage !== a.mushafPage || modeRef.current !== "page") return;
+      place(pageTop(L, spot.page) + lineTopFraction(a.lineStart) * L.pageH - L.top);
+    });
+  };
+
+  /** Reading zoom to `z` (kept exactly: no snapping), holding the ayah at `clientY` in place. */
+  const setReadingZoom = (z: number, clientY: number) => {
+    if (nextMode("reading", z) === "page") {
+      closeReading();
+      return;
+    }
+    readingRef.current?.holdOnce(clientY);
+    zoomRef.current = z;
+    setZoom(z);
+    saveReadingZoom(z);
+  };
+
+  const viewCenter = () => (layoutRef.current?.viewportH ?? window.innerHeight) / 2;
+  const zoomIn = () => {
+    if (modeRef.current === "page") openReading(viewCenter(), loadReadingZoom());
+    else setReadingZoom(stepZoom(zoomRef.current, 1), viewCenter());
+  };
+  const zoomOut = () => {
+    if (modeRef.current === "reading") setReadingZoom(stepZoom(zoomRef.current, -1), viewCenter());
+  };
+
+  // Two fingers: pinch start → move → end. The zoom follows the fingers continuously and stays
+  // exactly where they leave it; the page opens reading zoom once the pinch passes ENTER_READING.
+  const pinchRef = useRef<{ startZoom: number } | null>(null);
+  const onPinchRef = useRef<(e: PinchEvent) => void>(() => {});
+  onPinchRef.current = (e) => {
+    if (e.phase === "start") {
+      animator.stop();
+      autoScroller.pause();
+      pinchRef.current = { startZoom: modeRef.current === "reading" ? zoomRef.current : 1 };
+      if (modeRef.current === "reading") readingRef.current?.hold(e.y);
+      return;
+    }
+    const pinch = pinchRef.current;
+    if (!pinch) return;
+    const z = clampZoom(pinch.startZoom * e.scale);
+    if (e.phase === "change") {
+      if (modeRef.current === "page") {
+        if (nextMode("page", z) === "reading") openReading(e.y, z);
+        return;
+      }
+      readingRef.current?.hold(e.y);
+      zoomRef.current = z;
+      setZoom(z);
+      return;
+    }
+    pinchRef.current = null;
+    readingRef.current?.hold(null);
+    if (modeRef.current !== "reading") return;
+    if (nextMode("reading", zoomRef.current) === "page") closeReading();
+    else saveReadingZoom(zoomRef.current);
+  };
+
+  // Trackpad pinch (Ctrl + wheel) on the web: the same, one wheel step at a time.
+  const wheelRef = useRef<{ z: number; timer: number } | null>(null);
+  const onWheelZoomRef = useRef<(factor: number, x: number, y: number) => void>(() => {});
+  onWheelZoomRef.current = (factor, _x, y) => {
+    if (modeRef.current === "reading") {
+      setReadingZoom(clampZoom(zoomRef.current * factor), y);
+      return;
+    }
+    const w = wheelRef.current ?? { z: 1, timer: 0 };
+    window.clearTimeout(w.timer);
+    w.z = clampZoom(w.z * factor);
+    w.timer = window.setTimeout(() => (wheelRef.current = null), WHEEL_ZOOM_IDLE_MS);
+    wheelRef.current = w;
+    if (w.z >= ENTER_READING) {
+      wheelRef.current = null;
+      openReading(y, w.z);
+    }
+  };
+
+  // Double tap: the page opens reading zoom at the tapped ayah; reading zoom returns to the page.
+  const doubleTapRef = useRef<(y: number) => void>(() => {});
+  doubleTapRef.current = (y) => {
+    if (modeRef.current === "reading") closeReading();
+    else openReading(y, loadReadingZoom());
+  };
+  // A finger held still: the ayahs there (in reading zoom, with the held ayah already selected).
+  const longPressRef = useRef<(y: number) => void>(() => {});
+  longPressRef.current = (y) => {
+    autoScroller.pause();
+    if (modeRef.current === "reading") {
+      const spot = readingRef.current?.ayahAt(y);
+      if (spot) setAyahSheet({ page: spot.page, view: "list", ayahKey: spot.key });
+      return;
+    }
+    const at = pagePointAt(y);
+    if (at) setAyahSheet({ page: at.page, view: "list" });
+  };
+
+  const zoomRefs = useRef({ in: zoomIn, out: zoomOut, close: closeReading });
+  zoomRefs.current = { in: zoomIn, out: zoomOut, close: closeReading };
+
   const gestures = useMemo(
     () =>
       createMushafGestures({
-        scroller: () => scrollerRef.current,
-        layout: () => layoutRef.current,
-        layer: (p) => layers.current.get(p) ?? null,
-        onZoomPage: setZoomPage,
         onTap: () => tapRef.current(),
-        onUserInput: (kind: InputKind) => {
-          animator.stop();
-          // A plain touch may just be a tap (play / pause) or a scroll, which auto-scroll notices by
-          // itself; zooming, panning, trackpad or dragging is the user taking the page over.
-          if (kind !== "touch") autoScroller.pause();
-        },
-        onSettle: () => settleRef.current(),
-        onLongPress: (p) => longPressRef.current(p),
+        onDoubleTap: (_x, y) => doubleTapRef.current(y),
+        onLongPress: (_x, y) => longPressRef.current(y),
+        onUserInput: () => animator.stop(),
       }),
-    [animator, autoScroller],
+    [animator],
   );
-  // A zoomed page that has left the screen goes back to fit width (never mid-gesture).
-  settleRef.current = () => {
-    const L = layoutRef.current;
-    const el = scrollerRef.current;
-    const z = gestures.zoomedPage();
-    if (L && el && z !== null && !gestures.gestureActive() && visiblePart(L, el.scrollTop, z) === 0) gestures.resetZoom(false);
-  };
 
   useEffect(() => {
-    gestures.attach();
-    return () => gestures.detach();
+    const root = rootRef.current;
+    if (!root) return;
+    gestures.attach(root);
+    // The pinch: natively in the iPhone app (a UIKit recognizer the vertical scroll can't take
+    // over), in the browser from touch events. Either way two fingers freeze scrolling.
+    const input = createPinchInput(root, {
+      onPinch: (e) => onPinchRef.current(e),
+      onWheelZoom: (f, x, y) => onWheelZoomRef.current(f, x, y),
+    });
+    let alive = true;
+    let stopNative: (() => void) | null = null;
+    void startNativePinch((e) => onPinchRef.current(e)).then((stop) => {
+      if (!alive) {
+        stop?.();
+        return;
+      }
+      stopNative = stop;
+      if (stop) input.setEmit(false);
+    });
+    return () => {
+      alive = false;
+      gestures.detach();
+      input.detach();
+      stopNative?.();
+    };
   }, [gestures]);
   useEffect(() => () => animator.stop(), [animator]);
 
   /* ---------- layout: fit width from the real viewport and safe areas ---------- */
+  const readingPadX = READING_PAD_X + Math.max(safeRef.current.left, safeRef.current.right);
+  const fontPx = readingFontPx(zoom, (layout?.viewportW ?? 390) - 2 * readingPadX);
   const measure = useCallback(() => {
     const el = scrollerRef.current;
     if (!el) return;
     const safe = readSafeAreas();
+    safeRef.current = safe;
     const next = computeLayout({
       width: el.clientWidth || window.innerWidth,
       height: el.clientHeight || window.innerHeight,
@@ -251,14 +431,13 @@ export function MushafReader() {
     if (!layout || !el) return;
     const prev = placedLayout.current;
     placedLayout.current = layout;
-    if (prev) gestures.resetZoom(false);
     const y = prev ? scrollTopForAnchor(layout, readingAnchor(prev, lastScrollTop.current)) : scrollTopForPage(layout, pageRef.current);
     markProgrammatic();
     el.scrollTop = y;
     lastScrollTop.current = y;
     setRange(visibleRange(layout, y, BUFFER_PAGES));
     if (prev) showPage(pageAtScroll(layout, y));
-  }, [layout, gestures, markProgrammatic, showPage]);
+  }, [layout, markProgrammatic, showPage]);
 
   /* ---------- scrolling: current page, mounted range, toolbars ---------- */
   useEffect(() => {
@@ -274,7 +453,6 @@ export function MushafReader() {
       showPage(pageAtScroll(L, st));
       const r = visibleRange(L, st, BUFFER_PAGES);
       setRange((cur) => (cur.first === r.first && cur.last === r.last ? cur : r));
-      settleRef.current();
       if (barsRef.current && Date.now() > programmaticUntil.current && Math.abs(st - barsShownAt.current) > HIDE_BARS_ON_SCROLL_PX) {
         setBars(false);
       }
@@ -323,10 +501,14 @@ export function MushafReader() {
   }, []);
 
   /* ---------- auto-scroll ---------- */
-  // The speed is set in seconds per page, so it reads the same on every screen size.
+  // The speed is set in seconds per page, so it reads the same on every screen size — and in
+  // reading zoom the same pace in lines (15 lines a page, at the reading line height).
   useEffect(() => {
-    if (layout) autoScroller.setSpeed(autoScrollSpeed(layout.pageH, autoLevel));
-  }, [layout, autoLevel, autoScroller]);
+    if (mode === "reading") autoScroller.setSpeed(autoScrollSpeed(PAGE_LINES * fontPx * QURAN_READING_FONT.lineHeight, autoLevel));
+    else if (layout) autoScroller.setSpeed(autoScrollSpeed(layout.pageH, autoLevel));
+  }, [layout, autoLevel, autoScroller, mode, fontPx]);
+  // Switching between the page and reading zoom hands the scrolling back to the reader.
+  useEffect(() => autoScroller.pause(), [mode, autoScroller]);
   // The app going to the background, or any sheet opening over the Mushaf, pauses it (in place).
   useEffect(() => {
     const onVisibility = () => {
@@ -369,6 +551,11 @@ export function MushafReader() {
     const target = clampPage(p);
     autoScroller.pause();
     if (!opts?.silent) setBars(true);
+    if (modeRef.current === "reading") {
+      readingRef.current?.scrollToPage(target);
+      showPage(target);
+      return;
+    }
     const L = layoutRef.current;
     const el = scrollerRef.current;
     if (!L || !el) {
@@ -376,7 +563,6 @@ export function MushafReader() {
       showPage(target);
       return;
     }
-    gestures.resetZoom(false);
     const y = scrollTopForPage(L, target);
     const smooth = opts?.smooth ?? Math.abs(target - pageRef.current) <= NEAR_PAGES;
     if (smooth) {
@@ -391,7 +577,7 @@ export function MushafReader() {
     lastScrollTop.current = y;
     setRange(visibleRange(L, y, BUFFER_PAGES));
     showPage(pageAtScroll(L, y));
-  }, [animator, autoScroller, gestures, markProgrammatic, showPage]);
+  }, [animator, autoScroller, markProgrammatic, showPage]);
 
   // A new ?page= while the reader is open (the first one is the starting page).
   const seenParam = useRef(pageParam);
@@ -457,17 +643,17 @@ export function MushafReader() {
         case "+":
         case "=":
           e.preventDefault();
-          gestures.zoomBy(ZOOM_STEP, pageRef.current);
+          zoomRefs.current.in();
           return;
         case "-":
           e.preventDefault();
-          gestures.zoomBy(1 / ZOOM_STEP, pageRef.current);
+          zoomRefs.current.out();
           return;
         case "0":
-          gestures.resetZoom(true);
+          if (modeRef.current === "reading") zoomRefs.current.close();
           return;
         case "Escape":
-          if (gestures.zoomedPage() !== null) gestures.resetZoom(true);
+          if (modeRef.current === "reading") zoomRefs.current.close();
           else goBackRef.current();
           return;
       }
@@ -484,7 +670,7 @@ export function MushafReader() {
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
     };
-  }, [animator, autoScroller, gestures, goTo]);
+  }, [animator, autoScroller, goTo]);
 
   /* ---------- audio (page-aware, ayah by ayah) ---------- */
   // Playback always starts at the first ayah printed on the CURRENT page
@@ -520,9 +706,10 @@ export function MushafReader() {
       await el.play();
       setAudioState("playing");
       setPlaying(true);
-      // Keep the reader on the page being recited.
+      // Keep the reader on the ayah / page being recited.
       const target = pageOfAyah(ref);
-      if (target !== pageRef.current) goTo(target, { silent: true });
+      if (modeRef.current === "reading") readingRef.current?.revealAyah(ayahKey(ref.surah, ref.ayah), target);
+      else if (target !== pageRef.current) goTo(target, { silent: true });
       const meta = SURAHS[ref.surah - 1];
       setMediaSession({
         title: `${meta.ar} · ${ref.ayah}`, artist: reciter.name,
@@ -633,17 +820,22 @@ export function MushafReader() {
 
   return (
     <div
+      ref={rootRef}
       dir="rtl"
       className="fixed inset-0 overflow-hidden select-none"
       style={{ background: night ? "#0b0f14" : "#f6f1e4" }}
     >
-      {/* The one vertical scroll view: pages top to bottom, no horizontal overflow, no snapping. */}
+      {/* The printed pages: one vertical scroll view, top to bottom, no horizontal overflow, no
+          snapping. Kept mounted (hidden) during reading zoom, so a pinch that started on it keeps
+          reporting, and the place is kept for the way back. */}
       <div
         ref={scrollerRef}
         data-testid="mushaf-scroller"
+        data-mushaf-scroll
         dir="ltr"
         role="region"
         aria-label={t("Mushaf pages", "صفحات المصحف")}
+        aria-hidden={mode === "reading" || undefined}
         onClick={(e) => gestures.click(e.nativeEvent)}
         className="absolute inset-0"
         style={{
@@ -653,6 +845,7 @@ export function MushafReader() {
           overflowAnchor: "none",
           WebkitOverflowScrolling: "touch",
           touchAction: "pan-y",
+          visibility: mode === "reading" ? "hidden" : undefined,
         }}
       >
         {layout && (
@@ -666,13 +859,27 @@ export function MushafReader() {
                 width={layout.pageW}
                 height={layout.pageH}
                 night={night}
-                zoomed={zoomPage === p}
-                registerLayer={registerLayer}
               />
             ))}
           </div>
         )}
       </div>
+
+      {/* Reading zoom: the same pages' ayahs as text, at the size the fingers set. */}
+      {mode === "reading" && layout && (
+        <MushafReadingView
+          ref={readingRef}
+          start={readingStart}
+          fontPx={fontPx}
+          night={night}
+          nowAyahKey={nowAyah ? ayahKey(nowAyah.surah, nowAyah.ayah) : null}
+          padTop={safeRef.current.top + READING_PAD_TOP}
+          padBottom={safeRef.current.bottom + READING_PAD_BOTTOM}
+          padX={readingPadX}
+          onPageChange={showPage}
+          onClick={(e) => gestures.click(e)}
+        />
+      )}
 
       <MushafTopBar
         visible={bars}
@@ -698,9 +905,9 @@ export function MushafReader() {
         onCopy={onCopy}
         onShare={onShare}
         onSettings={() => setExtras("settings")}
-        zoomed={zoomPage !== null}
-        onZoomIn={() => gestures.zoomBy(ZOOM_STEP, pageRef.current)}
-        onZoomOut={() => gestures.zoomBy(1 / ZOOM_STEP, pageRef.current)}
+        zoomed={mode === "reading"}
+        onZoomIn={zoomIn}
+        onZoomOut={zoomOut}
         onAyahs={() => setAyahSheet({ page: pageRef.current, view: "list" })}
         onAutoScroll={() => (autoMode ? closeAuto() : startAuto())}
         autoScrollActive={autoMode}
@@ -717,12 +924,12 @@ export function MushafReader() {
         />
       )}
 
-      {/* While a page is zoomed and the toolbars are hidden: one tap back to the whole page. */}
-      {zoomPage !== null && !bars && (
+      {/* In reading zoom with the toolbars hidden: one tap back to the printed page. */}
+      {mode === "reading" && !bars && (
         <button
           type="button"
           data-testid="mushaf-zoom-fit"
-          onClick={() => gestures.resetZoom(true)}
+          onClick={closeReading}
           className="fixed left-1/2 z-40 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-black/65 px-4 py-2.5 text-label text-white shadow-lg active:scale-95 transition-transform"
           style={{ bottom: `calc(env(safe-area-inset-bottom, 0px) + ${autoMode ? 80 : 16}px)`, touchAction: "manipulation" }}
         >
@@ -734,6 +941,7 @@ export function MushafReader() {
       <MushafAyahSheet
         page={ayahSheet?.page ?? null}
         initialView={ayahSheet?.view ?? "list"}
+        initialAyahKey={ayahSheet?.ayahKey ?? null}
         night={night}
         onClose={() => setAyahSheet(null)}
         onListen={playRange}

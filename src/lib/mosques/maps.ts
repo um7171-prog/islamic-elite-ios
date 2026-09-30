@@ -24,8 +24,8 @@ export function mapsTarget(): MapsTarget {
   return isIOSNativeApp() ? "apple" : "google";
 }
 
-/** 6 decimals ≈ 0.1 m: the mosque's point as mapped. */
-const coord = (p: MapPoint) => `${p.latitude.toFixed(6)},${p.longitude.toFixed(6)}`;
+/** The mosque's point exactly as mapped (never rounded). */
+const coord = (p: MapPoint) => `${p.latitude},${p.longitude}`;
 
 /** Apple Maps: directions from the current location, or the mosque as a pin named `label`. */
 export function appleMapsUrl(action: MapsAction, p: MapPoint, label = ""): string {
@@ -34,10 +34,15 @@ export function appleMapsUrl(action: MapsAction, p: MapPoint, label = ""): strin
     : `https://maps.apple.com/?ll=${coord(p)}&q=${encodeURIComponent(label)}`;
 }
 
-/** The Google Maps iPhone app (its documented URL scheme). */
-export function googleMapsAppUrl(action: MapsAction, p: MapPoint): string {
+/**
+ * The Google Maps iPhone app (its documented URL scheme). Directions always end at the mosque's
+ * own point. «Open» searches a named mosque by its own name centred on that point, so Google shows
+ * its place (name, entrances) right there rather than a bare pin; an unnamed one is the point.
+ */
+export function googleMapsAppUrl(action: MapsAction, p: MapPoint, name?: string | null): string {
   const c = coord(p);
-  return action === "directions" ? `comgooglemaps://?daddr=${c}&directionsmode=driving` : `comgooglemaps://?q=${c}&center=${c}`;
+  if (action === "directions") return `comgooglemaps://?daddr=${c}&directionsmode=driving`;
+  return name ? `comgooglemaps://?q=${encodeURIComponent(name)}&center=${c}&zoom=18` : `comgooglemaps://?q=${c}&center=${c}`;
 }
 
 /** Google Maps on the web (the official Maps URLs). */

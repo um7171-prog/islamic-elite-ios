@@ -10,27 +10,22 @@ interface Props {
   width: number;
   height: number;
   night: boolean;
-  /** This page is the zoomed one: it takes one-finger pans instead of the scroll view. */
-  zoomed: boolean;
-  /** Hands the zoom layer to the reader's gesture controller (null on unmount). */
-  registerLayer: (page: number, el: HTMLElement | null) => void;
 }
 
 /**
  * One Mushaf page in the vertical reader: a box of fixed size at a fixed place in the
  * column, holding the page image exactly as published (never cropped, recoloured in day
- * mode or distorted). Zoom never resizes the box — the gesture controller transforms the
- * inner layer, which the box clips, so a zoomed page can't spill over its neighbours.
+ * mode, distorted or transformed). Zooming in reads the page's text instead (reading zoom,
+ * MushafReadingView), so the picture itself is always shown whole at fit width.
  */
 export const MushafPageView = memo(function MushafPageView({
-  page, top, left, width, height, night, zoomed, registerLayer,
+  page, top, left, width, height, night,
 }: Props) {
   const { t } = useLocale();
   const [src, setSrc] = useState(() => pageImageUrl(page));
   const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
   const retries = useRef(0);
 
-  const layerRef = useCallback((el: HTMLDivElement | null) => registerLayer(page, el), [page, registerLayer]);
   // An image already in the memory cache can be complete before React sees its load event.
   const imgRef = useCallback((el: HTMLImageElement | null) => {
     if (el?.complete && el.naturalWidth > 0) setStatus("loaded");
@@ -58,7 +53,7 @@ export const MushafPageView = memo(function MushafPageView({
         left,
         width,
         height,
-        touchAction: zoomed ? "none" : "pan-y",
+        touchAction: "pan-y",
         background: night ? "#11161d" : "#fffefa",
         boxShadow: night ? "0 1px 2px rgba(0,0,0,.6)" : "0 1px 3px rgba(60,45,20,.14)",
       }}
@@ -87,7 +82,7 @@ export const MushafPageView = memo(function MushafPageView({
           )}
         </div>
       )}
-      <div ref={layerRef} data-zoom-layer className="h-full w-full" style={{ transformOrigin: "0 0" }}>
+      <div className="h-full w-full">
         <img
           ref={imgRef}
           src={src}

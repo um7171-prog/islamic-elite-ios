@@ -18,8 +18,16 @@ export interface MosqueProvider {
 }
 
 /**
- * One bounded query around the given point that covers every common way a mosque is
- * tagged in OSM (a feature matching several filters is returned once by the union).
+ * One bounded query around the given point that covers every way a mosque is mapped in OSM,
+ * as nodes, ways and relations alike (`nwr`; an element matching several filters is returned
+ * once by the union):
+ * - a place of worship whose religion is muslim or islam,
+ * - a place of worship typed as a mosque, the non-standard `amenity=mosque`, `building=mosque`,
+ * - a place of worship with no religion at all (common where nearly every one is a mosque; the
+ *   client drops those whose name says another faith, see isMosqueTagged).
+ * Exact tag values only: they are indexed by Overpass, so a 5 km search answers in seconds. A
+ * name pattern («مسجد …») was measured in Riyadh at 19–27 s for a 5 km circle (past the server's
+ * limit) while adding one mosque out of 192 (its other matches were streets), so it is not used.
  * `out geom` returns each area's real outline (a building, or a multipolygon's rings), so its
  * point can be placed on the building itself rather than at its bounding-box centre, and a
  * mosque's point can be recognised inside its own building when removing duplicates.
@@ -31,8 +39,11 @@ export function buildOverpassQuery(center: LatLng, radiusM: number): string {
   return (
     `[out:json][timeout:${OVERPASS_SERVER_TIMEOUT_S}];(` +
     `nwr["amenity"="place_of_worship"]["religion"="muslim"]${around};` +
+    `nwr["amenity"="place_of_worship"]["religion"="islam"]${around};` +
     `nwr["amenity"="place_of_worship"]["place_of_worship"="mosque"]${around};` +
+    `nwr["amenity"="mosque"]${around};` +
     `nwr["building"="mosque"]${around};` +
+    `nwr["amenity"="place_of_worship"][!"religion"]${around};` +
     `);out geom qt;`
   );
 }

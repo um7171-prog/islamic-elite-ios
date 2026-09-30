@@ -94,16 +94,25 @@ const YES = (v?: string) => v === "yes";
 // "muslim" is the documented value; the other two are common mistaggings of the same thing.
 const MUSLIM = new Set(["muslim", "islam", "islamic"]);
 
-/** Mosques are tagged more than one way in OSM; any of these counts:
- *  amenity=place_of_worship + religion=muslim, amenity=place_of_worship +
- *  place_of_worship=mosque, or building=mosque. Explicitly non-Muslim or
- *  disused/abandoned features are excluded. */
+/** A name that says another faith. */
+const OTHER_FAITH = /(كنيسة|كنيس|معبد|دير\s|church|chapel|cathedral|temple|synagogue|gurdwara|mandir|\bst\.?\s|\bsaint\s)/iu;
+
+const namesOfTags = (tags: Tags) => [tags.name, tags["name:ar"], tags["name:en"], tags.official_name].filter((n): n is string => !!n);
+
+/** Mosques are mapped more than one way in OSM; any of these counts:
+ *  - a place of worship of the Muslim religion (muslim / islam / islamic), or typed a mosque;
+ *  - a place of worship with no religion at all, unless its name says another faith (where
+ *    nearly every place of worship is a mosque, mappers often leave the religion out);
+ *  - `amenity=mosque` or `building=mosque`.
+ *  Explicitly non-Muslim or disused/abandoned features are excluded. */
 export function isMosqueTagged(tags: Tags): boolean {
   const religion = tags.religion?.toLowerCase();
   if (religion && !MUSLIM.has(religion)) return false;
   if (YES(tags.disused) || YES(tags.abandoned) || tags.historic === "ruins") return false;
-  if (tags.amenity === "place_of_worship" && (religion || tags.place_of_worship === "mosque")) return true;
-  return tags.building === "mosque";
+  if (tags.amenity === "place_of_worship") {
+    return !!religion || tags.place_of_worship === "mosque" || !namesOfTags(tags).some((n) => OTHER_FAITH.test(n));
+  }
+  return tags.amenity === "mosque" || tags.building === "mosque";
 }
 
 const GENERIC_WORDS = new Set([
@@ -206,8 +215,6 @@ export function normalizeOverpassResponse(body: unknown): MosquePlace[] {
 
 /** The same full name this close is the same mosque mapped twice (a point and its building). */
 const SAME_NAME_M = 60;
-/** Without a full-name match (unnamed, or only «مسجد»/«جامع» differs), only practically the same spot. */
-const SAME_SPOT_M = 20;
 
 const namesOf = (p: MosquePlace) => [p.name, p.nameAr, p.nameEn];
 const keysOf = (p: MosquePlace, form: (n: string | null | undefined) => string) => new Set(namesOf(p).map(form).filter(Boolean));
@@ -218,11 +225,12 @@ const pointInside = (p: MosquePlace, area: MosquePlace) =>
   p.osmType === "node" && !!area.outline && insideRings(placeLatLng(p), area.outline);
 
 /**
- * Two records of one real mosque, never two neighbouring mosques:
- * - differently named ones are never the same, however close;
- * - a point inside the other's building outline is that building's mosque;
- * - the same full name within SAME_NAME_M;
- * - otherwise (unnamed, or only «مسجد»/«جامع» differs) only on practically the same spot.
+ * Two records of one real mosque — only on strong evidence, never distance alone (a mosque
+ * that is really there must never be dropped):
+ * - the same OSM element;
+ * - a point mapped inside the other's building outline, their names not contradicting;
+ * - the same full name (not only «مسجد»/«جامع») within SAME_NAME_M.
+ * Differently named ones are never the same, however close; unnamed ones only by the outline.
  */
 export function isSameMosque(a: MosquePlace, b: MosquePlace): boolean {
   if (a.id === b.id) return true;
@@ -231,9 +239,8 @@ export function isSameMosque(a: MosquePlace, b: MosquePlace): boolean {
   const named = ka.size > 0 && kb.size > 0;
   if (named && !shareAny(ka, kb)) return false;
   if (pointInside(a, b) || pointInside(b, a)) return true;
-  const d = distanceMeters(placeLatLng(a), placeLatLng(b));
-  if (named && shareAny(keysOf(a, fullName), keysOf(b, fullName))) return d <= SAME_NAME_M;
-  return d <= SAME_SPOT_M;
+  if (!named || !shareAny(keysOf(a, fullName), keysOf(b, fullName))) return false;
+  return distanceMeters(placeLatLng(a), placeLatLng(b)) <= SAME_NAME_M;
 }
 
 const richness = (p: MosquePlace) => (p.name ? 4 : 0) + (p.address ? 2 : 0) + (p.nameAr || p.nameEn ? 1 : 0);
