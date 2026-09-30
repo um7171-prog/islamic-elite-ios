@@ -34,6 +34,7 @@ import { useNotifications } from "@/components/notifications/NotificationsProvid
 import { PageShell } from "@/components/site/PageHeader";
 import { IconBadge } from "@/components/site/IconBadge";
 import { OptionSheet, SettingsGroup, SettingsRow, SettingsSection } from "@/components/site/SettingsUI";
+import { MapsAppSettingRow } from "@/components/site/MapsAppSetting";
 import { ThemePicker } from "@/components/site/ThemePicker";
 import { SocialRows } from "@/components/site/SocialRows";
 import { shareApp } from "@/pages/MorePage";
@@ -156,6 +157,7 @@ export default function Settings() {
               description={auto ? t("Automatic", "تلقائي") : t("Manual city", "مدينة يدوية")}
               value={cityName}
             />
+            <MapsAppSettingRow />
           </SettingsGroup>
         </SettingsSection>
 

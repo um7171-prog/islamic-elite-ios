@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
-import { Compass, Loader2, LocateFixed, Map as MapIcon, MapPinned, Navigation, RefreshCw, SearchX, ShieldCheck, WifiOff } from "lucide-react";
+import { AlertTriangle, Compass, Loader2, LocateFixed, Map as MapIcon, MapPinned, Navigation, RefreshCw, SearchX, ShieldCheck, WifiOff } from "lucide-react";
+import { toast } from "sonner";
 import { useLocale } from "@/contexts/LocaleContext";
 import { HeaderIconButton, PageShell } from "@/components/site/PageHeader";
 import { IconBadge } from "@/components/site/IconBadge";
+import { MapsAppSheet } from "@/components/site/MapsAppSetting";
 import { SEO } from "@/components/SEO";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,7 +13,8 @@ import { isIOSNativeApp, openNativeAppSettings } from "@/lib/platform";
 import { useNearbyMosques } from "@/hooks/useNearbyMosques";
 import { SEARCH_RADII_M } from "@/lib/mosques/config";
 import { compassPoint, formatDistance, formatRadius, type CompassPoint, type DistanceUnits } from "@/lib/mosques/distance";
-import { directionsUrl, mapViewUrl, mapsTarget, type MapsTarget } from "@/lib/mosques/maps";
+import { directionsUrl, loadMapsApp, mapViewUrl, mapsTarget, saveMapsApp, type MapsAction, type MapsApp, type MapsTarget } from "@/lib/mosques/maps";
+import { openInMaps } from "@/lib/mosques/mapsLauncher";
 import type { Mosque } from "@/lib/mosques/model";
 
 /** Mosques rendered per "Show more" step (a 10 km search in a big city can return hundreds). */
@@ -38,6 +41,18 @@ export default function NearbyMosquesPage() {
   useEffect(() => setVisible(PAGE_SIZE), [mosques]);
 
   const radius = (m: number) => formatRadius(m, units.km);
+
+  // iPhone app: the mosque opens in the user's maps app (asked on the first tap, then remembered).
+  const [mapsApp, setMapsApp] = useState<MapsApp | null>(() => loadMapsApp());
+  const [pendingOpen, setPendingOpen] = useState<{ action: MapsAction; mosque: Mosque; name: string } | null>(null);
+  const launch = async (app: MapsApp, action: MapsAction, mosque: Mosque, name: string) => {
+    const { opened } = await openInMaps(app, action, mosque, name);
+    if (!opened) toast.error(t("Couldn't open Maps", "تعذّر فتح الخرائط"));
+  };
+  const openMosque = (action: MapsAction, mosque: Mosque, name: string) => {
+    if (mapsApp) void launch(mapsApp, action, mosque, name);
+    else setPendingOpen({ action, mosque, name });
+  };
 
   return (
     <PageShell
@@ -142,9 +157,34 @@ export default function NearbyMosquesPage() {
                 {t("Few mosques very close by, so the search was widened to", "لقلة المساجد القريبة جداً وُسِّع البحث تلقائياً إلى")} {radius(nearby.listRadiusM)}.
               </p>
             )}
+            {nearby.approximate && nearby.accuracyM !== null && (
+              <div data-testid="mosques-approximate" role="status" className={cn(BOX, "border-primary/25 bg-primary/[0.06]")}>
+                <p className="flex items-center gap-2 text-body font-medium">
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+                  {t("Your location is approximate", "موقعك تقريبي")} (±{formatDistance(nearby.accuracyM, units)})
+                </p>
+                <p className="text-body-sm leading-relaxed text-foreground/70">
+                  {t("Distances and order may be off. ", "قد لا تكون المسافات والترتيب دقيقة. ")}
+                  {native
+                    ? t(
+                        "Turn on Precise Location: iPhone Settings → Elite Islamic → Location → Precise Location.",
+                        "فعّل «الموقع الدقيق»: إعدادات iPhone ← النخبة الإسلامية ← الموقع ← الموقع الدقيق."
+                      )
+                    : t(
+                        "Turn on Precise Location for this browser in your device's location settings, then refresh.",
+                        "فعّل «الموقع الدقيق» لهذا المتصفح من إعدادات الموقع في جهازك ثم حدّث الصفحة."
+                      )}
+                </p>
+                {native && (
+                  <Button size="sm" variant="outline" onClick={() => void openNativeAppSettings()} data-testid="mosques-approximate-settings">
+                    {t("Open iPhone Settings", "فتح إعدادات iPhone")}
+                  </Button>
+                )}
+              </div>
+            )}
             <ul className={cn("space-y-3 transition-opacity", busy && "opacity-60")} aria-busy={busy} data-testid="mosques-list">
               {mosques.slice(0, visible).map((m, i) => (
-                <MosqueCard key={m.id} mosque={m} nearest={i === 0} units={units} target={target} />
+                <MosqueCard key={m.id} mosque={m} nearest={i === 0} units={units} target={target} onOpen={native ? openMosque : undefined} />
               ))}
             </ul>
             {mosques.length > visible && (
@@ -263,11 +303,39 @@ export default function NearbyMosquesPage() {
           </a>
         </p>
       </div>
+
+      {native && (
+        <MapsAppSheet
+          open={pendingOpen !== null}
+          onOpenChange={(open) => {
+            if (!open) setPendingOpen(null);
+          }}
+          value={mapsApp}
+          onChange={(app) => {
+            saveMapsApp(app);
+            setMapsApp(app);
+            if (pendingOpen) void launch(app, pendingOpen.action, pendingOpen.mosque, pendingOpen.name);
+          }}
+        />
+      )}
     </PageShell>
   );
 }
 
-function MosqueCard({ mosque, nearest, units, target }: { mosque: Mosque; nearest: boolean; units: DistanceUnits; target: MapsTarget }) {
+function MosqueCard({
+  mosque,
+  nearest,
+  units,
+  target,
+  onOpen,
+}: {
+  mosque: Mosque;
+  nearest: boolean;
+  units: DistanceUnits;
+  target: MapsTarget;
+  /** iPhone app: open in the chosen maps app (and check it opened) instead of following a link. */
+  onOpen?: (action: MapsAction, mosque: Mosque, name: string) => void;
+}) {
   const { t, lang } = useLocale();
   const name = (lang === "ar" ? mosque.nameAr ?? mosque.name : mosque.nameEn ?? mosque.name) ?? t("Nearby mosque", "مسجد قريب");
   const directions: Record<CompassPoint, string> = {
@@ -310,26 +378,51 @@ function MosqueCard({ mosque, nearest, units, target }: { mosque: Mosque; neares
         </div>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <a
-          href={directionsUrl(mosque, target)}
-          target="_blank"
-          rel="noopener noreferrer"
-          data-testid="mosque-directions"
-          className={cn(buttonVariants({ size: "sm" }), link)}
-        >
-          <Navigation />
-          {t("Directions", "الطريق")}
-        </a>
-        <a
-          href={mapViewUrl(mosque, name, target)}
-          target="_blank"
-          rel="noopener noreferrer"
-          data-testid="mosque-open-map"
-          className={cn(buttonVariants({ variant: "outline", size: "sm" }), link)}
-        >
-          <MapIcon />
-          {t("Open in Maps", "فتح في الخرائط")}
-        </a>
+        {onOpen ? (
+          <>
+            <button
+              type="button"
+              onClick={() => onOpen("directions", mosque, name)}
+              data-testid="mosque-directions"
+              className={cn(buttonVariants({ size: "sm" }), link)}
+            >
+              <Navigation />
+              {t("Directions", "الطريق")}
+            </button>
+            <button
+              type="button"
+              onClick={() => onOpen("view", mosque, name)}
+              data-testid="mosque-open-map"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), link)}
+            >
+              <MapIcon />
+              {t("Open in Maps", "فتح في الخرائط")}
+            </button>
+          </>
+        ) : (
+          <>
+            <a
+              href={directionsUrl(mosque, target)}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-testid="mosque-directions"
+              className={cn(buttonVariants({ size: "sm" }), link)}
+            >
+              <Navigation />
+              {t("Directions", "الطريق")}
+            </a>
+            <a
+              href={mapViewUrl(mosque, name, target)}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-testid="mosque-open-map"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), link)}
+            >
+              <MapIcon />
+              {t("Open in Maps", "فتح في الخرائط")}
+            </a>
+          </>
+        )}
       </div>
     </li>
   );

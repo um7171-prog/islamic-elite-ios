@@ -65,6 +65,10 @@
 	<string>يحفظ التطبيق الصور والملفات الناتجة في مكتبة الصور بناءً على طلبك.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>يستخدم تطبيق النخبة الإسلامية موقعك لتحديد مواقيت الصلاة والقبلة بدقة حسب مدينتك، ولعرض المساجد القريبة منك.</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>comgooglemaps</string>
+	</array>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>يستخدم التطبيق الميكروفون لتسجيل تلاوتك في «القراءة مع المعلم» لتستمع إليها على جهازك.</string>
 	<key>NSMotionUsageDescription</key>

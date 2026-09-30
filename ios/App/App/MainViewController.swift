@@ -11,12 +11,14 @@ import Capacitor
 /// once the bridge has created its web view.
 class MainViewController: CAPBridgeViewController {
 
-    // Register the app-local Capacitor plugin explicitly.
+    // Register the app-local Capacitor plugins explicitly.
     // App-target plugins are NOT package auto-registered by Capacitor; without this,
-    // registerPlugin("DocumentScanner") in TypeScript has no iOS implementation.
+    // registerPlugin("DocumentScanner") / registerPlugin("MapsLauncher") in TypeScript
+    // have no iOS implementation.
     // (Notifications need no app-local plugin: they use the official LocalNotifications plugin.)
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(DocumentScannerPlugin())
+        bridge?.registerPluginInstance(MapsLauncherPlugin())
     }
 
     /// Matches the CSS `--background` token: pure black (dark) / warm off-white (light).

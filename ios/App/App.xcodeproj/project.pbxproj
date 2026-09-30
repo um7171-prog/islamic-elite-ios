@@ -14,6 +14,7 @@
 		CC0011000000000000000002 /* DocumentScannerPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0011000000000000000001 /* DocumentScannerPlugin.swift */; };
 		CC0011010000000000000002 /* DocumentScannerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0011010000000000000001 /* DocumentScannerViewController.swift */; };
 		CC0011020000000000000002 /* DocumentImageProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0011020000000000000001 /* DocumentImageProcessor.swift */; };
+		CC0012000000000000000002 /* MapsLauncherPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0012000000000000000001 /* MapsLauncherPlugin.swift */; };
 		504EC30D1FED79650016851F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
@@ -40,6 +41,7 @@
 		CC0011000000000000000001 /* DocumentScannerPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentScannerPlugin.swift; sourceTree = "<group>"; };
 		CC0011010000000000000001 /* DocumentScannerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentScannerViewController.swift; sourceTree = "<group>"; };
 		CC0011020000000000000001 /* DocumentImageProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentImageProcessor.swift; sourceTree = "<group>"; };
+		CC0012000000000000000001 /* MapsLauncherPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapsLauncherPlugin.swift; sourceTree = "<group>"; };
 		504EC30C1FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		504EC30E1FED79650016851F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		504EC3111FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
@@ -97,6 +99,7 @@
 				CC0011000000000000000001 /* DocumentScannerPlugin.swift */,
 				CC0011010000000000000001 /* DocumentScannerViewController.swift */,
 				CC0011020000000000000001 /* DocumentImageProcessor.swift */,
+				CC0012000000000000000001 /* MapsLauncherPlugin.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
 				504EC3101FED79650016851F /* LaunchScreen.storyboard */,
@@ -215,6 +218,7 @@
 				CC0011000000000000000002 /* DocumentScannerPlugin.swift in Sources */,
 				CC0011010000000000000002 /* DocumentScannerViewController.swift in Sources */,
 				CC0011020000000000000002 /* DocumentImageProcessor.swift in Sources */,
+				CC0012000000000000000002 /* MapsLauncherPlugin.swift in Sources */,
 				AA001122000000000000000C /* MainViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

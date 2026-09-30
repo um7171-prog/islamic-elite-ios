@@ -20,7 +20,9 @@ export interface MosqueProvider {
 /**
  * One bounded query around the given point that covers every common way a mosque is
  * tagged in OSM (a feature matching several filters is returned once by the union).
- * `out tags center` gives areas (ways/relations) a centre point instead of full geometry.
+ * `out geom` returns each area's real outline (a building, or a multipolygon's rings), so its
+ * point can be placed on the building itself rather than at its bounding-box centre, and a
+ * mosque's point can be recognised inside its own building when removing duplicates.
  */
 export function buildOverpassQuery(center: LatLng, radiusM: number): string {
   if (!isValidCoordinate(center.lat, center.lng)) throw new MosqueSearchError("invalid-location");
@@ -31,7 +33,7 @@ export function buildOverpassQuery(center: LatLng, radiusM: number): string {
     `nwr["amenity"="place_of_worship"]["religion"="muslim"]${around};` +
     `nwr["amenity"="place_of_worship"]["place_of_worship"="mosque"]${around};` +
     `nwr["building"="mosque"]${around};` +
-    `);out tags center qt;`
+    `);out geom qt;`
   );
 }
 

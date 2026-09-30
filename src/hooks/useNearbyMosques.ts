@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getPosition, queryGeoPermission, type GeoFailure, type GeoFix, type GeoPermission } from "@/lib/geo";
 import {
+  APPROXIMATE_LOCATION_M,
   DEFAULT_RADIUS_M,
   FEW_RESULTS,
   FIRST_RADIUS_M,
+  LOCATION_MAX_AGE_MS,
   LOCATION_TIMEOUT_MS,
   RADIUS_DEBOUNCE_MS,
   SEARCH_RADII_M,
@@ -38,6 +40,8 @@ export interface NearbyState {
   autoExpanded: boolean;
   /** A position fix is held (in memory only). */
   located: boolean;
+  /** How precise that fix is, in metres as the device reported it (null when unknown). */
+  accuracyM: number | null;
 }
 
 export interface NearbyDeps {
@@ -55,10 +59,11 @@ const INITIAL: NearbyState = {
   locationTimedOut: false,
   autoExpanded: false,
   located: false,
+  accuracyM: null,
 };
 
-/** One fix, While-In-Use only: no watchPosition, no background, no interval. */
-const defaultLocate = () => getPosition(LOCATION_TIMEOUT_MS, true);
+/** One fresh, precise fix, While-In-Use only: no watchPosition, no background, no interval. */
+const defaultLocate = () => getPosition(LOCATION_TIMEOUT_MS, true, LOCATION_MAX_AGE_MS);
 
 const isBusy = (phase: NearbyPhase) => phase === "locating" || phase === "searching" || phase === "checking";
 
@@ -146,7 +151,8 @@ export function useNearbyMosques(deps: NearbyDeps = {}) {
         return;
       }
       originRef.current = { lat: fix.lat, lng: fix.lng };
-      setState((s) => ({ ...s, located: true }));
+      const accuracyM = Number.isFinite(fix.accuracy) && fix.accuracy > 0 ? fix.accuracy : null;
+      setState((s) => ({ ...s, located: true, accuracyM }));
       await search(radiusM, { ...opts, ticket });
     },
     [nextTicket, search],
@@ -238,5 +244,8 @@ export function useNearbyMosques(deps: NearbyDeps = {}) {
     if (next) setRadius(next);
   }, [setRadius]);
 
-  return { ...state, nextRadius, start, retry, refresh, setRadius, expandRadius };
+  /** The fix is too coarse to trust distances and order (e.g. Precise Location is off). */
+  const approximate = state.located && state.accuracyM !== null && state.accuracyM > APPROXIMATE_LOCATION_M;
+
+  return { ...state, approximate, nextRadius, start, retry, refresh, setRadius, expandRadius };
 }

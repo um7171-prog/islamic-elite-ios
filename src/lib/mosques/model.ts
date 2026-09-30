@@ -21,6 +21,9 @@ export interface MosquePlace {
   source: "osm";
   osmType?: OsmType;
   osmId?: number;
+  /** Building / area rings (ways and relations). Only used to recognise a point inside its own
+   * building while removing duplicates; dropped from the list the screen gets. */
+  outline?: LatLng[][];
 }
 
 /** A mosque measured from the user's current position. */

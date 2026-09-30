@@ -43,3 +43,9 @@ export const MIN_REFRESH_INTERVAL_MS = 20_000;
 export const RADIUS_DEBOUNCE_MS = 350;
 /** One position fix (never continuous tracking). */
 export const LOCATION_TIMEOUT_MS = 15_000;
+/** Every search takes a fresh fix: a cached one may be an older, coarser reading
+ * (another screen asks for a low-accuracy position). */
+export const LOCATION_MAX_AGE_MS = 0;
+/** A fix less precise than this (metres, as iOS reports it) is shown as approximate, with
+ * guidance to turn on Precise Location: distances and order could be off by that much. */
+export const APPROXIMATE_LOCATION_M = 100;

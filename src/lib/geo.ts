@@ -58,8 +58,9 @@ export async function queryGeoPermission(): Promise<GeoPermission> {
 /** One position fix. May show the system permission prompt when permission is
  * still undecided — only call this from a user action (or when permission is
  * already granted). `highAccuracy` asks for GPS-grade precision (a single
- * fix, never continuous tracking) where city-level accuracy is not enough. */
-export function getPosition(timeoutMs = 12_000, highAccuracy = false): Promise<GeoFix> {
+ * fix, never continuous tracking) where city-level accuracy is not enough;
+ * `maximumAgeMs: 0` refuses a cached fix (which may be an older, coarser one). */
+export function getPosition(timeoutMs = 12_000, highAccuracy = false, maximumAgeMs = 60_000): Promise<GeoFix> {
   return new Promise((resolve, reject) => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       reject("unsupported" as GeoFailure);
@@ -68,7 +69,7 @@ export function getPosition(timeoutMs = 12_000, highAccuracy = false): Promise<G
     navigator.geolocation.getCurrentPosition(
       (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy }),
       (e) => reject((e.code === 1 ? "denied" : e.code === 3 ? "timeout" : "unavailable") as GeoFailure),
-      { enableHighAccuracy: highAccuracy, timeout: timeoutMs, maximumAge: 60_000 },
+      { enableHighAccuracy: highAccuracy, timeout: timeoutMs, maximumAge: maximumAgeMs },
     );
   });
 }
