@@ -1,5 +1,5 @@
 import { ArrowRight, Bookmark, BookmarkCheck, Search, LayoutGrid,
-  Play, Pause, SkipBack, SkipForward, Square, Languages, Share2, Copy, BookText, BookOpenText, Settings2 } from "lucide-react";
+  Play, Pause, SkipBack, SkipForward, Square, Languages, Share2, Copy, BookText, BookOpenText, Settings2, ZoomIn, ZoomOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { readingUrlForPage } from "@/components/quran-reading/position";
 import { toArabicDigits, SURAHS, type PageInfo } from "@/lib/mushaf";
@@ -19,10 +19,9 @@ export function MushafTopBar({
   onOpen: (tab: "surah" | "juz" | "hizb" | "page" | "bookmarks") => void;
 }) {
   const { t, lang } = useLocale();
-  // The Mushaf itself is always read right-to-left (page N+1 sits to the
-  // left of page N regardless of UI language — see MushafReader.tsx), so
-  // this toolbar's layout direction stays fixed to match; only the text
-  // labels are translated.
+  // The Mushaf is an Arabic book whatever the UI language, so this toolbar's
+  // layout direction stays right-to-left; only the text labels are translated.
+  // (The pages themselves scroll vertically — see MushafReader.tsx.)
   return (
     <div
       dir="rtl"
@@ -55,7 +54,7 @@ export function MushafTopBar({
             flex-grow does, which starved the surah pill's flex-1 back down
             to almost nothing. Plain document order already puts this right
             before the bookmark/search buttons at the end of the row. */}
-        <span className="text-label text-white/90 px-2 shrink-0">{toArabicDigits(info.page)}</span>
+        <span className="text-label text-white/90 px-2 shrink-0" data-testid="mushaf-page-number">{toArabicDigits(info.page)}</span>
         <button onClick={onBookmark} className={btn} aria-label={t("Save page", "حفظ الصفحة")}>
           {/* text-elite-gold is a background-clip:text gradient meant for
               text nodes — applying it to an SVG icon would make the icon's
@@ -71,6 +70,7 @@ export function MushafTopBar({
 
 export function MushafBottomBar({
   visible, info, playing, audioActive, nowAyah, onAudio, onStop, onPrevAyah, onNextAyah, onTranslation, onShare, onCopy, onTafsir, onSettings,
+  zoomed = false, onZoomIn, onZoomOut,
 }: {
   visible: boolean;
   info: PageInfo;
@@ -86,9 +86,15 @@ export function MushafBottomBar({
   onCopy: () => void;
   onTafsir: () => void;
   onSettings: () => void;
+  /** The page on screen is zoomed (enables "zoom out"). */
+  zoomed?: boolean;
+  /** Zoom without a gesture (accessibility); omitted → no zoom buttons. */
+  onZoomIn?: () => void;
+  onZoomOut?: () => void;
 }) {
   const { t, lang } = useLocale();
   const navigate = useNavigate();
+  const zoomBtn = "h-10 w-10 shrink-0 grid place-items-center rounded-full bg-white/12 text-white active:scale-90 transition disabled:opacity-35";
   const items = [
     { key: "audio", Icon: playing ? Pause : Play, label: t("Audio", "الصوت"), on: onAudio },
     // Reading mode (/mushaf/read) at the first ayah of this page; replace: the two modes are one screen.
@@ -108,11 +114,23 @@ export function MushafBottomBar({
       )}
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", background: "linear-gradient(to top, rgba(0,0,0,.72), rgba(0,0,0,0))" }}
     >
-      <div className="text-center text-caption text-white/75 pt-3 pb-1 px-3 truncate">
-        <span className="font-arabic">{lang === "ar" ? info.mainSurah.ar : info.mainSurah.en}</span>
-        <span className="mx-1.5">·</span>{t(`Juz ${info.juz}`, `الجزء ${toArabicDigits(info.juz)}`)}
-        <span className="mx-1.5">·</span>{t(`Hizb ${info.hizb}`, `الحزب ${toArabicDigits(info.hizb)}`)}
-        <span className="mx-1.5">·</span>{t(`Page ${info.page}`, `صفحة ${toArabicDigits(info.page)}`)}
+      <div className="flex items-center gap-2 px-3 pt-3 pb-1">
+        {onZoomIn && (
+          <button type="button" onClick={onZoomIn} aria-label={t("Zoom in", "تكبير")} data-testid="mushaf-zoom-in" className={zoomBtn} style={{ touchAction: "manipulation" }}>
+            <ZoomIn className="h-5 w-5" />
+          </button>
+        )}
+        <div className="min-w-0 flex-1 text-center text-caption text-white/75 truncate">
+          <span className="font-arabic">{lang === "ar" ? info.mainSurah.ar : info.mainSurah.en}</span>
+          <span className="mx-1.5">·</span>{t(`Juz ${info.juz}`, `الجزء ${toArabicDigits(info.juz)}`)}
+          <span className="mx-1.5">·</span>{t(`Hizb ${info.hizb}`, `الحزب ${toArabicDigits(info.hizb)}`)}
+          <span className="mx-1.5">·</span>{t(`Page ${info.page}`, `صفحة ${toArabicDigits(info.page)}`)}
+        </div>
+        {onZoomOut && (
+          <button type="button" onClick={onZoomOut} disabled={!zoomed} aria-label={t("Zoom out", "تصغير")} data-testid="mushaf-zoom-out" className={zoomBtn} style={{ touchAction: "manipulation" }}>
+            <ZoomOut className="h-5 w-5" />
+          </button>
+        )}
       </div>
       {audioActive && nowAyah && (
         <div data-testid="mushaf-audio-controls" className="flex items-center justify-center gap-4 pb-1 text-white/90" dir="ltr">

@@ -1,10 +1,19 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { Minimize2 } from "lucide-react";
 import { useGoBack } from "@/components/site/PageHeader";
 import { toast } from "sonner";
 import { MushafPageView } from "./MushafPageView";
 import { MushafTopBar, MushafBottomBar } from "./MushafBars";
 import { MushafIndexSheet } from "./MushafIndexSheet";
 import { MushafExtrasSheet, type ExtrasMode } from "./MushafExtrasSheet";
+import {
+  clampScroll, computeLayout, pageAtScroll, pageTop, readingAnchor, sameLayout, scrollStep,
+  scrollTopForAnchor, scrollTopForPage, visiblePart, visibleRange, type ReaderLayout,
+} from "./readerLayout";
+import { createScrollAnimator, GOTO_MS } from "./smoothScroll";
+import { createMushafGestures } from "./mushafGestures";
+import { ZOOM_STEP } from "./pageZoom";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import {
@@ -16,130 +25,382 @@ import { SURAHS } from "@/lib/mushaf";
 import { noteQuranReading } from "@/lib/journey/sources";
 import { pageStartAyah, pageOfAyah, nextAyah, prevAyah, type AyahRef } from "@/lib/quranAudio";
 
-const SWIPE_PX = 55;
+/** Pages kept mounted beyond the ones on screen, on each side. */
+const BUFFER_PAGES = 2;
+/** Going to a page this close scrolls there smoothly; farther jumps are instant. */
+const NEAR_PAGES = 2;
+/** The reading position and the Journey are written once the page has settled. */
+const SAVE_DELAY_MS = 400;
+const BARS_HIDE_MS = 3200;
+/** Scrolling by hand this far hides the toolbars (the Mushaf stays the focus). */
+const HIDE_BARS_ON_SCROLL_PX = 24;
 
+type Keyed<T> = Record<string, T>;
+const SCROLL_KEYS: Keyed<1 | -1> = { ArrowDown: 1, ArrowLeft: 1, ArrowUp: -1, ArrowRight: -1 };
+
+/** env(safe-area-inset-*) as numbers (0 where unsupported). */
+function readSafeAreas() {
+  const zero = { top: 0, right: 0, bottom: 0, left: 0 };
+  if (typeof document === "undefined" || !document.body) return zero;
+  const probe = document.createElement("div");
+  probe.style.cssText =
+    "position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;" +
+    "padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)";
+  document.body.appendChild(probe);
+  const cs = getComputedStyle(probe);
+  const px = (v: string) => {
+    const n = parseFloat(v);
+    return Number.isFinite(n) ? n : 0;
+  };
+  const insets = { top: px(cs.paddingTop), right: px(cs.paddingRight), bottom: px(cs.paddingBottom), left: px(cs.paddingLeft) };
+  probe.remove();
+  return insets;
+}
+
+const prefersReducedMotion = () => {
+  try {
+    return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+  } catch {
+    return false;
+  }
+};
+
+/** ?page= when it is a real page; otherwise the saved reading position. */
+function startPage(param: string | null): number {
+  const p = Number(param);
+  return param !== null && param !== "" && Number.isFinite(p) && p >= 1 && p <= TOTAL_PAGES ? clampPage(p) : loadPosition().page;
+}
+
+/**
+ * The Mushaf reader: all 604 pages on one vertical column, read top to bottom with the
+ * browser's own continuous (momentum) scrolling — no paging, no horizontal movement.
+ * Each page is shown whole at fit width in its original aspect ratio; pinch / double tap
+ * zooms one page in place (see mushafGestures.ts). Only the pages around the screen are
+ * mounted, but every page keeps its exact place in the column, so the reading position,
+ * page detection, bookmarks, search and "go to page" never depend on what is mounted.
+ */
 export function MushafReader() {
   // Back returns to the previous screen; opened directly (no history) it goes to the Quran index.
   const goBack = useGoBack("/quran");
   const { theme } = useTheme();
   const { t } = useLocale();
   const night = theme === "night";
+  const [searchParams] = useSearchParams();
+  const pageParam = searchParams.get("page");
 
-  const [page, setPage] = useState(() => loadPosition().page);
+  const [page, setPage] = useState(() => startPage(pageParam));
+  const [layout, setLayout] = useState<ReaderLayout | null>(null);
+  const [range, setRange] = useState({ first: page, last: page });
+  const [zoomPage, setZoomPage] = useState<number | null>(null);
   const [bars, setBars] = useState(true);
-  const [zoomed, setZoomed] = useState(false);
-  const [resetToken, setResetToken] = useState(0);
   const [indexTab, setIndexTab] = useState<"surah" | "juz" | "hizb" | "page" | "bookmarks" | null>(null);
   const [extras, setExtras] = useState<ExtrasMode>(null);
   const [bookmarks, setBookmarks] = useState<MushafBookmark[]>(() => loadBookmarks());
   const [reciterId, setReciterId] = useState(() => getSelectedReciterId());
   const [playing, setPlaying] = useState(false);
 
-  const trackRef = useRef<HTMLDivElement | null>(null);
-  const drag = useRef({ x: 0, y: 0, dx: 0, active: false, decided: false as boolean | "h" | "v" });
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const barsTimer = useRef<number | null>(null);
+  const layers = useRef(new Map<number, HTMLElement>());
+  // Always the page on screen (updated together with `page`, never behind it).
+  const pageRef = useRef(page);
+  const layoutRef = useRef<ReaderLayout | null>(layout);
+  layoutRef.current = layout;
+  const lastScrollTop = useRef(0);
+  const placedLayout = useRef<ReaderLayout | null>(null);
+  const programmaticUntil = useRef(0);
+  const barsRef = useRef(bars);
+  barsRef.current = bars;
+  const barsShownAt = useRef(0);
+  const goBackRef = useRef(goBack);
+  goBackRef.current = goBack;
+  const sheetOpenRef = useRef(false);
+  sheetOpenRef.current = indexTab !== null || extras !== null;
 
   const info = useMemo(() => getPageInfo(page), [page]);
   const bookmarked = bookmarks.some((b) => b.page === page);
-  // RTL reading: page N+1 lives to the LEFT of page N.
-  const slots = useMemo(() => [page - 1, page, page + 1].filter((p) => p >= 1 && p <= TOTAL_PAGES), [page]);
+
+  const markProgrammatic = useCallback((ms = 150) => {
+    programmaticUntil.current = Date.now() + ms;
+  }, []);
+
+  const showPage = useCallback((p: number) => {
+    if (p === pageRef.current) return;
+    pageRef.current = p;
+    setPage(p);
+  }, []);
+
+  const animator = useMemo(
+    () =>
+      createScrollAnimator(
+        () => scrollerRef.current,
+        (y) => (layoutRef.current ? clampScroll(layoutRef.current, y) : Math.max(0, y)),
+        { onFrame: () => { programmaticUntil.current = Date.now() + 150; }, reducedMotion: prefersReducedMotion },
+      ),
+    [],
+  );
+
+  const toggleBarsRef = useRef(() => setBars((v) => !v));
+  const registerLayer = useCallback((p: number, el: HTMLElement | null) => {
+    if (el) layers.current.set(p, el);
+    else layers.current.delete(p);
+  }, []);
+
+  const settleRef = useRef(() => {});
+  const gestures = useMemo(
+    () =>
+      createMushafGestures({
+        scroller: () => scrollerRef.current,
+        layout: () => layoutRef.current,
+        layer: (p) => layers.current.get(p) ?? null,
+        onZoomPage: setZoomPage,
+        onTap: () => toggleBarsRef.current(),
+        onUserInput: () => animator.stop(),
+        onSettle: () => settleRef.current(),
+      }),
+    [animator],
+  );
+  // A zoomed page that has left the screen goes back to fit width (never mid-gesture).
+  settleRef.current = () => {
+    const L = layoutRef.current;
+    const el = scrollerRef.current;
+    const z = gestures.zoomedPage();
+    if (L && el && z !== null && !gestures.gestureActive() && visiblePart(L, el.scrollTop, z) === 0) gestures.resetZoom(false);
+  };
+
+  useEffect(() => {
+    gestures.attach();
+    return () => gestures.detach();
+  }, [gestures]);
+  useEffect(() => () => animator.stop(), [animator]);
+
+  /* ---------- layout: fit width from the real viewport and safe areas ---------- */
+  const measure = useCallback(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const safe = readSafeAreas();
+    const next = computeLayout({
+      width: el.clientWidth || window.innerWidth,
+      height: el.clientHeight || window.innerHeight,
+      safeTop: safe.top,
+      safeBottom: safe.bottom,
+      safeLeft: safe.left,
+      safeRight: safe.right,
+    });
+    setLayout((cur) => (sameLayout(cur, next) ? cur : next));
+  }, []);
+
+  useLayoutEffect(() => {
+    measure();
+    const el = scrollerRef.current;
+    const ro = typeof ResizeObserver !== "undefined" && el ? new ResizeObserver(() => measure()) : null;
+    if (ro && el) ro.observe(el);
+    window.addEventListener("resize", measure);
+    window.addEventListener("orientationchange", measure);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("orientationchange", measure);
+    };
+  }, [measure]);
+
+  // First layout: open at the starting page. Any later relayout (rotation, split view,
+  // window resize): keep the same place in the same page under the viewport centre.
+  useLayoutEffect(() => {
+    const el = scrollerRef.current;
+    if (!layout || !el) return;
+    const prev = placedLayout.current;
+    placedLayout.current = layout;
+    if (prev) gestures.resetZoom(false);
+    const y = prev ? scrollTopForAnchor(layout, readingAnchor(prev, lastScrollTop.current)) : scrollTopForPage(layout, pageRef.current);
+    markProgrammatic();
+    el.scrollTop = y;
+    lastScrollTop.current = y;
+    setRange(visibleRange(layout, y, BUFFER_PAGES));
+    if (prev) showPage(pageAtScroll(layout, y));
+  }, [layout, gestures, markProgrammatic, showPage]);
+
+  /* ---------- scrolling: current page, mounted range, toolbars ---------- */
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const L = layoutRef.current;
+      if (!L) return;
+      const st = el.scrollTop;
+      lastScrollTop.current = st;
+      showPage(pageAtScroll(L, st));
+      const r = visibleRange(L, st, BUFFER_PAGES);
+      setRange((cur) => (cur.first === r.first && cur.last === r.last ? cur : r));
+      settleRef.current();
+      if (barsRef.current && Date.now() > programmaticUntil.current && Math.abs(st - barsShownAt.current) > HIDE_BARS_ON_SCROLL_PX) {
+        setBars(false);
+      }
+    };
+    // One update per frame at most, however many scroll events arrive.
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [showPage]);
 
   /* ---------- persistence + preloading ---------- */
-  useEffect(() => { savePosition(page); preloadWindow(page, 2); noteQuranReading(page); }, [page]);
-
-  /* ---------- auto-hide toolbars ---------- */
-  const scheduleHide = useCallback(() => {
-    if (barsTimer.current) window.clearTimeout(barsTimer.current);
-    barsTimer.current = window.setTimeout(() => setBars(false), 3200);
+  const savedPage = useRef<number | null>(null);
+  useEffect(() => {
+    preloadWindow(page, 2);
+    const id = window.setTimeout(() => {
+      savePosition(page);
+      noteQuranReading(page);
+      savedPage.current = page;
+    }, SAVE_DELAY_MS);
+    return () => window.clearTimeout(id);
+  }, [page]);
+  // Leaving the reader (or the app going to the background) never loses the last page.
+  useEffect(() => {
+    const flush = () => {
+      const p = pageRef.current;
+      if (savedPage.current === p) return;
+      savePosition(p);
+      noteQuranReading(p);
+      savedPage.current = p;
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", flush);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", flush);
+      flush();
+    };
   }, []);
-  useEffect(() => { if (bars) scheduleHide(); return () => { if (barsTimer.current) window.clearTimeout(barsTimer.current); }; }, [bars, scheduleHide]);
 
-  const toggleBars = useCallback(() => setBars((v) => !v), []);
+  /* ---------- toolbars: auto-hide ---------- */
+  useEffect(() => {
+    if (!bars) return;
+    barsShownAt.current = scrollerRef.current?.scrollTop ?? 0;
+    const id = window.setTimeout(() => setBars(false), BARS_HIDE_MS);
+    return () => window.clearTimeout(id);
+  }, [bars]);
 
   /* ---------- navigation ---------- */
-  const goTo = useCallback((p: number, opts?: { silent?: boolean }) => {
-    const next = clampPage(p);
-    setPage((cur) => {
-      if (cur === next) return cur;
-      setResetToken((t) => t + 1);
-      return next;
-    });
+  const goTo = useCallback((p: number, opts?: { silent?: boolean; smooth?: boolean }) => {
+    const target = clampPage(p);
     if (!opts?.silent) setBars(true);
-  }, []);
-
-  const nextPage = useCallback(() => goTo(page + 1, { silent: true }), [goTo, page]);
-  const prevPage = useCallback(() => goTo(page - 1, { silent: true }), [goTo, page]);
-
-  /* ---------- swipe (transform-only, GPU) ---------- */
-  const rafId = useRef<number | null>(null);
-  const pendingDx = useRef(0);
-  const applyOffset = (dx: number) => {
-    pendingDx.current = dx;
-    if (rafId.current !== null) return;
-    rafId.current = requestAnimationFrame(() => {
-      rafId.current = null;
-      const el = trackRef.current;
-      if (el) el.style.transform = `translate3d(${pendingDx.current}px,0,0)`;
-    });
-  };
-  const settle = (dx: number) => {
-    const el = trackRef.current;
-    if (el) { el.style.transition = "transform .26s cubic-bezier(.22,.61,.36,1)"; el.style.transform = `translate3d(${dx}px,0,0)`; }
-  };
-  const clearTrack = () => {
-    if (rafId.current !== null) { cancelAnimationFrame(rafId.current); rafId.current = null; }
-    const el = trackRef.current;
-    if (!el) return;
-    el.style.transition = "none";
-    el.style.transform = "translate3d(0,0,0)";
-  };
-
-  const onPointerDown = (e: React.PointerEvent) => {
-    if (zoomed || e.pointerType === "mouse" && e.buttons !== 1) return;
-    drag.current = { x: e.clientX, y: e.clientY, dx: 0, active: true, decided: false };
-    const el = trackRef.current;
-    if (el) el.style.transition = "none";
-  };
-  const onPointerMove = (e: React.PointerEvent) => {
-    const d = drag.current;
-    if (!d.active || zoomed) return;
-    const dx = e.clientX - d.x;
-    const dy = e.clientY - d.y;
-    if (!d.decided) {
-      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-      d.decided = Math.abs(dx) > Math.abs(dy) ? "h" : "v";
-      if (d.decided === "v") { d.active = false; return; }
+    const L = layoutRef.current;
+    const el = scrollerRef.current;
+    if (!L || !el) {
+      // Before the first layout: the layout effect opens at pageRef.
+      showPage(target);
+      return;
     }
-    d.dx = dx;
-    // Resistance at the two ends of the Mushaf.
-    const atEnd = (dx > 0 && page >= TOTAL_PAGES) || (dx < 0 && page <= 1);
-    applyOffset(atEnd ? dx * 0.25 : dx);
-  };
-  const onPointerUp = () => {
-    const d = drag.current;
-    if (!d.active) { drag.current.active = false; return; }
-    d.active = false;
-    const w = trackRef.current?.clientWidth ?? window.innerWidth;
-    if (d.decided !== "h" || Math.abs(d.dx) < SWIPE_PX) { settle(0); window.setTimeout(clearTrack, 270); return; }
-    // Swipe right (dx > 0) reveals the previous slot on the right => higher page in RTL.
-    const forward = d.dx > 0;
-    const target = forward ? page + 1 : page - 1;
-    if (target < 1 || target > TOTAL_PAGES) { settle(0); window.setTimeout(clearTrack, 270); return; }
-    settle(forward ? w : -w);
-    window.setTimeout(() => { clearTrack(); if (forward) nextPage(); else prevPage(); }, 240);
-  };
+    gestures.resetZoom(false);
+    const y = scrollTopForPage(L, target);
+    const smooth = opts?.smooth ?? Math.abs(target - pageRef.current) <= NEAR_PAGES;
+    if (smooth) {
+      markProgrammatic(GOTO_MS + 150);
+      animator.to(y, GOTO_MS);
+      return;
+    }
+    // Far away (index, search, bookmark): straight there, not through every page between.
+    animator.stop();
+    markProgrammatic();
+    el.scrollTop = y;
+    lastScrollTop.current = y;
+    setRange(visibleRange(L, y, BUFFER_PAGES));
+    showPage(pageAtScroll(L, y));
+  }, [animator, gestures, markProgrammatic, showPage]);
 
-  /* ---------- keyboard ---------- */
+  // A new ?page= while the reader is open (the first one is the starting page).
+  const seenParam = useRef(pageParam);
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "ArrowLeft") nextPage();
-      else if (e.key === "ArrowRight") prevPage();
-      else if (e.key === "Escape") goBack();
+    if (pageParam === seenParam.current) return;
+    seenParam.current = pageParam;
+    const p = Number(pageParam);
+    if (pageParam && Number.isFinite(p) && p >= 1 && p <= TOTAL_PAGES) goTo(p, { silent: true, smooth: false });
+  }, [pageParam, goTo]);
+
+  /* ---------- keyboard: small smooth steps, never a page jump ---------- */
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.altKey || e.metaKey || e.ctrlKey) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest?.("input, textarea, select, [contenteditable='true']")) return;
+      if (sheetOpenRef.current) {
+        if (e.key === "Escape") {
+          setIndexTab(null);
+          setExtras(null);
+        }
+        return;
+      }
+      const L = layoutRef.current;
+      if (!L) return;
+      const dir = SCROLL_KEYS[e.key];
+      if (dir) {
+        e.preventDefault();
+        // A tap moves a little; holding the key keeps moving smoothly until it is released.
+        if (e.repeat) animator.hold(dir);
+        else animator.by(dir * scrollStep(L));
+        return;
+      }
+      switch (e.key) {
+        case " ":
+          if (target?.closest?.("button, a")) return;
+        // falls through
+        case "PageDown":
+        case "PageUp": {
+          // A bigger step (half a screen), still smooth and never aligned to a page turn.
+          e.preventDefault();
+          const down = e.key === "PageDown" || (e.key === " " && !e.shiftKey);
+          animator.by((down ? 1 : -1) * Math.round(L.viewportH / 2));
+          return;
+        }
+        case "Home":
+          e.preventDefault();
+          goTo(1, { silent: true });
+          return;
+        case "End":
+          e.preventDefault();
+          goTo(TOTAL_PAGES, { silent: true });
+          return;
+        case "+":
+        case "=":
+          e.preventDefault();
+          gestures.zoomBy(ZOOM_STEP, pageRef.current);
+          return;
+        case "-":
+          e.preventDefault();
+          gestures.zoomBy(1 / ZOOM_STEP, pageRef.current);
+          return;
+        case "0":
+          gestures.resetZoom(true);
+          return;
+        case "Escape":
+          if (gestures.zoomedPage() !== null) gestures.resetZoom(true);
+          else goBackRef.current();
+          return;
+      }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [nextPage, prevPage, goBack]);
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (SCROLL_KEYS[e.key]) animator.release();
+    };
+    const onBlur = () => animator.release();
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, [animator, gestures, goTo]);
 
   /* ---------- audio (page-aware, ayah by ayah) ---------- */
   // Playback always starts at the first ayah printed on the CURRENT page
@@ -150,8 +411,6 @@ export function MushafReader() {
   const cursorRef = useRef<AyahRef | null>(null);
   const reciterRef = useRef(reciterId);
   reciterRef.current = reciterId;
-  const pageRef = useRef(page);
-  pageRef.current = page;
   const playAyahRef = useRef<(ref: AyahRef) => Promise<void>>(async () => undefined);
 
   const stopAudio = useCallback(() => {
@@ -261,51 +520,54 @@ export function MushafReader() {
     catch { toast.error(t("Couldn't copy", "تعذّر النسخ")); }
   };
 
-  /* ---------- deep link ?page= / ?surah= ---------- */
-  useEffect(() => {
-    const sp = new URLSearchParams(window.location.search);
-    const p = Number(sp.get("page"));
-    if (Number.isFinite(p) && p >= 1 && p <= TOTAL_PAGES) goTo(p, { silent: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const pages = useMemo(() => {
+    if (!layout) return [];
+    const list: number[] = [];
+    for (let p = range.first; p <= range.last; p++) list.push(p);
+    return list;
+  }, [layout, range]);
 
   return (
     <div
       dir="rtl"
-      className="fixed inset-0 overflow-hidden touch-none select-none"
+      className="fixed inset-0 overflow-hidden select-none"
       style={{ background: night ? "#0b0f14" : "#f6f1e4" }}
     >
-      {/* swipe track holding prev / current / next */}
+      {/* The one vertical scroll view: pages top to bottom, no horizontal overflow, no snapping. */}
       <div
-        ref={trackRef}
+        ref={scrollerRef}
+        data-testid="mushaf-scroller"
+        dir="ltr"
+        role="region"
+        aria-label={t("Mushaf pages", "صفحات المصحف")}
+        onClick={(e) => gestures.click(e.nativeEvent)}
         className="absolute inset-0"
-        style={{ willChange: "transform", transform: "translate3d(0,0,0)" }}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
+        style={{
+          overflowX: "hidden",
+          overflowY: "auto",
+          overscrollBehavior: "contain",
+          overflowAnchor: "none",
+          WebkitOverflowScrolling: "touch",
+          touchAction: "pan-y",
+        }}
       >
-        {slots.map((p) => (
-          <div
-            key={p}
-            className="absolute inset-0"
-            style={{
-              // RTL: previous page sits to the right, next page to the left.
-              transform: `translate3d(${(page - p) * 100}%,0,0)`,
-              backfaceVisibility: "hidden",
-              contain: "strict",
-            }}
-          >
-            <MushafPageView
-              page={p}
-              active={p === page}
-              night={night}
-              resetToken={p === page ? resetToken : 0}
-              onZoomChange={(s) => setZoomed(s > 1.01)}
-              onTap={toggleBars}
-            />
+        {layout && (
+          <div data-testid="mushaf-column" className="relative w-full" style={{ height: layout.contentH }}>
+            {pages.map((p) => (
+              <MushafPageView
+                key={p}
+                page={p}
+                top={pageTop(layout, p)}
+                left={layout.left}
+                width={layout.pageW}
+                height={layout.pageH}
+                night={night}
+                zoomed={zoomPage === p}
+                registerLayer={registerLayer}
+              />
+            ))}
           </div>
-        ))}
+        )}
       </div>
 
       <MushafTopBar
@@ -314,7 +576,7 @@ export function MushafReader() {
         bookmarked={bookmarked}
         onBack={goBack}
         onBookmark={onBookmark}
-        onOpen={(t) => { setIndexTab(t); setBars(true); }}
+        onOpen={(tab) => { setIndexTab(tab); setBars(true); }}
       />
 
       <MushafBottomBar
@@ -332,7 +594,24 @@ export function MushafReader() {
         onCopy={onCopy}
         onShare={onShare}
         onSettings={() => setExtras("settings")}
+        zoomed={zoomPage !== null}
+        onZoomIn={() => gestures.zoomBy(ZOOM_STEP, pageRef.current)}
+        onZoomOut={() => gestures.zoomBy(1 / ZOOM_STEP, pageRef.current)}
       />
+
+      {/* While a page is zoomed and the toolbars are hidden: one tap back to the whole page. */}
+      {zoomPage !== null && !bars && (
+        <button
+          type="button"
+          data-testid="mushaf-zoom-fit"
+          onClick={() => gestures.resetZoom(true)}
+          className="fixed left-1/2 z-40 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-black/65 px-4 py-2.5 text-label text-white shadow-lg active:scale-95 transition-transform"
+          style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)", touchAction: "manipulation" }}
+        >
+          <Minimize2 className="h-4 w-4" />
+          {t("Show full page", "عرض الصفحة كاملة")}
+        </button>
+      )}
 
       <MushafIndexSheet
         key={indexTab ?? "closed"}

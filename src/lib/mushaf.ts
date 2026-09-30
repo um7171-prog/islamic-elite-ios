@@ -2,7 +2,10 @@
 import { PAGE_INFO, SURAHS, JUZ_PAGES, HIZB_PAGES, type SurahMeta } from "./mushafData";
 
 export const TOTAL_PAGES = 604;
-export const PAGE_RATIO = 1280 / 2071; // width / height of the source images
+/** Pixel size of every source page image (all 604 pages share it). */
+export const PAGE_IMAGE_WIDTH = 1280;
+export const PAGE_IMAGE_HEIGHT = 2071;
+export const PAGE_RATIO = PAGE_IMAGE_WIDTH / PAGE_IMAGE_HEIGHT; // width / height of the source images
 
 const CDN = "https://cdn.jsdelivr.net/gh/Five-Prayers/quran-pages@main/quran_pages";
 const MIRROR = "https://raw.githubusercontent.com/Five-Prayers/quran-pages/main/quran_pages";
