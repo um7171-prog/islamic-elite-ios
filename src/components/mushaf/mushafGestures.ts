@@ -1,7 +1,8 @@
 import { clampScroll, pageAtY, pageTop, type ReaderLayout } from "./readerLayout";
 import {
-  DOUBLE_TAP_ZOOM, FIT, isZoomed, panBy, pinchZoom, settleZoom, zoomAt, zoomTransform, type ZoomState,
+  DOUBLE_TAP_ZOOM, FIT, comfortableZoom, isZoomed, panBy, pinchZoom, zoomAt, zoomTransform, type ZoomState,
 } from "./pageZoom";
+import { inkBounds } from "./pageInk";
 
 /**
  * Touch / trackpad / mouse handling for the vertical Mushaf, attached once to the scroll
@@ -15,13 +16,24 @@ import {
  *   pan reaches the page's top/bottom edge, the rest of the movement scrolls the reader, so the
  *   user is never stuck inside a zoomed page.
  * - Pinching back below FIT_SNAP (or double-tapping) returns the page to fit width, in place.
+ * - When a zoom / pan gesture ends, the page glides to the nearest comfortable reading position
+ *   (comfortableZoom): whole lines centred when they fit, edges aligned to the text — so a line is
+ *   never left cut by accident at the side of the screen.
+ * - Holding a finger still on a page (or a right-click) opens that page's ayahs.
  *
  * Transforms are written straight to the page's zoom layer (no React render per frame).
  */
 
 export const DOUBLE_TAP_MS = 260;
+export const LONG_PRESS_MS = 500;
 const DOUBLE_TAP_SLOP = 40;
+const LONG_PRESS_SLOP = 10;
+const WHEEL_SETTLE_MS = 180;
 const ZOOM_ANIMATION = "transform 260ms cubic-bezier(.22,.61,.36,1)";
+
+/** What the user just did: a plain touch may still become a tap or a native scroll; the others
+ * are the user taking the page over (zoom / pan / trackpad / mouse drag). */
+export type InputKind = "touch" | "pinch" | "pan" | "wheel" | "drag";
 
 export interface GestureHost {
   scroller: () => HTMLElement | null;
@@ -33,9 +45,11 @@ export interface GestureHost {
   /** A single tap (not part of a double tap). */
   onTap: () => void;
   /** The user touched / wheeled the reader: programmatic scrolling must yield. */
-  onUserInput: () => void;
+  onUserInput: (kind: InputKind) => void;
   /** A finger / mouse gesture ended (a zoomed page pushed off screen can now return to fit). */
   onSettle?: () => void;
+  /** A long press (or right-click) on a page. */
+  onLongPress?: (page: number) => void;
 }
 
 export interface MushafGestures {
@@ -74,6 +88,8 @@ export function createMushafGestures(host: GestureHost): MushafGestures {
   let suppressClick = false;
   let lastTap: { t: number; x: number; y: number } | null = null;
   let tapTimer: ReturnType<typeof setTimeout> | null = null;
+  let press: { timer: ReturnType<typeof setTimeout>; x: number; y: number } | null = null;
+  let wheelTimer: ReturnType<typeof setTimeout> | null = null;
   let attachedTo: HTMLElement | null = null;
 
   const paint = (animated: boolean) => {
@@ -134,8 +150,21 @@ export function createMushafGestures(host: GestureHost): MushafGestures {
     if (el && L) el.scrollTop = clampScroll(L, el.scrollTop - restY);
   };
 
+  /** End of a gesture: fit width when barely zoomed, else the nearest comfortable reading
+   * position (animated, so it reads as a gentle correction, not a jump). */
+  const settle = () => {
+    const L = host.layout();
+    if (!L || owner === null) return;
+    zoom = comfortableZoom(zoom, L.pageW, L.pageH, inkBounds(owner));
+    if (isZoomed(zoom)) paint(true);
+    else resetZoom(true);
+  };
+
   const startGlide = (vx: number, vy: number) => {
-    if (Math.hypot(vx, vy) < 0.05) return;
+    if (Math.hypot(vx, vy) < 0.05) {
+      settle();
+      return;
+    }
     let last = now();
     const frame = () => {
       const L = host.layout();
@@ -152,24 +181,26 @@ export function createMushafGestures(host: GestureHost): MushafGestures {
       const decay = 0.95 ** (dt / 16);
       vx = r.restX ? 0 : vx * decay;
       vy = r.restY ? 0 : vy * decay;
-      glide = Math.hypot(vx, vy) > 0.02 ? requestAnimationFrame(frame) : 0;
+      if (Math.hypot(vx, vy) > 0.02) glide = requestAnimationFrame(frame);
+      else {
+        glide = 0;
+        settle();
+      }
     };
     glide = requestAnimationFrame(frame);
   };
 
-  const settle = () => {
-    const L = host.layout();
-    if (!L || owner === null) return;
-    zoom = settleZoom(zoom, L.pageW, L.pageH);
-    if (isZoomed(zoom)) paint(true);
-    else resetZoom(true);
+  const cancelPress = () => {
+    if (press) clearTimeout(press.timer);
+    press = null;
   };
 
   /* ---------- touch ---------- */
 
   const onTouchStart = (e: TouchEvent) => {
-    host.onUserInput();
     stopGlide();
+    cancelPress();
+    if (e.touches.length === 1) suppressClick = false; // a new touch: a leftover long-press flag is stale
     if (e.touches.length >= 2) {
       // A second finger during a native scroll can't be taken over (the browser owns that
       // gesture): zooming on top of it would fight the scroll, so it waits for a fresh pinch.
@@ -177,20 +208,47 @@ export function createMushafGestures(host: GestureHost): MushafGestures {
       const m = midpoint(e.touches[0], e.touches[1]);
       const pt = pointIn(null, m.clientX, m.clientY);
       if (!pt || !host.layer(pt.page)) return;
+      host.onUserInput("pinch");
       if (owner !== pt.page) setOwner(pt.page);
       pinch = { d0: Math.max(1, distance(e.touches[0], e.touches[1])), start: { ...zoom }, m0: { x: pt.x, y: pt.y } };
       pan = null;
-      if (e.cancelable) e.preventDefault();
+      e.preventDefault();
       return;
     }
-    if (e.touches.length === 1 && owner !== null && isZoomed(zoom)) {
-      const t = e.touches[0];
+    if (e.touches.length !== 1) return;
+    const t = e.touches[0];
+    if (owner !== null && isZoomed(zoom)) {
       const pt = pointIn(owner, t.clientX, t.clientY);
-      if (pt && inside(pt)) pan = { x: t.clientX, y: t.clientY, t: now(), vx: 0, vy: 0 };
+      if (pt && inside(pt)) {
+        host.onUserInput("pan");
+        pan = { x: t.clientX, y: t.clientY, t: now(), vx: 0, vy: 0 };
+        return;
+      }
+    }
+    host.onUserInput("touch");
+    // A finger held still on a page opens its ayahs (moving, lifting or scrolling cancels it).
+    if (host.onLongPress) {
+      const pt = pointIn(null, t.clientX, t.clientY);
+      if (pt && inside(pt)) {
+        const page = pt.page;
+        press = {
+          x: t.clientX,
+          y: t.clientY,
+          timer: setTimeout(() => {
+            press = null;
+            suppressClick = true; // the lift that follows is not a tap
+            host.onLongPress?.(page);
+          }, LONG_PRESS_MS),
+        };
+      }
     }
   };
 
   const onTouchMove = (e: TouchEvent) => {
+    if (press && e.touches.length === 1) {
+      const t = e.touches[0];
+      if (Math.hypot(t.clientX - press.x, t.clientY - press.y) > LONG_PRESS_SLOP) cancelPress();
+    }
     const L = host.layout();
     if (!L || owner === null) return;
     if (pinch && e.touches.length >= 2) {
@@ -224,6 +282,7 @@ export function createMushafGestures(host: GestureHost): MushafGestures {
   };
 
   const onTouchEnd = (e: TouchEvent) => {
+    cancelPress();
     if (pinch && e.touches.length < 2) {
       pinch = null;
       settle();
@@ -237,12 +296,34 @@ export function createMushafGestures(host: GestureHost): MushafGestures {
       const { vx, vy, t } = pan;
       pan = null;
       host.onSettle?.();
-      // Lifted while still moving: a short glide inside the page (never into the reader).
-      if (owner !== null && now() - t < 80) startGlide(vx, vy);
+      if (owner === null) return;
+      // Lifted while still moving: a short glide inside the page (never into the reader), then the
+      // comfortable-position correction; lifted still: the correction right away.
+      if (now() - t < 80) startGlide(vx, vy);
+      else settle();
     }
   };
 
+  const onScroll = () => cancelPress();
+
+  const onContextMenu = (e: MouseEvent) => {
+    const pt = pointIn(null, e.clientX, e.clientY);
+    if (!pt || !inside(pt) || !host.onLongPress) return;
+    e.preventDefault();
+    cancelPress();
+    host.onLongPress(pt.page);
+  };
+
   /* ---------- trackpad / wheel / mouse (web) ---------- */
+
+  /** The wheel has no "end" event: settle once it has been quiet for a moment. */
+  const settleAfterWheel = () => {
+    if (wheelTimer) clearTimeout(wheelTimer);
+    wheelTimer = setTimeout(() => {
+      wheelTimer = null;
+      if (!pinch && !pan && !mouse) settle();
+    }, WHEEL_SETTLE_MS);
+  };
 
   const onWheel = (e: WheelEvent) => {
     const L = host.layout();
@@ -253,11 +334,13 @@ export function createMushafGestures(host: GestureHost): MushafGestures {
       const pt = pointIn(null, e.clientX, e.clientY);
       if (!pt || !host.layer(pt.page)) return;
       e.preventDefault();
-      host.onUserInput();
+      host.onUserInput("wheel");
       if (owner !== pt.page) setOwner(pt.page);
       zoom = zoomAt(zoom, zoom.scale * Math.exp(-e.deltaY * unit * 0.01), pt.x, pt.y, L.pageW, L.pageH);
-      if (isZoomed(zoom)) paint(false);
-      else resetZoom(false);
+      if (isZoomed(zoom)) {
+        paint(false);
+        settleAfterWheel();
+      } else resetZoom(false);
       return;
     }
     // Plain wheel scrolls the reader natively, except over the zoomed page, where it pans.
@@ -265,11 +348,12 @@ export function createMushafGestures(host: GestureHost): MushafGestures {
     const pt = pointIn(owner, e.clientX, e.clientY);
     if (!pt || !inside(pt)) return;
     e.preventDefault();
-    host.onUserInput();
+    host.onUserInput("wheel");
     const r = panBy(zoom, -e.deltaX * unit, -e.deltaY * unit, L.pageW, L.pageH);
     zoom = r.zoom;
     paint(false);
     chainScroll(r.restY);
+    settleAfterWheel();
   };
 
   // Safari (macOS trackpad) pinch. On iOS these accompany the touch pinch, which already
@@ -280,7 +364,7 @@ export function createMushafGestures(host: GestureHost): MushafGestures {
     const e = ev as SafariGestureEvent;
     const pt = pointIn(null, e.clientX, e.clientY);
     if (!pt || !host.layer(pt.page)) return;
-    host.onUserInput();
+    host.onUserInput("pinch");
     if (owner !== pt.page) setOwner(pt.page);
     safariPinch = { start: { ...zoom }, m0: { x: pt.x, y: pt.y } };
   };
@@ -314,17 +398,19 @@ export function createMushafGestures(host: GestureHost): MushafGestures {
     chainScroll(r.restY);
   };
   const onMouseUp = () => {
-    if (mouse && mouse.moved > 4) suppressClick = true; // a drag is not a tap
+    const dragged = !!mouse && mouse.moved > 4;
+    if (dragged) suppressClick = true; // a drag is not a tap
     mouse = null;
     window.removeEventListener("mousemove", onMouseMove);
     window.removeEventListener("mouseup", onMouseUp);
     host.onSettle?.();
+    if (dragged) settle();
   };
   const onMouseDown = (e: MouseEvent) => {
     if (e.button !== 0 || owner === null || !isZoomed(zoom)) return;
     const pt = pointIn(owner, e.clientX, e.clientY);
     if (!pt || !inside(pt)) return;
-    host.onUserInput();
+    host.onUserInput("drag");
     stopGlide();
     mouse = { x: e.clientX, y: e.clientY, moved: 0 };
     window.addEventListener("mousemove", onMouseMove);
@@ -342,7 +428,7 @@ export function createMushafGestures(host: GestureHost): MushafGestures {
     }
     if (!inside(pt) || !host.layer(pt.page)) return;
     setOwner(pt.page);
-    zoom = zoomAt(FIT, DOUBLE_TAP_ZOOM, pt.x, pt.y, pt.L.pageW, pt.L.pageH);
+    zoom = comfortableZoom(zoomAt(FIT, DOUBLE_TAP_ZOOM, pt.x, pt.y, pt.L.pageW, pt.L.pageH), pt.L.pageW, pt.L.pageH, inkBounds(pt.page));
     paint(true);
   };
 
@@ -373,7 +459,7 @@ export function createMushafGestures(host: GestureHost): MushafGestures {
     const el = host.scroller();
     const p = owner ?? page;
     if (!L || !el || !host.layer(p)) return;
-    host.onUserInput();
+    host.onUserInput("pinch");
     stopGlide();
     if (owner !== p) setOwner(p);
     // Anchor: the middle of the part of the page that is on screen.
@@ -381,7 +467,7 @@ export function createMushafGestures(host: GestureHost): MushafGestures {
     const y0 = Math.max(0, -top);
     const y1 = Math.min(L.pageH, L.viewportH - top);
     const ay = y1 > y0 ? (y0 + y1) / 2 : L.pageH / 2;
-    zoom = zoomAt(zoom, zoom.scale * factor, L.pageW / 2, ay, L.pageW, L.pageH);
+    zoom = comfortableZoom(zoomAt(zoom, zoom.scale * factor, L.pageW / 2, ay, L.pageW, L.pageH), L.pageW, L.pageH, inkBounds(p));
     if (isZoomed(zoom)) paint(true);
     else resetZoom(true);
   };
@@ -393,8 +479,11 @@ export function createMushafGestures(host: GestureHost): MushafGestures {
   const detach = () => {
     const el = attachedTo;
     stopGlide();
+    cancelPress();
     if (tapTimer) clearTimeout(tapTimer);
     tapTimer = null;
+    if (wheelTimer) clearTimeout(wheelTimer);
+    wheelTimer = null;
     window.removeEventListener("mousemove", onMouseMove);
     window.removeEventListener("mouseup", onMouseUp);
     if (!el) return;
@@ -407,6 +496,8 @@ export function createMushafGestures(host: GestureHost): MushafGestures {
     el.removeEventListener("gesturechange", onGestureChange, active);
     el.removeEventListener("gestureend", onGestureEnd, active);
     el.removeEventListener("mousedown", onMouseDown);
+    el.removeEventListener("contextmenu", onContextMenu);
+    el.removeEventListener("scroll", onScroll);
     attachedTo = null;
   };
 
@@ -424,6 +515,8 @@ export function createMushafGestures(host: GestureHost): MushafGestures {
     el.addEventListener("gesturechange", onGestureChange, active);
     el.addEventListener("gestureend", onGestureEnd, active);
     el.addEventListener("mousedown", onMouseDown);
+    el.addEventListener("contextmenu", onContextMenu);
+    el.addEventListener("scroll", onScroll, { passive: true });
   };
 
   return {

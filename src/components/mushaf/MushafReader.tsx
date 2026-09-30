@@ -7,13 +7,19 @@ import { MushafPageView } from "./MushafPageView";
 import { MushafTopBar, MushafBottomBar } from "./MushafBars";
 import { MushafIndexSheet } from "./MushafIndexSheet";
 import { MushafExtrasSheet, type ExtrasMode } from "./MushafExtrasSheet";
+import { MushafAyahSheet, type AyahSheetView } from "./MushafAyahSheet";
+import { MushafAutoScrollPanel } from "./MushafAutoScrollPanel";
 import {
   clampScroll, computeLayout, pageAtScroll, pageTop, readingAnchor, sameLayout, scrollStep,
   scrollTopForAnchor, scrollTopForPage, visiblePart, visibleRange, type ReaderLayout,
 } from "./readerLayout";
 import { createScrollAnimator, GOTO_MS } from "./smoothScroll";
-import { createMushafGestures } from "./mushafGestures";
+import { createMushafGestures, type InputKind } from "./mushafGestures";
 import { ZOOM_STEP } from "./pageZoom";
+import {
+  autoScrollSpeed, clampAutoScrollLevel, createAutoScroller, loadAutoScrollLevel, saveAutoScrollLevel,
+} from "./autoScroll";
+import { globalIdOf } from "@/lib/quran";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import {
@@ -95,6 +101,10 @@ export function MushafReader() {
   const [bars, setBars] = useState(true);
   const [indexTab, setIndexTab] = useState<"surah" | "juz" | "hizb" | "page" | "bookmarks" | null>(null);
   const [extras, setExtras] = useState<ExtrasMode>(null);
+  const [ayahSheet, setAyahSheet] = useState<{ page: number; view: AyahSheetView } | null>(null);
+  const [autoMode, setAutoMode] = useState(false);
+  const [autoPlaying, setAutoPlaying] = useState(false);
+  const [autoLevel, setAutoLevel] = useState(() => loadAutoScrollLevel());
   const [bookmarks, setBookmarks] = useState<MushafBookmark[]>(() => loadBookmarks());
   const [reciterId, setReciterId] = useState(() => getSelectedReciterId());
   const [playing, setPlaying] = useState(false);
@@ -115,7 +125,9 @@ export function MushafReader() {
   const goBackRef = useRef(goBack);
   goBackRef.current = goBack;
   const sheetOpenRef = useRef(false);
-  sheetOpenRef.current = indexTab !== null || extras !== null;
+  sheetOpenRef.current = indexTab !== null || extras !== null || ayahSheet !== null;
+  const autoModeRef = useRef(autoMode);
+  autoModeRef.current = autoMode;
 
   const info = useMemo(() => getPageInfo(page), [page]);
   const bookmarked = bookmarks.some((b) => b.page === page);
@@ -140,7 +152,29 @@ export function MushafReader() {
     [],
   );
 
-  const toggleBarsRef = useRef(() => setBars((v) => !v));
+  // Auto-scroll: requestAnimationFrame only, eased speed, scrollTop only (never sideways).
+  const autoScroller = useMemo(
+    () =>
+      createAutoScroller(() => scrollerRef.current, {
+        clamp: (y) => (layoutRef.current ? clampScroll(layoutRef.current, y) : Math.max(0, y)),
+        onFrame: () => { programmaticUntil.current = Date.now() + 150; },
+        onStateChange: setAutoPlaying,
+      }),
+    [],
+  );
+  useEffect(() => () => autoScroller.destroy(), [autoScroller]);
+
+  // In auto-scroll mode a tap plays / pauses; otherwise it shows / hides the toolbars.
+  const tapRef = useRef(() => {});
+  tapRef.current = () => {
+    if (autoModeRef.current) autoScroller.toggle();
+    else setBars((v) => !v);
+  };
+  const longPressRef = useRef<(page: number) => void>(() => {});
+  longPressRef.current = (p) => {
+    autoScroller.pause();
+    setAyahSheet({ page: p, view: "list" });
+  };
   const registerLayer = useCallback((p: number, el: HTMLElement | null) => {
     if (el) layers.current.set(p, el);
     else layers.current.delete(p);
@@ -154,11 +188,17 @@ export function MushafReader() {
         layout: () => layoutRef.current,
         layer: (p) => layers.current.get(p) ?? null,
         onZoomPage: setZoomPage,
-        onTap: () => toggleBarsRef.current(),
-        onUserInput: () => animator.stop(),
+        onTap: () => tapRef.current(),
+        onUserInput: (kind: InputKind) => {
+          animator.stop();
+          // A plain touch may just be a tap (play / pause) or a scroll, which auto-scroll notices by
+          // itself; zooming, panning, trackpad or dragging is the user taking the page over.
+          if (kind !== "touch") autoScroller.pause();
+        },
         onSettle: () => settleRef.current(),
+        onLongPress: (p) => longPressRef.current(p),
       }),
-    [animator],
+    [animator, autoScroller],
   );
   // A zoomed page that has left the screen goes back to fit width (never mid-gesture).
   settleRef.current = () => {
@@ -282,6 +322,40 @@ export function MushafReader() {
     };
   }, []);
 
+  /* ---------- auto-scroll ---------- */
+  // The speed is set in seconds per page, so it reads the same on every screen size.
+  useEffect(() => {
+    if (layout) autoScroller.setSpeed(autoScrollSpeed(layout.pageH, autoLevel));
+  }, [layout, autoLevel, autoScroller]);
+  // The app going to the background, or any sheet opening over the Mushaf, pauses it (in place).
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") autoScroller.pause();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [autoScroller]);
+  useEffect(() => {
+    if (indexTab !== null || extras !== null || ayahSheet !== null) autoScroller.pause();
+  }, [indexTab, extras, ayahSheet, autoScroller]);
+
+  const startAuto = useCallback(() => {
+    setAutoMode(true);
+    setBars(false);
+    autoScroller.play();
+  }, [autoScroller]);
+  const closeAuto = useCallback(() => {
+    autoScroller.pause();
+    setAutoMode(false);
+  }, [autoScroller]);
+  const changeAutoLevel = useCallback((delta: 1 | -1) => {
+    setAutoLevel((l) => {
+      const next = clampAutoScrollLevel(l + delta);
+      saveAutoScrollLevel(next);
+      return next;
+    });
+  }, []);
+
   /* ---------- toolbars: auto-hide ---------- */
   useEffect(() => {
     if (!bars) return;
@@ -293,6 +367,7 @@ export function MushafReader() {
   /* ---------- navigation ---------- */
   const goTo = useCallback((p: number, opts?: { silent?: boolean; smooth?: boolean }) => {
     const target = clampPage(p);
+    autoScroller.pause();
     if (!opts?.silent) setBars(true);
     const L = layoutRef.current;
     const el = scrollerRef.current;
@@ -316,7 +391,7 @@ export function MushafReader() {
     lastScrollTop.current = y;
     setRange(visibleRange(L, y, BUFFER_PAGES));
     showPage(pageAtScroll(L, y));
-  }, [animator, gestures, markProgrammatic, showPage]);
+  }, [animator, autoScroller, gestures, markProgrammatic, showPage]);
 
   // A new ?page= while the reader is open (the first one is the starting page).
   const seenParam = useRef(pageParam);
@@ -337,12 +412,21 @@ export function MushafReader() {
         if (e.key === "Escape") {
           setIndexTab(null);
           setExtras(null);
+          setAyahSheet(null);
         }
         return;
       }
       const L = layoutRef.current;
       if (!L) return;
+      if (autoModeRef.current && e.key === " " && !target?.closest?.("button, a")) {
+        e.preventDefault();
+        autoScroller.toggle();
+        return;
+      }
       const dir = SCROLL_KEYS[e.key];
+      if (dir || e.key === "PageDown" || e.key === "PageUp" || e.key === " " || e.key === "Home" || e.key === "End") {
+        autoScroller.pause(); // moving by hand takes over from auto-scroll
+      }
       if (dir) {
         e.preventDefault();
         // A tap moves a little; holding the key keeps moving smoothly until it is released.
@@ -400,7 +484,7 @@ export function MushafReader() {
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
     };
-  }, [animator, gestures, goTo]);
+  }, [animator, autoScroller, gestures, goTo]);
 
   /* ---------- audio (page-aware, ayah by ayah) ---------- */
   // Playback always starts at the first ayah printed on the CURRENT page
@@ -412,11 +496,14 @@ export function MushafReader() {
   const reciterRef = useRef(reciterId);
   reciterRef.current = reciterId;
   const playAyahRef = useRef<(ref: AyahRef) => Promise<void>>(async () => undefined);
+  // Listening to a selected range: the last ayah's global id; null = recite on until stopped.
+  const stopAfterRef = useRef<number | null>(null);
 
   const stopAudio = useCallback(() => {
     const el = audioRef.current;
     if (el) { el.pause(); el.removeAttribute("src"); el.load(); }
     cursorRef.current = null;
+    stopAfterRef.current = null;
     setNowAyah(null);
     setAudioState("idle");
     setPlaying(false);
@@ -481,6 +568,12 @@ export function MushafReader() {
     audioRef.current = el;
     const onEnded = () => {
       const cur = cursorRef.current;
+      const last = stopAfterRef.current;
+      // A selected range ends with its last ayah.
+      if (cur && last !== null && (globalIdOf(cur.surah, cur.ayah) ?? 0) >= last) {
+        stopAudio();
+        return;
+      }
       const nxt = cur ? nextAyah(cur) : null;
       if (nxt) void playAyahRef.current(nxt);
       else stopAudio();
@@ -493,11 +586,22 @@ export function MushafReader() {
 
   const onAudio = () => {
     if (audioState === "playing") return pauseAudio();
+    // The recitation turns the pages itself: auto-scroll steps aside.
+    autoScroller.pause();
     const cur = cursorRef.current;
     // Paused on this page: resume. Otherwise (idle, or the reader was moved to a
     // different page while paused) start from the first ayah of the current page.
     if (audioState === "paused" && cur && pageOfAyah(cur) === page) return resumeAudio();
+    stopAfterRef.current = null;
     void playAyah(pageStartAyah(page));
+  };
+
+  /** Recite a selected range: from its first ayah, stopping after its last. */
+  const playRange = (from: AyahRef, to: AyahRef) => {
+    autoScroller.pause();
+    setAyahSheet(null);
+    stopAfterRef.current = globalIdOf(to.surah, to.ayah);
+    void playAyah(from);
   };
 
   /* ---------- actions ---------- */
@@ -590,14 +694,28 @@ export function MushafReader() {
         onPrevAyah={() => stepAyah(-1)}
         onNextAyah={() => stepAyah(1)}
         onTranslation={() => setExtras("translation")}
-        onTafsir={() => setExtras("tafsir")}
+        onTafsir={() => setAyahSheet({ page: pageRef.current, view: "pageTafsir" })}
         onCopy={onCopy}
         onShare={onShare}
         onSettings={() => setExtras("settings")}
         zoomed={zoomPage !== null}
         onZoomIn={() => gestures.zoomBy(ZOOM_STEP, pageRef.current)}
         onZoomOut={() => gestures.zoomBy(1 / ZOOM_STEP, pageRef.current)}
+        onAyahs={() => setAyahSheet({ page: pageRef.current, view: "list" })}
+        onAutoScroll={() => (autoMode ? closeAuto() : startAuto())}
+        autoScrollActive={autoMode}
       />
+
+      {autoMode && !bars && (
+        <MushafAutoScrollPanel
+          playing={autoPlaying}
+          level={autoLevel}
+          onToggle={() => autoScroller.toggle()}
+          onSlower={() => changeAutoLevel(-1)}
+          onFaster={() => changeAutoLevel(1)}
+          onClose={closeAuto}
+        />
+      )}
 
       {/* While a page is zoomed and the toolbars are hidden: one tap back to the whole page. */}
       {zoomPage !== null && !bars && (
@@ -606,12 +724,20 @@ export function MushafReader() {
           data-testid="mushaf-zoom-fit"
           onClick={() => gestures.resetZoom(true)}
           className="fixed left-1/2 z-40 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-black/65 px-4 py-2.5 text-label text-white shadow-lg active:scale-95 transition-transform"
-          style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)", touchAction: "manipulation" }}
+          style={{ bottom: `calc(env(safe-area-inset-bottom, 0px) + ${autoMode ? 80 : 16}px)`, touchAction: "manipulation" }}
         >
           <Minimize2 className="h-4 w-4" />
           {t("Show full page", "عرض الصفحة كاملة")}
         </button>
       )}
+
+      <MushafAyahSheet
+        page={ayahSheet?.page ?? null}
+        initialView={ayahSheet?.view ?? "list"}
+        night={night}
+        onClose={() => setAyahSheet(null)}
+        onListen={playRange}
+      />
 
       <MushafIndexSheet
         key={indexTab ?? "closed"}

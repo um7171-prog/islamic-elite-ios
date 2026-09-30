@@ -7,8 +7,11 @@ import { MushafReader } from "@/components/mushaf/MushafReader";
 import {
   EDGE_GAP, computeLayout, pageTop, readingAnchor, scrollStep, scrollTopForAnchor, scrollTopForPage, visibleRange,
 } from "@/components/mushaf/readerLayout";
-import { DOUBLE_TAP_ZOOM, MAX_ZOOM } from "@/components/mushaf/pageZoom";
-import { DOUBLE_TAP_MS } from "@/components/mushaf/mushafGestures";
+import { DOUBLE_TAP_ZOOM, FIT, MAX_ZOOM, comfortableZoom, pinchZoom, zoomTransform } from "@/components/mushaf/pageZoom";
+import { DOUBLE_TAP_MS, LONG_PRESS_MS } from "@/components/mushaf/mushafGestures";
+import { inkBounds } from "@/components/mushaf/pageInk";
+import { getPage } from "@/lib/quran";
+import { surahNameAr } from "@/components/quran-reading/ayahDisplay";
 import { TOTAL_PAGES, loadBookmarks, loadPosition, toArabicDigits as ar } from "@/lib/mushaf";
 
 /* ---------- a phone-sized viewport for the reader's scroll container ---------- */
@@ -540,6 +543,203 @@ describe("no leaks", () => {
       }
     } finally {
       Object.values(spies).forEach((s) => s.mockRestore());
+    }
+  });
+});
+
+/* ======================= comfortable zoom, auto-scroll, ayahs ======================= */
+
+const bottomAction = (key: string) => document.querySelector<HTMLElement>(`[data-bar-action="${key}"]`)!;
+
+describe("zoom: the page settles at a comfortable reading position", () => {
+  it("pinch then lift near the left side: it glides to show the end of the lines whole", () => {
+    renderReader();
+    const L = layoutFor();
+    const cx = L.left + 60;
+    const cy = pageTop(L, 1) + 300;
+    pinchAt(cx, cy, 100, 200, false);
+    const during = pinchZoom(FIT, 2, { x: 60, y: 300 }, { x: 60, y: 300 }, L.pageW, L.pageH);
+    expect(layerOf(1)!.style.transform).toBe(zoomTransform(during));
+    act(() => { fireEvent.touchEnd(scroller(), { touches: [] }); });
+    const settled = comfortableZoom(during, L.pageW, L.pageH, inkBounds(1));
+    expect(settled.x).not.toBe(during.x); // it did move: the view is aligned to the text
+    expect(layerOf(1)!.style.transform).toBe(zoomTransform(settled));
+    expect(layerOf(1)!.style.transition).toContain("transform"); // animated, not a jump
+  });
+
+  it("pan to the far right / far left and lift: aligned to the text, never past the page", async () => {
+    renderReader();
+    const L = layoutFor();
+    const cx = L.left + L.pageW / 2;
+    const cy = pageTop(L, 1) + L.pageH / 2;
+    pinchAt(cx, cy, 100, 200); // 2x
+    for (const dx of [-2000, 2000]) {
+      act(() => {
+        fireEvent.touchStart(scroller(), { touches: [touch(cx, cy)] });
+        fireEvent.touchMove(scroller(), { touches: [touch(cx + dx, cy)] });
+        fireEvent.touchEnd(scroller(), { touches: [] });
+      });
+      await frame();
+      await frame();
+      const edge = { scale: 2, x: dx < 0 ? L.pageW - 2 * L.pageW : 0, y: -L.pageH / 2 };
+      const expected = comfortableZoom(edge, L.pageW, L.pageH, inkBounds(1));
+      expect(layerOf(1)!.style.transform).toBe(zoomTransform(expected));
+    }
+    expect(scroller().scrollLeft).toBe(0);
+  });
+
+  it("going to another page while zoomed returns the zoomed page to fit and shows the new page", () => {
+    renderReader();
+    const L = layoutFor();
+    doubleTap(L.left + 100, pageTop(L, 1) + 200);
+    expect(screen.getByTestId("mushaf-zoom-out")).not.toBeDisabled();
+    fireEvent.click(screen.getByLabelText("بحث"));
+    fireEvent.click(screen.getByRole("button", { name: ar(300) }));
+    expect(shownPage()).toBe(ar(300));
+    expect(screen.getByTestId("mushaf-zoom-out")).toBeDisabled();
+    expect(layerOf(300)!.style.transform).toBe("");
+  });
+});
+
+describe("auto-scroll", () => {
+  it("plays, pauses in place, resumes from the same place, changes speed, and closes", async () => {
+    localStorage.setItem("mushaf:autoScrollLevel", "5");
+    renderReader();
+    fireEvent.click(bottomAction("autoscroll"));
+    expect(screen.getByTestId("mushaf-autoscroll")).toBeInTheDocument();
+    expect(screen.getByTestId("mushaf-bottom-bar").className).toContain("pointer-events-none"); // toolbars out of the way
+    expect(screen.getByTestId("mushaf-autoscroll-toggle")).toHaveAttribute("aria-pressed", "true");
+
+    await waitFor(() => expect(scroller().scrollTop).toBeGreaterThan(3), { timeout: 3000 });
+    expect(scroller().scrollLeft).toBe(0);
+
+    fireEvent.click(screen.getByTestId("mushaf-autoscroll-toggle")); // pause
+    expect(screen.getByTestId("mushaf-autoscroll-toggle")).toHaveAttribute("aria-pressed", "false");
+    await pause(700); // eases out, then stops
+    const kept = scroller().scrollTop;
+    await pause(300);
+    expect(scroller().scrollTop).toBe(kept);
+
+    fireEvent.click(screen.getByTestId("mushaf-autoscroll-toggle")); // play again
+    await waitFor(() => expect(scroller().scrollTop).toBeGreaterThan(kept + 1), { timeout: 3000 });
+
+    expect(screen.getByTestId("mushaf-autoscroll-faster")).toBeDisabled(); // already the fastest
+    fireEvent.click(screen.getByTestId("mushaf-autoscroll-slower"));
+    expect(screen.getByTestId("mushaf-autoscroll-speed")).toHaveTextContent(`سريع · ${ar(4)}/${ar(5)}`);
+    expect(localStorage.getItem("mushaf:autoScrollLevel")).toBe("4");
+
+    fireEvent.click(screen.getByTestId("mushaf-autoscroll-close"));
+    expect(screen.queryByTestId("mushaf-autoscroll")).toBeNull();
+    await pause(700);
+    const closedAt = scroller().scrollTop;
+    await pause(300);
+    expect(scroller().scrollTop).toBe(closedAt);
+  });
+
+  it("a tap pauses / resumes; a pinch takes over and pauses it", async () => {
+    localStorage.setItem("mushaf:autoScrollLevel", "5");
+    renderReader();
+    const L = layoutFor();
+    fireEvent.click(bottomAction("autoscroll"));
+    act(() => { fireEvent.click(scroller(), { clientX: 120, clientY: 300 }); });
+    await pause(DOUBLE_TAP_MS + 60);
+    expect(screen.getByTestId("mushaf-autoscroll-toggle")).toHaveAttribute("aria-pressed", "false");
+    act(() => { fireEvent.click(scroller(), { clientX: 120, clientY: 300 }); });
+    await pause(DOUBLE_TAP_MS + 60);
+    expect(screen.getByTestId("mushaf-autoscroll-toggle")).toHaveAttribute("aria-pressed", "true");
+    pinchAt(L.left + 150, pageTop(L, 1) + 200, 100, 180);
+    expect(screen.getByTestId("mushaf-autoscroll-toggle")).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("on a zoomed page it scrolls vertically only — the page's zoom and sideways position are untouched", async () => {
+    localStorage.setItem("mushaf:autoScrollLevel", "5");
+    renderReader();
+    const L = layoutFor();
+    doubleTap(L.left + 100, pageTop(L, 1) + 150);
+    const zoomed = layerOf(1)!.style.transform;
+    expect(zoomed).toContain("scale(");
+    fireEvent.click(bottomAction("autoscroll"));
+    await waitFor(() => expect(scroller().scrollTop).toBeGreaterThan(3), { timeout: 3000 });
+    expect(layerOf(1)!.style.transform).toBe(zoomed);
+    expect(scroller().scrollLeft).toBe(0);
+  });
+
+  it("closing the reader stops it (no frame keeps running)", async () => {
+    localStorage.setItem("mushaf:autoScrollLevel", "5");
+    const view = renderReader();
+    fireEvent.click(bottomAction("autoscroll"));
+    await waitFor(() => expect(scroller().scrollTop).toBeGreaterThan(1), { timeout: 3000 });
+    const el = scroller();
+    view.unmount();
+    const at = el.scrollTop;
+    await pause(400);
+    expect(el.scrollTop).toBe(at);
+  });
+});
+
+describe("ayahs from the page: long press, «الآيات», «التفسير», listen", () => {
+  it("holding a finger on a page opens that page's ayahs (from the Quran data)", async () => {
+    renderReader();
+    const L = layoutFor();
+    act(() => { fireEvent.touchStart(scroller(), { touches: [touch(L.left + 100, pageTop(L, 1) + 200)] }); });
+    await pause(LONG_PRESS_MS + 100);
+    act(() => { fireEvent.touchEnd(scroller(), { touches: [] }); });
+    expect(await screen.findByTestId("mushaf-ayah-sheet")).toBeInTheDocument();
+    expect(screen.getByTestId("mushaf-ayah-sheet-title")).toHaveTextContent(`آيات الصفحة ${ar(1)}`);
+    const expected = await getPage(1);
+    await waitFor(() => expect(document.querySelectorAll("[data-ayah]")).toHaveLength(expected.length));
+  });
+
+  it("a finger that moves (a scroll) is not a long press", async () => {
+    renderReader();
+    const L = layoutFor();
+    act(() => {
+      fireEvent.touchStart(scroller(), { touches: [touch(L.left + 100, pageTop(L, 1) + 200)] });
+      fireEvent.touchMove(scroller(), { touches: [touch(L.left + 100, pageTop(L, 1) + 150)] });
+    });
+    await pause(LONG_PRESS_MS + 100);
+    act(() => { fireEvent.touchEnd(scroller(), { touches: [] }); });
+    expect(screen.queryByTestId("mushaf-ayah-sheet")).toBeNull();
+  });
+
+  it("«التفسير» opens the whole page's tafsir from the local data", async () => {
+    renderReader();
+    fireEvent.click(bottomAction("tafsir"));
+    const expected = await getPage(1);
+    await waitFor(() => expect(screen.getByTestId("mushaf-tafsir")).toBeInTheDocument());
+    const keys = Array.from(document.querySelectorAll("[data-tafsir-ayah]")).map((b) => b.getAttribute("data-tafsir-ayah"));
+    expect(keys).toEqual(expected.map((a) => a.key));
+  });
+
+  it("listening to a selected range recites from its first ayah and stops after its last", async () => {
+    const played: string[] = [];
+    const players: HTMLMediaElement[] = [];
+    const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(function (this: HTMLMediaElement) {
+      players.push(this);
+      played.push(this.src);
+      return Promise.resolve();
+    });
+    const ended = () => players[players.length - 1].dispatchEvent(new Event("ended"));
+    try {
+      renderReader();
+      fireEvent.click(bottomAction("ayahs"));
+      await waitFor(() => expect(document.querySelectorAll("[data-ayah]").length).toBeGreaterThan(3));
+      const row = (k: string) => document.querySelector<HTMLElement>(`[data-ayah="${k}"]`)!;
+      fireEvent.click(row("1:2"));
+      fireEvent.click(row("1:3"));
+      expect(screen.getByTestId("mushaf-ayah-selection")).toHaveTextContent(`${surahNameAr(1)} ${ar(2)}–${ar(3)}`);
+      fireEvent.click(document.querySelector<HTMLElement>('[data-action="listen"]')!);
+      await waitFor(() => expect(played).toHaveLength(1));
+      expect(played[0]).toMatch(/\/001002\.mp3$/);
+      await act(async () => { ended(); });
+      await waitFor(() => expect(played).toHaveLength(2));
+      expect(played[1]).toMatch(/\/001003\.mp3$/);
+      await act(async () => { ended(); });
+      await pause(50);
+      expect(played).toHaveLength(2); // stopped after 1:3 — not on to 1:4
+      expect(screen.queryByTestId("mushaf-audio-controls")).toBeNull();
+    } finally {
+      play.mockRestore();
     }
   });
 });

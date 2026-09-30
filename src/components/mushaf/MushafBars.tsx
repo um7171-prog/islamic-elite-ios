@@ -1,5 +1,6 @@
 import { ArrowRight, Bookmark, BookmarkCheck, Search, LayoutGrid,
-  Play, Pause, SkipBack, SkipForward, Square, Languages, Share2, Copy, BookText, BookOpenText, Settings2, ZoomIn, ZoomOut } from "lucide-react";
+  Play, Pause, SkipBack, SkipForward, Square, Languages, Share2, Copy, BookText, BookOpenText, Settings2, ZoomIn, ZoomOut,
+  ListChecks, ChevronsDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { readingUrlForPage } from "@/components/quran-reading/position";
 import { toArabicDigits, SURAHS, type PageInfo } from "@/lib/mushaf";
@@ -70,7 +71,7 @@ export function MushafTopBar({
 
 export function MushafBottomBar({
   visible, info, playing, audioActive, nowAyah, onAudio, onStop, onPrevAyah, onNextAyah, onTranslation, onShare, onCopy, onTafsir, onSettings,
-  zoomed = false, onZoomIn, onZoomOut,
+  zoomed = false, onZoomIn, onZoomOut, onAyahs, onAutoScroll, autoScrollActive = false,
 }: {
   visible: boolean;
   info: PageInfo;
@@ -91,6 +92,11 @@ export function MushafBottomBar({
   /** Zoom without a gesture (accessibility); omitted → no zoom buttons. */
   onZoomIn?: () => void;
   onZoomOut?: () => void;
+  /** Select ayahs of this page (and act on them); omitted → no button. */
+  onAyahs?: () => void;
+  /** Start / close auto-scroll; omitted → no button. */
+  onAutoScroll?: () => void;
+  autoScrollActive?: boolean;
 }) {
   const { t, lang } = useLocale();
   const navigate = useNavigate();
@@ -101,6 +107,8 @@ export function MushafBottomBar({
     { key: "read", Icon: BookOpenText, label: t("Reading", "القراءة"), on: () => navigate(readingUrlForPage(info.page), { replace: true }) },
     { key: "translation", Icon: Languages, label: t("Translation", "الترجمة"), on: onTranslation },
     { key: "tafsir", Icon: BookText, label: t("Tafsir", "التفسير"), on: onTafsir },
+    ...(onAyahs ? [{ key: "ayahs", Icon: ListChecks, label: t("Ayahs", "الآيات"), on: onAyahs }] : []),
+    ...(onAutoScroll ? [{ key: "autoscroll", Icon: ChevronsDown, label: t("Scroll", "تمرير"), on: onAutoScroll }] : []),
     { key: "copy", Icon: Copy, label: t("Copy", "نسخ"), on: onCopy },
     { key: "share", Icon: Share2, label: t("Share", "مشاركة"), on: onShare },
     { key: "settings", Icon: Settings2, label: t("Settings", "إعدادات"), on: onSettings },
@@ -108,6 +116,7 @@ export function MushafBottomBar({
   return (
     <div
       dir="rtl"
+      data-testid="mushaf-bottom-bar"
       className={cn(
         "fixed inset-x-0 bottom-0 z-50 transition-all duration-300 will-change-transform",
         visible ? "translate-y-0 opacity-100" : "translate-y-full opacity-0 pointer-events-none",
@@ -140,16 +149,29 @@ export function MushafBottomBar({
           <button onClick={onStop} aria-label={t("Stop", "إيقاف")} data-testid="mushaf-audio-stop" className="p-2 active:scale-90"><Square className="h-5 w-5" /></button>
         </div>
       )}
-      <div className="flex items-center justify-around px-2 pb-2">
-        {items.map(({ key, Icon, label, on }) => (
-          <button key={key} onClick={on} className="flex flex-col items-center gap-0.5 px-2 py-1 active:scale-90 transition-transform">
-            <Icon
-              className={cn("h-5 w-5", key === "audio" && playing ? "" : "text-white/90")}
-              style={key === "audio" && playing ? { color: "hsl(var(--elite-gold-start))" } : undefined}
-            />
-            <span className="text-caption text-white/70">{label}</span>
-          </button>
-        ))}
+      {/* Equal-width cells: every action stays on screen however many there are (labels truncate
+          before anything overflows sideways). */}
+      <div className="flex items-stretch px-1 pb-2">
+        {items.map(({ key, Icon, label, on }) => {
+          const lit = (key === "audio" && playing) || (key === "autoscroll" && autoScrollActive);
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={on}
+              title={label}
+              data-bar-action={key}
+              aria-pressed={key === "autoscroll" ? autoScrollActive : undefined}
+              className="flex min-w-0 flex-1 flex-col items-center gap-0.5 px-0.5 py-1 active:scale-90 transition-transform"
+            >
+              <Icon
+                className={cn("h-5 w-5 shrink-0", lit ? "" : "text-white/90")}
+                style={lit ? { color: "hsl(var(--elite-gold-start))" } : undefined}
+              />
+              <span className="max-w-full truncate text-caption text-white/70">{label}</span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

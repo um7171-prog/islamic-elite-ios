@@ -6,7 +6,8 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { cn } from "@/lib/utils";
 
-export type ExtrasMode = "translation" | "tafsir" | "settings" | null;
+/** (The page's tafsir lives in MushafAyahSheet, from the app's local KFGQPC Al-Muyassar data.) */
+export type ExtrasMode = "translation" | "settings" | null;
 
 interface Props {
   mode: ExtrasMode;
@@ -18,10 +19,7 @@ interface Props {
 
 interface Line { num: number; surah: number; text: string }
 
-const EDITIONS: Record<"translation" | "tafsir", string> = {
-  translation: "en.sahih",
-  tafsir: "ar.muyassar",
-};
+const TRANSLATION_EDITION = "en.sahih";
 
 export function MushafExtrasSheet({ mode, onClose, info, reciterId, onReciterChange }: Props) {
   const { t } = useLocale();
@@ -31,10 +29,10 @@ export function MushafExtrasSheet({ mode, onClose, info, reciterId, onReciterCha
   const [favs, setFavs] = useState<string[]>(() => getFavorites());
 
   useEffect(() => {
-    if (mode !== "translation" && mode !== "tafsir") return;
+    if (mode !== "translation") return;
     let alive = true;
     setLoading(true); setLines([]);
-    fetch(`https://api.alquran.cloud/v1/page/${info.page}/${EDITIONS[mode]}`)
+    fetch(`https://api.alquran.cloud/v1/page/${info.page}/${TRANSLATION_EDITION}`)
       .then((r) => r.json())
       .then((j) => {
         if (!alive) return;
@@ -48,11 +46,7 @@ export function MushafExtrasSheet({ mode, onClose, info, reciterId, onReciterCha
   }, [mode, info.page]);
 
   if (!mode) return null;
-  const title = mode === "translation"
-    ? t("Translation", "الترجمة")
-    : mode === "tafsir"
-      ? t("Simplified Tafsir", "التفسير الميسّر")
-      : t("Settings", "الإعدادات");
+  const title = mode === "translation" ? t("Translation", "الترجمة") : t("Settings", "الإعدادات");
 
   return (
     <div dir="rtl" className="fixed inset-0 z-[60] flex flex-col justify-end" onClick={onClose}>

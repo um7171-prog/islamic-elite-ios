@@ -46,3 +46,14 @@ export function tafsirSegments(tafsir: string): TafsirSegment[] {
 export function ayahShareText(a: Pick<QuranAyah, "text" | "surah" | "ayah">): string {
   return `﴿${ayahBody(a)}﴾ [${surahNameAr(a.surah)}: ${toArabicDigits(a.ayah)}]`;
 }
+
+/** Consecutive ayahs of one surah as one quotation: "﴿ … (٣٠) … (٣١)﴾ [البقرة: ٣٠–٣١]".
+ * A single ayah is exactly `ayahShareText`. */
+export function ayahRangeShareText(ayahs: Pick<QuranAyah, "text" | "surah" | "ayah">[]): string {
+  if (ayahs.length === 0) return "";
+  if (ayahs.length === 1) return ayahShareText(ayahs[0]);
+  const first = ayahs[0];
+  const last = ayahs[ayahs.length - 1];
+  const body = ayahs.map((a) => `${ayahBody(a)} (${toArabicDigits(a.ayah)})`).join(" ");
+  return `﴿${body}﴾ [${surahNameAr(first.surah)}: ${toArabicDigits(first.ayah)}–${toArabicDigits(last.ayah)}]`;
+}

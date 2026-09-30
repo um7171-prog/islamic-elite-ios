@@ -9,6 +9,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { cn } from "@/lib/utils";
 import { RECITERS, type Reciter, getFavorites, toggleFavorite, sortByFavorites, getSelectedReciterId, setSelectedReciterId, getReciter, getPlayableUrl, cacheSurah, isCached, setMediaSession } from "@/lib/reciters";
 import { toast } from "@/hooks/use-toast";
+import { createAutoScroller } from "@/components/mushaf/autoScroll";
 
 interface SurahMeta { number: number; name: string; englishName: string; englishNameTranslation: string; numberOfAyahs: number; revelationType: string; }
 interface Ayah { number: number; text: string; numberInSurah: number; page?: number; juz?: number; }
@@ -49,7 +50,6 @@ export function QuranDialog({ open, onOpenChange }: { open: boolean; onOpenChang
   const [pageIndex, setPageIndex] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const scrollTimerRef = useRef<number | null>(null);
   const [bookmark, setBookmark] = useState<{ surah: number; ayah: number; name: string } | null>(() => {
     try { return JSON.parse(localStorage.getItem(BOOKMARK_KEY) || "null"); } catch { return null; }
   });
@@ -214,19 +214,21 @@ export function QuranDialog({ open, onOpenChange }: { open: boolean; onOpenChang
 
   // (Audio plays the full surah and is not interrupted by page navigation.)
 
-  // Auto-scroll for text mode
+  // Auto-scroll for text mode — the same requestAnimationFrame engine as the Mushaf reader
+  // (it was a 50 ms setInterval here), at this dialog's original 20 px/s.
   useEffect(() => {
-    if (!autoScroll) {
-      if (scrollTimerRef.current) { window.clearInterval(scrollTimerRef.current); scrollTimerRef.current = null; }
-      return;
-    }
-    scrollTimerRef.current = window.setInterval(() => {
-      const el = scrollRef.current?.querySelector<HTMLElement>("[data-scrollable]") || scrollRef.current;
-      if (!el) return;
-      if (el.scrollTop + el.clientHeight >= el.scrollHeight - 2) { setAutoScroll(false); return; }
-      el.scrollTop += 1;
-    }, 50);
-    return () => { if (scrollTimerRef.current) window.clearInterval(scrollTimerRef.current); };
+    if (!autoScroll) return;
+    const target = () => scrollRef.current?.querySelector<HTMLElement>("[data-scrollable]") || scrollRef.current;
+    const scroller = createAutoScroller(target, {
+      clamp: (y) => {
+        const el = target();
+        return el ? Math.min(Math.max(0, el.scrollHeight - el.clientHeight), Math.max(0, y)) : 0;
+      },
+      onStateChange: (on) => { if (!on) setAutoScroll(false); },
+    });
+    scroller.setSpeed(20);
+    scroller.play();
+    return () => scroller.destroy();
   }, [autoScroll, textMode]);
 
   const saveBookmark = () => {

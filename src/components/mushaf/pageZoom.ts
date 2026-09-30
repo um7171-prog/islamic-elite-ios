@@ -71,6 +71,44 @@ export function settleZoom(z: ZoomState, w: number, h: number): ZoomState {
   return z.scale < FIT_SNAP ? FIT : clampPan(z, w, h);
 }
 
+/** Screen pixels kept between the text and the screen edge when a view is aligned to the text. */
+export const TEXT_MARGIN_PX = 8;
+/** A view edge this close to the text edge (share of the view's width) is aligned to it. */
+export const EDGE_SNAP = 0.2;
+
+/**
+ * Where a zoomed page comes to rest after a pinch / pan: the nearest comfortable position to
+ * where the user left it, so a line is not left cut by accident at a screen edge.
+ *
+ * - The whole width of the printed text fits on screen → it is centred (nothing is cut).
+ * - Otherwise, a view edge that stopped near the text's edge is aligned to it (the full start of
+ *   the lines on the right, or their end on the left), instead of showing a sliver of margin or
+ *   cutting the first / last words.
+ * - Anywhere else the user's position is kept: they are reading mid-line on purpose.
+ * Vertically only the page bounds apply. The result is always inside the page (clampPan).
+ */
+export function comfortableZoom(z: ZoomState, w: number, h: number, ink: { left: number; right: number }): ZoomState {
+  const settled = settleZoom(z, w, h);
+  if (!isZoomed(settled)) return FIT;
+  const s = settled.scale;
+  const viewW = w / s; // visible width, in unzoomed page pixels
+  const pad = TEXT_MARGIN_PX / s;
+  const textL = ink.left * w;
+  const textR = ink.right * w;
+  const inkL = textL - pad;
+  const inkR = textR + pad;
+  const u0 = -settled.x / s;
+  let next = u0;
+  if (textR - textL <= viewW) {
+    next = (textL + textR) / 2 - viewW / 2;
+  } else {
+    const snap = viewW * EDGE_SNAP;
+    if (Math.abs(u0 + viewW - inkR) < snap) next = inkR - viewW;
+    else if (Math.abs(u0 - inkL) < snap) next = inkL;
+  }
+  return clampPan({ scale: s, x: -next * s, y: settled.y }, w, h);
+}
+
 /** A 2D transform (as the previous, device-tested zoom used): WebKit re-renders the
  * page image sharply at the new scale instead of stretching a cached bitmap. */
 export function zoomTransform(z: ZoomState): string {
