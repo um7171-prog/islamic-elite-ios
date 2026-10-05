@@ -11,20 +11,20 @@ import { supabaseEnvProblems } from "./src/lib/supabaseEnv";
 // is not verified here is scheduled with the system default sound instead —
 // iOS delivers a *silent* notification when it cannot find the named file.
 const CAF_NAMES = [
-  "pre_athan_alert.caf",
-  "astaghfirullah_night.caf",
+  "pre_athan_alert_v2.caf",
+  "astaghfirullah_night_v2.caf",
   "astaghfirullah.caf",
-  "athan_makkah.caf",
-  "athan_madinah.caf",
-  "athan_fajr.caf",
-  "athan_ibn_majid.caf",
+  "athan_makkah_v2.caf",
+  "athan_madinah_v2.caf",
+  "athan_fajr_v2.caf",
+  "athan_ibn_majid_v2.caf",
   // Calendar-event and Athkar reminder sounds (src/lib/reminderSounds.ts) —
   // previously not verified here, so a renamed/removed file would have
   // silently fallen back to no sound with no build-time warning.
-  "notif_bell.caf",
-  "notif_chime.caf",
-  "notif_alert.caf",
-  "notif_calm.caf",
+  "notif_bell_v2.caf",
+  "notif_chime_v2.caf",
+  "notif_alert_v2.caf",
+  "notif_calm_v2.caf",
 ];
 
 function bundledCafs(): string[] {
@@ -74,7 +74,7 @@ export default defineConfig(({ mode, command }) => {
   if (command === "build") assertBuildEnv(mode);
   return {
   define: {
-    __PRE_REMINDER_CAF_BUNDLED__: JSON.stringify(bundledCafs().includes("pre_athan_alert.caf")),
+    __PRE_REMINDER_CAF_BUNDLED__: JSON.stringify(bundledCafs().includes("pre_athan_alert_v2.caf")),
     __BUNDLED_CAFS__: JSON.stringify(bundledCafs()),
     __BUILD_STAMP__: JSON.stringify(BUILD_STAMP),
     __APP_VERSION__: JSON.stringify(APP_VERSION),

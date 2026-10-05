@@ -9,7 +9,7 @@ import { nightNativeSound } from "./NotificationSounds";
  * middle = Maghrib + ½ night, last third = Maghrib + ⅔ night), with the same location, method,
  * madhab and adjustments as the prayer times.
  *
- * It has its own id range ("night") and its own sound (astaghfirullah_night.caf, used by nothing
+ * It has its own id range ("night") and its own sound (astaghfirullah_night_v2.caf, used by nothing
  * else). It never touches the prayer notifications: the scheduler only replaces ids inside a
  * group's own range.
  */

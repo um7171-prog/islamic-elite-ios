@@ -21,16 +21,16 @@
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		AA0011220000000000000002 /* astaghfirullah.caf in Resources */ = {isa = PBXBuildFile; fileRef = AA0011220000000000000001 /* astaghfirullah.caf */; };
-		AA0011220000000000000031 /* pre_athan_alert.caf in Resources */ = {isa = PBXBuildFile; fileRef = AA0011220000000000000030 /* pre_athan_alert.caf */; };
-		AA0011220000000000000033 /* astaghfirullah_night.caf in Resources */ = {isa = PBXBuildFile; fileRef = AA0011220000000000000032 /* astaghfirullah_night.caf */; };
-		AA0011220000000000000004 /* athan_ibn_majid.caf in Resources */ = {isa = PBXBuildFile; fileRef = AA0011220000000000000003 /* athan_ibn_majid.caf */; };
-		AA0011220000000000000006 /* athan_makkah.caf in Resources */ = {isa = PBXBuildFile; fileRef = AA0011220000000000000005 /* athan_makkah.caf */; };
-		AA0011220000000000000008 /* athan_madinah.caf in Resources */ = {isa = PBXBuildFile; fileRef = AA0011220000000000000007 /* athan_madinah.caf */; };
-		AA001122000000000000000A /* athan_fajr.caf in Resources */ = {isa = PBXBuildFile; fileRef = AA0011220000000000000009 /* athan_fajr.caf */; };
-		AA0011220000000000000015 /* notif_bell.caf in Resources */ = {isa = PBXBuildFile; fileRef = AA0011220000000000000014 /* notif_bell.caf */; };
-		AA0011220000000000000017 /* notif_chime.caf in Resources */ = {isa = PBXBuildFile; fileRef = AA0011220000000000000016 /* notif_chime.caf */; };
-		AA0011220000000000000019 /* notif_alert.caf in Resources */ = {isa = PBXBuildFile; fileRef = AA0011220000000000000018 /* notif_alert.caf */; };
-		AA001122000000000000001B /* notif_calm.caf in Resources */ = {isa = PBXBuildFile; fileRef = AA001122000000000000001A /* notif_calm.caf */; };
+		AA0011220000000000000031 /* pre_athan_alert_v2.caf in Resources */ = {isa = PBXBuildFile; fileRef = AA0011220000000000000030 /* pre_athan_alert_v2.caf */; };
+		AA0011220000000000000033 /* astaghfirullah_night_v2.caf in Resources */ = {isa = PBXBuildFile; fileRef = AA0011220000000000000032 /* astaghfirullah_night_v2.caf */; };
+		AA0011220000000000000004 /* athan_ibn_majid_v2.caf in Resources */ = {isa = PBXBuildFile; fileRef = AA0011220000000000000003 /* athan_ibn_majid_v2.caf */; };
+		AA0011220000000000000006 /* athan_makkah_v2.caf in Resources */ = {isa = PBXBuildFile; fileRef = AA0011220000000000000005 /* athan_makkah_v2.caf */; };
+		AA0011220000000000000008 /* athan_madinah_v2.caf in Resources */ = {isa = PBXBuildFile; fileRef = AA0011220000000000000007 /* athan_madinah_v2.caf */; };
+		AA001122000000000000000A /* athan_fajr_v2.caf in Resources */ = {isa = PBXBuildFile; fileRef = AA0011220000000000000009 /* athan_fajr_v2.caf */; };
+		AA0011220000000000000015 /* notif_bell_v2.caf in Resources */ = {isa = PBXBuildFile; fileRef = AA0011220000000000000014 /* notif_bell_v2.caf */; };
+		AA0011220000000000000017 /* notif_chime_v2.caf in Resources */ = {isa = PBXBuildFile; fileRef = AA0011220000000000000016 /* notif_chime_v2.caf */; };
+		AA0011220000000000000019 /* notif_alert_v2.caf in Resources */ = {isa = PBXBuildFile; fileRef = AA0011220000000000000018 /* notif_alert_v2.caf */; };
+		AA001122000000000000001B /* notif_calm_v2.caf in Resources */ = {isa = PBXBuildFile; fileRef = AA001122000000000000001A /* notif_calm_v2.caf */; };
 		AA001122000000000000000C /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA001122000000000000000B /* MainViewController.swift */; };
 /* End PBXBuildFile section */
 
@@ -50,16 +50,16 @@
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		AA0011220000000000000001 /* astaghfirullah.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = astaghfirullah.caf; sourceTree = "<group>"; };
-		AA0011220000000000000030 /* pre_athan_alert.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = pre_athan_alert.caf; sourceTree = "<group>"; };
-		AA0011220000000000000032 /* astaghfirullah_night.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = astaghfirullah_night.caf; sourceTree = "<group>"; };
-		AA0011220000000000000003 /* athan_ibn_majid.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = athan_ibn_majid.caf; sourceTree = "<group>"; };
-		AA0011220000000000000005 /* athan_makkah.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = athan_makkah.caf; sourceTree = "<group>"; };
-		AA0011220000000000000007 /* athan_madinah.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = athan_madinah.caf; sourceTree = "<group>"; };
-		AA0011220000000000000009 /* athan_fajr.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = athan_fajr.caf; sourceTree = "<group>"; };
-		AA0011220000000000000014 /* notif_bell.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = notif_bell.caf; sourceTree = "<group>"; };
-		AA0011220000000000000016 /* notif_chime.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = notif_chime.caf; sourceTree = "<group>"; };
-		AA0011220000000000000018 /* notif_alert.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = notif_alert.caf; sourceTree = "<group>"; };
-		AA001122000000000000001A /* notif_calm.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = notif_calm.caf; sourceTree = "<group>"; };
+		AA0011220000000000000030 /* pre_athan_alert_v2.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = pre_athan_alert_v2.caf; sourceTree = "<group>"; };
+		AA0011220000000000000032 /* astaghfirullah_night_v2.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = astaghfirullah_night_v2.caf; sourceTree = "<group>"; };
+		AA0011220000000000000003 /* athan_ibn_majid_v2.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = athan_ibn_majid_v2.caf; sourceTree = "<group>"; };
+		AA0011220000000000000005 /* athan_makkah_v2.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = athan_makkah_v2.caf; sourceTree = "<group>"; };
+		AA0011220000000000000007 /* athan_madinah_v2.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = athan_madinah_v2.caf; sourceTree = "<group>"; };
+		AA0011220000000000000009 /* athan_fajr_v2.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = athan_fajr_v2.caf; sourceTree = "<group>"; };
+		AA0011220000000000000014 /* notif_bell_v2.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = notif_bell_v2.caf; sourceTree = "<group>"; };
+		AA0011220000000000000016 /* notif_chime_v2.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = notif_chime_v2.caf; sourceTree = "<group>"; };
+		AA0011220000000000000018 /* notif_alert_v2.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = notif_alert_v2.caf; sourceTree = "<group>"; };
+		AA001122000000000000001A /* notif_calm_v2.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = notif_calm_v2.caf; sourceTree = "<group>"; };
 		AA001122000000000000000B /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
@@ -110,16 +110,16 @@
 				2FAD9762203C412B000D30F8 /* config.xml */,
 				50B271D01FEDC1A000F3C39B /* public */,
 				AA0011220000000000000001 /* astaghfirullah.caf */,
-				AA0011220000000000000030 /* pre_athan_alert.caf */,
-				AA0011220000000000000032 /* astaghfirullah_night.caf */,
-				AA0011220000000000000003 /* athan_ibn_majid.caf */,
-				AA0011220000000000000005 /* athan_makkah.caf */,
-				AA0011220000000000000007 /* athan_madinah.caf */,
-				AA0011220000000000000009 /* athan_fajr.caf */,
-				AA0011220000000000000014 /* notif_bell.caf */,
-				AA0011220000000000000016 /* notif_chime.caf */,
-				AA0011220000000000000018 /* notif_alert.caf */,
-				AA001122000000000000001A /* notif_calm.caf */,
+				AA0011220000000000000030 /* pre_athan_alert_v2.caf */,
+				AA0011220000000000000032 /* astaghfirullah_night_v2.caf */,
+				AA0011220000000000000003 /* athan_ibn_majid_v2.caf */,
+				AA0011220000000000000005 /* athan_makkah_v2.caf */,
+				AA0011220000000000000007 /* athan_madinah_v2.caf */,
+				AA0011220000000000000009 /* athan_fajr_v2.caf */,
+				AA0011220000000000000014 /* notif_bell_v2.caf */,
+				AA0011220000000000000016 /* notif_chime_v2.caf */,
+				AA0011220000000000000018 /* notif_alert_v2.caf */,
+				AA001122000000000000001A /* notif_calm_v2.caf */,
 				AA001122000000000000000B /* MainViewController.swift */,
 			);
 			path = App;
@@ -193,16 +193,16 @@
 				504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */,
 				50B271D11FEDC1A000F3C39B /* public in Resources */,
 				AA0011220000000000000002 /* astaghfirullah.caf in Resources */,
-				AA0011220000000000000031 /* pre_athan_alert.caf in Resources */,
-				AA0011220000000000000033 /* astaghfirullah_night.caf in Resources */,
-				AA0011220000000000000004 /* athan_ibn_majid.caf in Resources */,
-				AA0011220000000000000006 /* athan_makkah.caf in Resources */,
-				AA0011220000000000000008 /* athan_madinah.caf in Resources */,
-				AA001122000000000000000A /* athan_fajr.caf in Resources */,
-				AA0011220000000000000015 /* notif_bell.caf in Resources */,
-				AA0011220000000000000017 /* notif_chime.caf in Resources */,
-				AA0011220000000000000019 /* notif_alert.caf in Resources */,
-				AA001122000000000000001B /* notif_calm.caf in Resources */,
+				AA0011220000000000000031 /* pre_athan_alert_v2.caf in Resources */,
+				AA0011220000000000000033 /* astaghfirullah_night_v2.caf in Resources */,
+				AA0011220000000000000004 /* athan_ibn_majid_v2.caf in Resources */,
+				AA0011220000000000000006 /* athan_makkah_v2.caf in Resources */,
+				AA0011220000000000000008 /* athan_madinah_v2.caf in Resources */,
+				AA001122000000000000000A /* athan_fajr_v2.caf in Resources */,
+				AA0011220000000000000015 /* notif_bell_v2.caf in Resources */,
+				AA0011220000000000000017 /* notif_chime_v2.caf in Resources */,
+				AA0011220000000000000019 /* notif_alert_v2.caf in Resources */,
+				AA001122000000000000001B /* notif_calm_v2.caf in Resources */,
 				504EC30F1FED79650016851F /* Assets.xcassets in Resources */,
 				50379B232058CBB4000EE86E /* capacitor.config.json in Resources */,
 				504EC30D1FED79650016851F /* Main.storyboard in Resources */,

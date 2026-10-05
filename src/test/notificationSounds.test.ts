@@ -45,7 +45,7 @@ function readCaf(path: string): Caf {
 }
 
 /** RBJ biquad (the K-weighting stages used by pyloudnorm / BS.1770). */
-function biquad(kind: "shelf" | "highpass", gainDb: number, q: number, fc: number, fs: number) {
+function biquad(kind: "shelf" | "highpass" | "lowpass", gainDb: number, q: number, fc: number, fs: number) {
   const A = 10 ** (gainDb / 40);
   const w0 = (2 * Math.PI * fc) / fs;
   const cos = Math.cos(w0);
@@ -56,6 +56,9 @@ function biquad(kind: "shelf" | "highpass", gainDb: number, q: number, fc: numbe
     const s = 2 * Math.sqrt(A) * alpha;
     b = [A * ((A + 1) + (A - 1) * cos + s), -2 * A * ((A - 1) + (A + 1) * cos), A * ((A + 1) + (A - 1) * cos - s)];
     a = [(A + 1) - (A - 1) * cos + s, 2 * ((A - 1) - (A + 1) * cos), (A + 1) - (A - 1) * cos - s];
+  } else if (kind === "lowpass") {
+    b = [(1 - cos) / 2, 1 - cos, (1 - cos) / 2];
+    a = [1 + alpha, -2 * cos, 1 - alpha];
   } else {
     b = [(1 + cos) / 2, -(1 + cos), (1 + cos) / 2];
     a = [1 + alpha, -2 * cos, 1 - alpha];
@@ -100,6 +103,46 @@ function lufs(x: Float64Array, fs: number): number {
 }
 
 const peakDb = (x: Float64Array) => 20 * Math.log10(x.reduce((m, v) => Math.max(m, Math.abs(v)), 0));
+
+/** A phone speaker, roughly (as in scripts/master-notification-sounds.py): a 4th-order 400 Hz
+ * high-pass (two Butterworth sections) and a 10 kHz low-pass. */
+const speaker = (x: Float64Array, fs: number) => {
+  let y = biquad("highpass", 0, 0.5412, 400, fs)(biquad("highpass", 0, 1.3066, 400, fs)(x));
+  if (fs > 22000) y = biquad("lowpass", 0, Math.SQRT1_2, 10000, fs)(y);
+  return y;
+};
+const lufsSpk = (x: Float64Array, fs: number) => lufs(speaker(x, fs), fs);
+
+/** Loudest 400 ms through the speaker (K-weighted mean square, ungated). */
+function momentaryMaxSpk(x: Float64Array, fs: number): number {
+  const k = biquad("highpass", 0, 0.5, 38, fs)(biquad("shelf", 4, 1 / Math.SQRT2, 1500, fs)(speaker(x, fs)));
+  const w = Math.floor(0.4 * fs);
+  const hop = Math.floor(0.05 * fs);
+  let best = -Infinity;
+  for (let lo = 0; lo + w <= k.length; lo += hop) {
+    let sum = 0;
+    for (let i = lo; i < lo + w; i++) sum += k[i] * k[i];
+    best = Math.max(best, -0.691 + 10 * Math.log10(sum / w));
+  }
+  return best;
+}
+
+/** The silent gap between the tone and «استغفر الله» (< -50 dBFS between 0.8 and 2.5 s). */
+function toneVoiceGap(x: Float64Array, fs: number): number | null {
+  if (x.length < 2.6 * fs) return null; // too short to hold a tone, a gap and a phrase
+  const w = Math.floor(0.02 * fs);
+  let best = -1;
+  let bestE = Infinity;
+  for (let c = Math.floor(0.8 * fs); c < Math.min(x.length - w, Math.floor(2.5 * fs)); c += Math.floor(w / 4)) {
+    let e = 0;
+    for (let i = c - w / 2; i < c + w / 2; i++) e += x[Math.floor(i)] ** 2;
+    if (e / w < bestE) {
+      bestE = e / w;
+      best = c;
+    }
+  }
+  return best > 0 && 10 * Math.log10(bestE + 1e-20) <= -50 ? best : null;
+}
 const leadingSilence = (c: Caf) => {
   const thr = 10 ** (-50 / 20);
   const i = c.samples.findIndex((v) => Math.abs(v) > thr);
@@ -109,16 +152,24 @@ const leadingSilence = (c: Caf) => {
 const APP = "ios/App/App";
 const PBXPROJ = readFileSync("ios/App/App.xcodeproj/project.pbxproj", "utf8");
 
-/** Loudness (LUFS) the mastered files must keep — each ~0.5 LU under what the mastering reached,
- * and all far above the originals (athan -15.8…-16.9, pre-prayer / night -16.7 LUFS). */
-const MIN_LUFS: Record<string, number> = {
-  "athan_makkah.caf": -9.5,
-  "athan_madinah.caf": -10.0,
-  "athan_fajr.caf": -10.8,
-  "athan_ibn_majid.caf": -8.6,
-  "pre_athan_alert.caf": -13.6,
-  "astaghfirullah_night.caf": -13.2,
+/** Through the phone-speaker model (LUFS-spk), as measured by scripts/master-notification-sounds.py
+ * (scripts/master-notification-sounds.report.json): what the files they replace (v1) reached, and
+ * the floor each v2 must keep (0.3 LU under what its mastering reached). */
+const V1_LUFS_SPK: Record<string, number> = {
+  "pre_athan_alert_v2.caf": -14.74, "athan_makkah_v2.caf": -9.05, "athan_madinah_v2.caf": -10.72, "athan_fajr_v2.caf": -10.43,
+  "athan_ibn_majid_v2.caf": -8.23, "astaghfirullah_night_v2.caf": -15.08, "notif_chime_v2.caf": -14.63, "notif_bell_v2.caf": -15.78,
+  "notif_alert_v2.caf": -21.48, "notif_calm_v2.caf": -14.52,
 };
+const MIN_LUFS_SPK: Record<string, number> = {
+  "pre_athan_alert_v2.caf": -13.7, "athan_makkah_v2.caf": -8.6, "athan_madinah_v2.caf": -10.2, "athan_fajr_v2.caf": -9.6,
+  "athan_ibn_majid_v2.caf": -8.4, "astaghfirullah_night_v2.caf": -14.9, "notif_chime_v2.caf": -10.7, "notif_bell_v2.caf": -13.8,
+  "notif_alert_v2.caf": -21.8, "notif_calm_v2.caf": -13.5,
+};
+
+const OLD_NAMES = [
+  "pre_athan_alert.caf", "astaghfirullah_night.caf", "athan_makkah.caf", "athan_madinah.caf", "athan_fajr.caf", "athan_ibn_majid.caf",
+  "notif_chime.caf", "notif_bell.caf", "notif_alert.caf", "notif_calm.caf",
+];
 
 const NOTIFICATION_FILES = [
   ...ATHAN_SOUNDS.flatMap((s) => (s.nativeFile ? [s.nativeFile] : [])),
@@ -138,17 +189,38 @@ describe("the loudness meter itself (calibration)", () => {
 });
 
 describe("notification sounds: which file iOS is asked to play", () => {
-  it("each athan uses its own bundled file; «default» is the system sound", () => {
-    for (const s of ATHAN_SOUNDS) {
-      expect(athanNativeSound(s.id), s.id).toBe(s.nativeFile ?? "default");
-    }
-    expect(athanNativeSound("makkah")).toBe("athan_makkah.caf");
+  it("each notification type plays its own v2 file; «default» is the system sound", () => {
+    expect(athanNativeSound("makkah")).toBe("athan_makkah_v2.caf");
+    expect(athanNativeSound("madinah")).toBe("athan_madinah_v2.caf");
+    expect(athanNativeSound("fajr")).toBe("athan_fajr_v2.caf");
+    expect(athanNativeSound("ibnMajid")).toBe("athan_ibn_majid_v2.caf");
+    expect(athanNativeSound("default")).toBe("default");
+    expect(preprayerNativeSound()).toBe("pre_athan_alert_v2.caf");
+    expect(nightNativeSound()).toBe("astaghfirullah_night_v2.caf");
+    expect(REMINDER_SOUNDS.map((s) => reminderNativeSound(s.id))).toEqual(["notif_chime_v2.caf", "notif_bell_v2.caf", "notif_alert_v2.caf", "notif_calm_v2.caf"]);
   });
 
-  it("the pre-prayer reminder plays pre_athan_alert.caf; the night reminders astaghfirullah_night.caf", () => {
-    expect(preprayerNativeSound()).toBe("pre_athan_alert.caf");
-    expect(nightNativeSound()).toBe("astaghfirullah_night.caf");
-    for (const s of REMINDER_SOUNDS) expect(reminderNativeSound(s.id)).toBe(s.nativeFile);
+  it("only v2 files can be asked for: the old names are gone from the bundle, the Xcode project, the build check and the code", () => {
+    expect(NOTIFICATION_FILES).toHaveLength(10);
+    for (const f of NOTIFICATION_FILES) expect(f).toMatch(/_v2\.caf$/);
+    const viteConfig = readFileSync("vite.config.ts", "utf8") + readFileSync("vitest.config.ts", "utf8");
+    const code = ["src/lib/notifications/NotificationSounds.ts", "src/lib/notifications/NightNotificationService.ts", "src/lib/notifications/PrayerNotificationService.ts"]
+      .map((p) => readFileSync(p, "utf8"))
+      .join("\n");
+    for (const old of OLD_NAMES) {
+      expect(existsSync(`${APP}/${old}`), old).toBe(false);
+      expect(PBXPROJ, old).not.toMatch(new RegExp(`(^|[^_a-z])${old.replace(".", "\\.")}`));
+      expect(viteConfig, old).not.toContain(`"${old}"`);
+      expect(code, old).not.toMatch(new RegExp(`(^|[^_a-z])${old.replace(".", "\\.")}`));
+    }
+  });
+
+  it("every v2 file is inside the target's Copy Bundle Resources phase (what Xcode copies into the .app)", () => {
+    const phase = PBXPROJ.slice(PBXPROJ.indexOf("/* Begin PBXResourcesBuildPhase section */"), PBXPROJ.indexOf("/* End PBXResourcesBuildPhase section */"));
+    for (const f of NOTIFICATION_FILES) {
+      expect(phase, f).toContain(`/* ${f} in Resources */`);
+      expect(PBXPROJ, f).toContain(`path = ${f};`);
+    }
   });
 
   it("every file named to iOS is on disk and in the app's Copy Bundle Resources (else iOS plays silence)", () => {
@@ -159,7 +231,7 @@ describe("notification sounds: which file iOS is asked to play", () => {
   });
 });
 
-describe("notification sounds: files iOS can play, mastered loud and clean", () => {
+describe("notification sounds (v2): files iOS can play, mastered for a phone speaker, loud and clean", () => {
   for (const f of NOTIFICATION_FILES) {
     it(f, () => {
       const c = readCaf(`${APP}/${f}`);
@@ -174,7 +246,19 @@ describe("notification sounds: files iOS can play, mastered loud and clean", () 
       expect(peakDb(c.samples)).toBeGreaterThan(-1.5);
       // It starts right away (no dead air before the sound).
       expect(leadingSilence(c)).toBeLessThan(0.05);
-      if (MIN_LUFS[f] !== undefined) expect(lufs(c.samples, c.sampleRate)).toBeGreaterThanOrEqual(MIN_LUFS[f]);
+      // Through a phone speaker: never quieter than the file it replaces, and at its mastered level.
+      const spk = lufsSpk(c.samples, c.sampleRate);
+      expect(spk, `${f} vs v1`).toBeGreaterThanOrEqual(V1_LUFS_SPK[f] - 0.05);
+      expect(spk, f).toBeGreaterThanOrEqual(MIN_LUFS_SPK[f]);
+      // «استغفر الله» after its tone: the spoken message is no longer drowned by the tone
+      // (in v1 it was 5.6-6.1 dB under it through a phone speaker).
+      const gap = toneVoiceGap(c.samples, c.sampleRate);
+      if (f === "pre_athan_alert_v2.caf" || f === "astaghfirullah_night_v2.caf") {
+        expect(gap, f).not.toBeNull();
+        const tone = momentaryMaxSpk(c.samples.slice(0, gap!), c.sampleRate);
+        const voice = momentaryMaxSpk(c.samples.slice(gap!), c.sampleRate);
+        expect(voice, `${f} voice vs tone`).toBeGreaterThanOrEqual(tone - 2);
+      }
     });
   }
 });

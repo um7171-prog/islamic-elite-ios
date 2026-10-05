@@ -10,8 +10,10 @@
  * SILENT notification when the named sound file is missing, with no error,
  * so this fallback-to-default matters.
  *
- * No new sound files were added — this only re-catalogs what already ships
- * in the app bundle.
+ * The files are the "_v2" masters (scripts/master-notification-sounds.py: shaped for a phone's
+ * speaker, the tone/voice balance of the pre-prayer and night alerts fixed). They carry NEW names on
+ * purpose: a notification scheduled by this build can only play a v2 file, so a device test proves
+ * which master it hears (iOS never confuses it with an older file of the same name).
  */
 
 export type AthanSoundId = "makkah" | "madinah" | "fajr" | "ibnMajid" | "default";
@@ -28,10 +30,10 @@ export interface AthanSoundOption {
 }
 
 export const ATHAN_SOUNDS: AthanSoundOption[] = [
-  { id: "makkah", ar: "أذان المسجد الحرام", en: "Makkah (Haram)", previewUrl: "/sounds/athan_makkah.mp3", nativeFile: "athan_makkah.caf" },
-  { id: "madinah", ar: "أذان المسجد النبوي", en: "Madinah (Nabawi)", previewUrl: "/sounds/athan_madinah.mp3", nativeFile: "athan_madinah.caf" },
-  { id: "fajr", ar: "أذان الفجر", en: "Fajr Athan", previewUrl: "/sounds/athan_fajr.mp3", nativeFile: "athan_fajr.caf" },
-  { id: "ibnMajid", ar: "الشيخ عبدالعزيز بن ماجد", en: "Sheikh Abdulaziz bin Majid", previewUrl: "/sounds/athan_ibn_majid.mp3", nativeFile: "athan_ibn_majid.caf" },
+  { id: "makkah", ar: "أذان المسجد الحرام", en: "Makkah (Haram)", previewUrl: "/sounds/athan_makkah.mp3", nativeFile: "athan_makkah_v2.caf" },
+  { id: "madinah", ar: "أذان المسجد النبوي", en: "Madinah (Nabawi)", previewUrl: "/sounds/athan_madinah.mp3", nativeFile: "athan_madinah_v2.caf" },
+  { id: "fajr", ar: "أذان الفجر", en: "Fajr Athan", previewUrl: "/sounds/athan_fajr.mp3", nativeFile: "athan_fajr_v2.caf" },
+  { id: "ibnMajid", ar: "الشيخ عبدالعزيز بن ماجد", en: "Sheikh Abdulaziz bin Majid", previewUrl: "/sounds/athan_ibn_majid.mp3", nativeFile: "athan_ibn_majid_v2.caf" },
   { id: "default", ar: "الصوت الافتراضي", en: "System default", previewUrl: "" },
 ];
 
@@ -44,10 +46,10 @@ export interface ReminderSoundOption {
 }
 
 export const REMINDER_SOUNDS: ReminderSoundOption[] = [
-  { id: "notif_chime", ar: "رنة لطيفة", en: "Gentle chime", previewUrl: "/sounds/notif_chime.mp3", nativeFile: "notif_chime.caf" },
-  { id: "notif_bell", ar: "جرس هادئ", en: "Soft bell", previewUrl: "/sounds/notif_bell.mp3", nativeFile: "notif_bell.caf" },
-  { id: "notif_alert", ar: "تنبيه قصير", en: "Short alert", previewUrl: "/sounds/notif_alert.mp3", nativeFile: "notif_alert.caf" },
-  { id: "notif_calm", ar: "نغمة هادئة", en: "Calm tone", previewUrl: "/sounds/notif_calm.mp3", nativeFile: "notif_calm.caf" },
+  { id: "notif_chime", ar: "رنة لطيفة", en: "Gentle chime", previewUrl: "/sounds/notif_chime.mp3", nativeFile: "notif_chime_v2.caf" },
+  { id: "notif_bell", ar: "جرس هادئ", en: "Soft bell", previewUrl: "/sounds/notif_bell.mp3", nativeFile: "notif_bell_v2.caf" },
+  { id: "notif_alert", ar: "تنبيه قصير", en: "Short alert", previewUrl: "/sounds/notif_alert.mp3", nativeFile: "notif_alert_v2.caf" },
+  { id: "notif_calm", ar: "نغمة هادئة", en: "Calm tone", previewUrl: "/sounds/notif_calm.mp3", nativeFile: "notif_calm_v2.caf" },
 ];
 
 export const DEFAULT_ATHAN_SOUND_FAJR: AthanSoundId = "fajr";
@@ -86,14 +88,14 @@ export function reminderNativeSound(id: ReminderSoundId): string {
  * public/sounds/ElevenLabs_2026-09-22T22_16_26_…_صدى_خفيف.wav, under a plain ASCII name like
  * every other bundled notification sound. Falls back to "default" the same way athan/reminder sounds
  * do if it is ever not actually bundled. */
-export const PRE_PRAYER_SOUND_FILE = "pre_athan_alert.caf";
+export const PRE_PRAYER_SOUND_FILE = "pre_athan_alert_v2.caf";
 export function preprayerNativeSound(): string {
   return BUNDLED_NATIVE_SOUNDS.includes(PRE_PRAYER_SOUND_FILE) ? PRE_PRAYER_SOUND_FILE : "default";
 }
 
 /** The bundled night sound, used ONLY for the middle-of-the-night and last-third notifications
  * (NightNotificationService). Falls back to "default" like every other sound if not bundled. */
-export const NIGHT_SOUND_FILE = "astaghfirullah_night.caf";
+export const NIGHT_SOUND_FILE = "astaghfirullah_night_v2.caf";
 export function nightNativeSound(): string {
   return BUNDLED_NATIVE_SOUNDS.includes(NIGHT_SOUND_FILE) ? NIGHT_SOUND_FILE : "default";
 }

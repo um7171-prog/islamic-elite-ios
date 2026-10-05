@@ -147,7 +147,9 @@ async function doReplace(group: NotificationGroup, itemsIn: ScheduleItemInput[])
           title: i.title,
           body: i.body,
           schedule: { at: i.at, allowWhileIdle: true },
-          ...(i.sound && i.sound !== "default" ? { sound: i.sound } : {}),
+          // Always sent: without it the iOS plugin schedules a silent notification. «default» is the
+          // system sound (UNNotificationSound.default, see scripts/patch-local-notifications-default-sound.mjs).
+          sound: i.sound || "default",
           extra: i.extra,
         })),
       });

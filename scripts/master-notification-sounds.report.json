@@ -1,0 +1,691 @@
+{
+ "astaghfirullah_night": {
+  "sample_rate": 44100,
+  "source": {
+   "seconds": 3.58,
+   "lufs": -16.66,
+   "lufs_spk": -18.61,
+   "true_peak": -2.37,
+   "rms": -14.31,
+   "crest": 11.94,
+   "plr": 14.29,
+   "bands": {
+    "<250": 41.5,
+    "250-1k": 53.3,
+    "1-4k": 2.9,
+    "4-8k": 2.2,
+    ">8k": 0.1
+   },
+   "hf_vs_presence_db": 9.75
+  },
+  "before": {
+   "seconds": 3.58,
+   "lufs": -12.67,
+   "lufs_spk": -15.08,
+   "true_peak": -1.15,
+   "rms": -11.38,
+   "crest": 10.23,
+   "plr": 11.52,
+   "bands": {
+    "<250": 40.3,
+    "250-1k": 53.0,
+    "1-4k": 2.9,
+    "4-8k": 3.5,
+    ">8k": 0.3
+   },
+   "hf_vs_presence_db": 7.48
+  },
+  "after": {
+   "seconds": 3.58,
+   "lufs": -12.78,
+   "lufs_spk": -14.64,
+   "true_peak": -1.02,
+   "rms": -12.33,
+   "crest": 11.31,
+   "plr": 11.76,
+   "bands": {
+    "<250": 19.7,
+    "250-1k": 61.0,
+    "1-4k": 10.3,
+    "4-8k": 7.8,
+    ">8k": 1.2
+   },
+   "hf_vs_presence_db": 0.32
+  },
+  "params": {
+   "highpass_hz": 220.0,
+   "presence_db": 5.0,
+   "shelf_6k_db": -2.0,
+   "tone_gain_db": -22.99,
+   "ratio": 6.0,
+   "drive_db": 10.88,
+   "limiter_gr_mean": 1.4,
+   "limiter_active_pct": 33.3,
+   "limiter_gr_max": 11.9,
+   "comp_gr_p95": 7.95
+  },
+  "tone_vs_voice_spk": {
+   "source": {
+    "tone": -11.7,
+    "voice": -20.65
+   },
+   "after": {
+    "tone": -10.65,
+    "voice": -12.16
+   },
+   "before": {
+    "tone": -8.74,
+    "voice": -14.84
+   }
+  }
+ },
+ "athan_fajr": {
+  "sample_rate": 44100,
+  "source": {
+   "seconds": 29.0,
+   "lufs": -15.82,
+   "lufs_spk": -15.92,
+   "true_peak": -3.12,
+   "rms": -15.36,
+   "crest": 12.24,
+   "plr": 12.7,
+   "bands": {
+    "<250": 0.1,
+    "250-1k": 77.3,
+    "1-4k": 22.6,
+    "4-8k": 0.0,
+    ">8k": 0.0
+   },
+   "hf_vs_presence_db": -43.7
+  },
+  "before": {
+   "seconds": 28.81,
+   "lufs": -10.31,
+   "lufs_spk": -10.43,
+   "true_peak": -1.15,
+   "rms": -9.99,
+   "crest": 8.84,
+   "plr": 9.16,
+   "bands": {
+    "<250": 0.1,
+    "250-1k": 80.8,
+    "1-4k": 19.0,
+    "4-8k": 0.0,
+    ">8k": 0.0
+   },
+   "hf_vs_presence_db": -43.05
+  },
+  "after": {
+   "seconds": 28.79,
+   "lufs": -9.21,
+   "lufs_spk": -9.31,
+   "true_peak": -1.02,
+   "rms": -8.98,
+   "crest": 7.96,
+   "plr": 8.19,
+   "bands": {
+    "<250": 0.1,
+    "250-1k": 79.9,
+    "1-4k": 20.0,
+    "4-8k": 0.0,
+    ">8k": 0.0
+   },
+   "hf_vs_presence_db": -41.59
+  },
+  "params": {
+   "highpass_hz": 220.0,
+   "presence_db": 5.0,
+   "shelf_6k_db": -4.0,
+   "tone_gain_db": null,
+   "ratio": 4.0,
+   "drive_db": 8.62,
+   "limiter_gr_mean": 4.0,
+   "limiter_active_pct": 88.0,
+   "limiter_gr_max": 9.69,
+   "comp_gr_p95": 6.47
+  }
+ },
+ "athan_ibn_majid": {
+  "sample_rate": 22050,
+  "source": {
+   "seconds": 29.0,
+   "lufs": -8.07,
+   "lufs_spk": -8.2,
+   "true_peak": 0.02,
+   "rms": -7.87,
+   "crest": 7.89,
+   "plr": 8.09,
+   "bands": {
+    "<250": 0.1,
+    "250-1k": 92.1,
+    "1-4k": 7.7,
+    "4-8k": 0.1,
+    ">8k": 0.0
+   },
+   "hf_vs_presence_db": -21.6
+  },
+  "before": {
+   "seconds": 28.75,
+   "lufs": -8.09,
+   "lufs_spk": -8.23,
+   "true_peak": -1.15,
+   "rms": -7.89,
+   "crest": 6.74,
+   "plr": 6.94,
+   "bands": {
+    "<250": 0.0,
+    "250-1k": 92.2,
+    "1-4k": 7.7,
+    "4-8k": 0.1,
+    ">8k": 0.0
+   },
+   "hf_vs_presence_db": -21.6
+  },
+  "after": {
+   "seconds": 28.73,
+   "lufs": -8.02,
+   "lufs_spk": -8.12,
+   "true_peak": -1.02,
+   "rms": -7.73,
+   "crest": 6.71,
+   "plr": 7.0,
+   "bands": {
+    "<250": 0.0,
+    "250-1k": 87.9,
+    "1-4k": 12.0,
+    "4-8k": 0.1,
+    ">8k": 0.0
+   },
+   "hf_vs_presence_db": -23.29
+  },
+  "params": {
+   "highpass_hz": 220.0,
+   "presence_db": 5.0,
+   "shelf_6k_db": -2.0,
+   "tone_gain_db": null,
+   "ratio": 4.0,
+   "drive_db": 3.0,
+   "limiter_gr_mean": 0.57,
+   "limiter_active_pct": 23.5,
+   "limiter_gr_max": 4.01,
+   "comp_gr_p95": 4.79
+  }
+ },
+ "athan_madinah": {
+  "sample_rate": 44100,
+  "source": {
+   "seconds": 29.0,
+   "lufs": -16.88,
+   "lufs_spk": -17.9,
+   "true_peak": -5.24,
+   "rms": -16.46,
+   "crest": 11.22,
+   "plr": 11.63,
+   "bands": {
+    "<250": 1.0,
+    "250-1k": 94.5,
+    "1-4k": 4.4,
+    "4-8k": 0.0,
+    ">8k": 0.0
+   },
+   "hf_vs_presence_db": -48.81
+  },
+  "before": {
+   "seconds": 28.96,
+   "lufs": -9.49,
+   "lufs_spk": -10.72,
+   "true_peak": -1.15,
+   "rms": -9.06,
+   "crest": 7.91,
+   "plr": 8.34,
+   "bands": {
+    "<250": 1.5,
+    "250-1k": 92.4,
+    "1-4k": 6.1,
+    "4-8k": 0.0,
+    ">8k": 0.0
+   },
+   "hf_vs_presence_db": -47.71
+  },
+  "after": {
+   "seconds": 28.95,
+   "lufs": -9.05,
+   "lufs_spk": -9.9,
+   "true_peak": -1.02,
+   "rms": -8.72,
+   "crest": 7.7,
+   "plr": 8.03,
+   "bands": {
+    "<250": 0.8,
+    "250-1k": 87.5,
+    "1-4k": 11.6,
+    "4-8k": 0.0,
+    ">8k": 0.0
+   },
+   "hf_vs_presence_db": -46.0
+  },
+  "params": {
+   "highpass_hz": 220.0,
+   "presence_db": 5.0,
+   "shelf_6k_db": -2.0,
+   "tone_gain_db": null,
+   "ratio": 4.0,
+   "drive_db": 8.06,
+   "limiter_gr_mean": 3.87,
+   "limiter_active_pct": 79.9,
+   "limiter_gr_max": 9.07,
+   "comp_gr_p95": 7.14
+  }
+ },
+ "athan_makkah": {
+  "sample_rate": 44100,
+  "source": {
+   "seconds": 29.0,
+   "lufs": -16.26,
+   "lufs_spk": -16.34,
+   "true_peak": -5.49,
+   "rms": -16.16,
+   "crest": 10.67,
+   "plr": 10.77,
+   "bands": {
+    "<250": 0.2,
+    "250-1k": 64.6,
+    "1-4k": 35.2,
+    "4-8k": 0.0,
+    ">8k": 0.0
+   },
+   "hf_vs_presence_db": -53.26
+  },
+  "before": {
+   "seconds": 28.97,
+   "lufs": -8.98,
+   "lufs_spk": -9.05,
+   "true_peak": -1.15,
+   "rms": -8.94,
+   "crest": 7.79,
+   "plr": 7.83,
+   "bands": {
+    "<250": 0.1,
+    "250-1k": 63.0,
+    "1-4k": 36.9,
+    "4-8k": 0.0,
+    ">8k": 0.0
+   },
+   "hf_vs_presence_db": -53.19
+  },
+  "after": {
+   "seconds": 28.95,
+   "lufs": -8.27,
+   "lufs_spk": -8.3,
+   "true_peak": -1.02,
+   "rms": -8.31,
+   "crest": 7.29,
+   "plr": 7.25,
+   "bands": {
+    "<250": 0.0,
+    "250-1k": 57.7,
+    "1-4k": 42.3,
+    "4-8k": 0.0,
+    ">8k": 0.0
+   },
+   "hf_vs_presence_db": -52.72
+  },
+  "params": {
+   "highpass_hz": 220.0,
+   "presence_db": 5.0,
+   "shelf_6k_db": -2.0,
+   "tone_gain_db": null,
+   "ratio": 3.0,
+   "drive_db": 6.75,
+   "limiter_gr_mean": 3.95,
+   "limiter_active_pct": 93.2,
+   "limiter_gr_max": 7.76,
+   "comp_gr_p95": 4.85
+  }
+ },
+ "notif_alert": {
+  "sample_rate": 44100,
+  "source": {
+   "seconds": 0.6,
+   "lufs": -22.12,
+   "lufs_spk": -22.12,
+   "true_peak": -1.35,
+   "rms": -15.61,
+   "crest": 14.27,
+   "plr": 20.78,
+   "bands": {
+    "<250": 0.0,
+    "250-1k": 0.0,
+    "1-4k": 100.0,
+    "4-8k": 0.0,
+    ">8k": 0.0
+   },
+   "hf_vs_presence_db": -51.46
+  },
+  "before": {
+   "seconds": 0.33,
+   "lufs": -21.47,
+   "lufs_spk": -21.48,
+   "true_peak": -1.15,
+   "rms": -15.52,
+   "crest": 14.37,
+   "plr": 20.32,
+   "bands": {
+    "<250": 0.2,
+    "250-1k": 0.0,
+    "1-4k": 99.8,
+    "4-8k": 0.0,
+    ">8k": 0.0
+   },
+   "hf_vs_presence_db": -48.83
+  },
+  "after": {
+   "seconds": 0.33,
+   "lufs": -21.47,
+   "lufs_spk": -21.48,
+   "true_peak": -1.15,
+   "rms": -15.52,
+   "crest": 14.37,
+   "plr": 20.32,
+   "bands": {
+    "<250": 0.2,
+    "250-1k": 0.0,
+    "1-4k": 99.8,
+    "4-8k": 0.0,
+    ">8k": 0.0
+   },
+   "hf_vs_presence_db": -48.83
+  },
+  "params": {
+   "highpass_hz": 180.0,
+   "presence_db": 5.0,
+   "shelf_6k_db": -2.0,
+   "tone_gain_db": null,
+   "ratio": 2.0,
+   "drive_db": 10.88,
+   "limiter_gr_mean": 3.04,
+   "limiter_active_pct": 53.8,
+   "limiter_gr_max": 11.92,
+   "comp_gr_p95": 4.04,
+   "kept_previous_master": true
+  }
+ },
+ "notif_bell": {
+  "sample_rate": 44100,
+  "source": {
+   "seconds": 1.6,
+   "lufs": -17.14,
+   "lufs_spk": -17.14,
+   "true_peak": -1.4,
+   "rms": -12.2,
+   "crest": 10.8,
+   "plr": 15.74,
+   "bands": {
+    "<250": 0.0,
+    "250-1k": 87.9,
+    "1-4k": 12.1,
+    "4-8k": 0.0,
+    ">8k": 0.0
+   },
+   "hf_vs_presence_db": -67.71
+  },
+  "before": {
+   "seconds": 0.62,
+   "lufs": -15.78,
+   "lufs_spk": -15.78,
+   "true_peak": -1.15,
+   "rms": -11.62,
+   "crest": 10.47,
+   "plr": 14.63,
+   "bands": {
+    "<250": 0.0,
+    "250-1k": 87.9,
+    "1-4k": 12.1,
+    "4-8k": 0.0,
+    ">8k": 0.0
+   },
+   "hf_vs_presence_db": -60.17
+  },
+  "after": {
+   "seconds": 0.62,
+   "lufs": -13.48,
+   "lufs_spk": -13.48,
+   "true_peak": -1.0,
+   "rms": -10.73,
+   "crest": 9.73,
+   "plr": 12.48,
+   "bands": {
+    "<250": 0.0,
+    "250-1k": 84.3,
+    "1-4k": 15.7,
+    "4-8k": 0.0,
+    ">8k": 0.0
+   },
+   "hf_vs_presence_db": -70.31
+  },
+  "params": {
+   "highpass_hz": 180.0,
+   "presence_db": 2.0,
+   "shelf_6k_db": -2.0,
+   "tone_gain_db": null,
+   "ratio": 6.0,
+   "drive_db": 10.88,
+   "limiter_gr_mean": 1.56,
+   "limiter_active_pct": 28.9,
+   "limiter_gr_max": 11.92,
+   "comp_gr_p95": 7.74
+  }
+ },
+ "notif_calm": {
+  "sample_rate": 44100,
+  "source": {
+   "seconds": 2.2,
+   "lufs": -17.42,
+   "lufs_spk": -17.79,
+   "true_peak": -1.4,
+   "rms": -12.19,
+   "crest": 10.79,
+   "plr": 16.02,
+   "bands": {
+    "<250": 0.0,
+    "250-1k": 84.1,
+    "1-4k": 15.9,
+    "4-8k": 0.0,
+    ">8k": 0.0
+   },
+   "hf_vs_presence_db": -70.28
+  },
+  "before": {
+   "seconds": 1.15,
+   "lufs": -14.15,
+   "lufs_spk": -14.52,
+   "true_peak": -1.15,
+   "rms": -11.09,
+   "crest": 9.94,
+   "plr": 12.99,
+   "bands": {
+    "<250": 0.0,
+    "250-1k": 84.1,
+    "1-4k": 15.9,
+    "4-8k": 0.0,
+    ">8k": 0.0
+   },
+   "hf_vs_presence_db": -63.8
+  },
+  "after": {
+   "seconds": 1.2,
+   "lufs": -12.86,
+   "lufs_spk": -13.21,
+   "true_peak": -1.02,
+   "rms": -11.93,
+   "crest": 10.91,
+   "plr": 11.84,
+   "bands": {
+    "<250": 0.0,
+    "250-1k": 80.2,
+    "1-4k": 19.8,
+    "4-8k": 0.0,
+    ">8k": 0.0
+   },
+   "hf_vs_presence_db": -71.55
+  },
+  "params": {
+   "highpass_hz": 180.0,
+   "presence_db": 2.0,
+   "shelf_6k_db": -2.0,
+   "tone_gain_db": null,
+   "ratio": 6.0,
+   "drive_db": 10.88,
+   "limiter_gr_mean": 1.97,
+   "limiter_active_pct": 38.3,
+   "limiter_gr_max": 11.9,
+   "comp_gr_p95": 7.93
+  }
+ },
+ "notif_chime": {
+  "sample_rate": 44100,
+  "source": {
+   "seconds": 1.7,
+   "lufs": -15.49,
+   "lufs_spk": -15.49,
+   "true_peak": -1.37,
+   "rms": -12.6,
+   "crest": 11.24,
+   "plr": 14.12,
+   "bands": {
+    "<250": 0.0,
+    "250-1k": 0.5,
+    "1-4k": 99.5,
+    "4-8k": 0.0,
+    ">8k": 0.0
+   },
+   "hf_vs_presence_db": -71.09
+  },
+  "before": {
+   "seconds": 0.66,
+   "lufs": -14.62,
+   "lufs_spk": -14.63,
+   "true_peak": -1.15,
+   "rms": -12.2,
+   "crest": 11.05,
+   "plr": 13.47,
+   "bands": {
+    "<250": 0.0,
+    "250-1k": 0.5,
+    "1-4k": 99.5,
+    "4-8k": 0.0,
+    ">8k": 0.0
+   },
+   "hf_vs_presence_db": -66.84
+  },
+  "after": {
+   "seconds": 0.64,
+   "lufs": -10.37,
+   "lufs_spk": -10.37,
+   "true_peak": -1.02,
+   "rms": -10.55,
+   "crest": 9.53,
+   "plr": 9.35,
+   "bands": {
+    "<250": 0.0,
+    "250-1k": 0.2,
+    "1-4k": 99.8,
+    "4-8k": 0.0,
+    ">8k": 0.0
+   },
+   "hf_vs_presence_db": -66.43
+  },
+  "params": {
+   "highpass_hz": 180.0,
+   "presence_db": 2.0,
+   "shelf_6k_db": -2.0,
+   "tone_gain_db": null,
+   "ratio": 2.0,
+   "drive_db": 10.88,
+   "limiter_gr_mean": 2.06,
+   "limiter_active_pct": 32.9,
+   "limiter_gr_max": 11.88,
+   "comp_gr_p95": 4.77
+  }
+ },
+ "pre_athan_alert": {
+  "sample_rate": 44100,
+  "source": {
+   "seconds": 3.49,
+   "lufs": -16.72,
+   "lufs_spk": -18.08,
+   "true_peak": -2.31,
+   "rms": -14.83,
+   "crest": 12.52,
+   "plr": 14.41,
+   "bands": {
+    "<250": 33.0,
+    "250-1k": 61.1,
+    "1-4k": 4.2,
+    "4-8k": 1.7,
+    ">8k": 0.1
+   },
+   "hf_vs_presence_db": 1.69
+  },
+  "before": {
+   "seconds": 3.49,
+   "lufs": -13.05,
+   "lufs_spk": -14.74,
+   "true_peak": -1.15,
+   "rms": -11.86,
+   "crest": 10.71,
+   "plr": 11.9,
+   "bands": {
+    "<250": 28.8,
+    "250-1k": 61.3,
+    "1-4k": 5.2,
+    "4-8k": 4.3,
+    ">8k": 0.3
+   },
+   "hf_vs_presence_db": 2.31
+  },
+  "after": {
+   "seconds": 3.49,
+   "lufs": -12.81,
+   "lufs_spk": -13.4,
+   "true_peak": -1.02,
+   "rms": -12.45,
+   "crest": 11.43,
+   "plr": 11.79,
+   "bands": {
+    "<250": 7.6,
+    "250-1k": 65.0,
+    "1-4k": 17.3,
+    "4-8k": 9.6,
+    ">8k": 0.5
+   },
+   "hf_vs_presence_db": -1.37
+  },
+  "params": {
+   "highpass_hz": 220.0,
+   "presence_db": 5.0,
+   "shelf_6k_db": -2.0,
+   "tone_gain_db": -19.22,
+   "ratio": 6.0,
+   "drive_db": 10.88,
+   "limiter_gr_mean": 1.4,
+   "limiter_active_pct": 38.0,
+   "limiter_gr_max": 11.88,
+   "comp_gr_p95": 8.35
+  },
+  "tone_vs_voice_spk": {
+   "source": {
+    "tone": -11.7,
+    "voice": -22.45
+   },
+   "after": {
+    "tone": -9.56,
+    "voice": -10.98
+   },
+   "before": {
+    "tone": -8.74,
+    "voice": -14.34
+   }
+  }
+ }
+}

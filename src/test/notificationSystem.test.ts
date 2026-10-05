@@ -142,11 +142,13 @@ describe("NotificationScheduler", () => {
     expect(pendingIn(43000, 43999)).toHaveLength(2);
   });
 
-  it("uses the bundled sound only when it is a real file name (default -> system sound)", async () => {
-    await replaceGroup("calendar", [item({ id: 43001, sound: "notif_chime.caf" }), item({ id: 43002, sound: "default" })]);
+  it("a bundled file goes to iOS by name; «default» is sent as «default» (the system sound), never dropped", async () => {
+    // Without a sound field the iOS plugin schedules a SILENT notification ("If not provided, it will
+    // produce ... no sound on iOS"), so «default» must reach it — it is mapped to UNNotificationSound.default.
+    await replaceGroup("calendar", [item({ id: 43001, sound: "notif_chime_v2.caf" }), item({ id: 43002, sound: "default" })]);
     const p = pendingIn(43000, 43999);
-    expect(p.find((n) => n.id === 43001)!.sound).toBe("notif_chime.caf");
-    expect(p.find((n) => n.id === 43002)!.sound).toBeUndefined();
+    expect(p.find((n) => n.id === 43001)!.sound).toBe("notif_chime_v2.caf");
+    expect(p.find((n) => n.id === 43002)!.sound).toBe("default");
   });
 
   it("REPLACE: an id that is no longer wanted is cancelled, the rest stay, new ones are added", async () => {
@@ -291,7 +293,7 @@ describe("PrayerNotificationService", () => {
     const rem = items.find((i) => i.id === base + 3)!;
     expect((athan.at.getTime() - rem.at.getTime()) / 60_000).toBe(15);
     expect(rem.sound).not.toBe(athan.sound);
-    expect(rem.sound).toBe("pre_athan_alert.caf");
+    expect(rem.sound).toBe("pre_athan_alert_v2.caf");
   });
 
   it("turning the reminder off removes every reminder; disabling a prayer removes all of it", () => {
@@ -534,7 +536,7 @@ describe("PRE-PRAYER (أستغفر الله) is never mixed with PRAYER TIME (at
     const athan = items.find((i) => (i.extra as { kind: string }).kind === "athan")!;
     const pre = items.find((i) => (i.extra as { kind: string }).kind === "pre-reminder")!;
     expect(athan.sound).not.toBe(pre.sound);
-    expect(pre.sound).toBe("pre_athan_alert.caf");
+    expect(pre.sound).toBe("pre_athan_alert_v2.caf");
     expect(athan.sound).toMatch(/^athan_/);
   });
 
@@ -560,7 +562,7 @@ describe("PRE-PRAYER (أستغفر الله) is never mixed with PRAYER TIME (at
 });
 
 /* ---------------------------------------------------------------- night notifications */
-describe("NIGHT notifications — middle of the night + last third (astaghfirullah_night.caf)", () => {
+describe("NIGHT notifications — middle of the night + last third (astaghfirullah_night_v2.caf)", () => {
   const nightInput = (o: { c?: { lat: number; lng: number }; now?: Date; lang?: "ar" | "en" } = {}) => ({
     ...(o.c ?? BURAYDAH),
     madhab: "hanbali" as const,
@@ -600,7 +602,7 @@ describe("NIGHT notifications — middle of the night + last third (astaghfirull
     for (const i of mid) expect(i.title).toBe("🌙 دخل وقت منتصف الليل");
     for (const i of third) expect(i.title).toBe("🤲 دخل الثلث الأخير من الليل");
     for (const i of items) {
-      expect(i.sound).toBe("astaghfirullah_night.caf");
+      expect(i.sound).toBe("astaghfirullah_night_v2.caf");
       expect(i.id).toBeGreaterThanOrEqual(NOTIFICATION_RANGES.night.min);
       expect(i.id).toBeLessThanOrEqual(NOTIFICATION_RANGES.night.max);
     }
@@ -613,7 +615,7 @@ describe("NIGHT notifications — middle of the night + last third (astaghfirull
 
   it("the night sound is used by NO other notification (prayer / pre-reminder)", () => {
     const prayer = buildPrayerItems(prayerInput({ s: settings({ preReminderEnabled: true }) }));
-    expect(prayer.some((i) => i.sound === "astaghfirullah_night.caf")).toBe(false);
+    expect(prayer.some((i) => i.sound === "astaghfirullah_night_v2.caf")).toBe(false);
   });
 
   it("before dawn, tonight's still-upcoming last third is kept; only future ones, soonest first, capped at 4", () => {
@@ -631,7 +633,7 @@ describe("NIGHT notifications — middle of the night + last third (astaghfirull
     const res = await syncNightNotifications(nightInput());
     expect(res.scheduled).toBe(NOTIFICATION_RANGES.night.cap);
     expect(heldNight()).toHaveLength(NOTIFICATION_RANGES.night.cap);
-    expect(heldNight().every((n) => n.sound === "astaghfirullah_night.caf")).toBe(true);
+    expect(heldNight().every((n) => n.sound === "astaghfirullah_night_v2.caf")).toBe(true);
     const prayerAfter = pendingIn(NOTIFICATION_RANGES.prayer.min, NOTIFICATION_RANGES.prayer.max).map((n) => [n.id, n.at.getTime(), n.sound, n.title]);
     expect(prayerAfter).toEqual(prayerBefore);
   });
@@ -659,8 +661,8 @@ describe("NIGHT notifications — middle of the night + last third (astaghfirull
 
   it("the file is in the iOS App Bundle (on disk + Copy Bundle Resources)", async () => {
     const { existsSync, readFileSync } = await import("node:fs");
-    expect(existsSync("ios/App/App/astaghfirullah_night.caf")).toBe(true);
-    expect(readFileSync("ios/App/App.xcodeproj/project.pbxproj", "utf8")).toContain("astaghfirullah_night.caf in Resources");
+    expect(existsSync("ios/App/App/astaghfirullah_night_v2.caf")).toBe(true);
+    expect(readFileSync("ios/App/App.xcodeproj/project.pbxproj", "utf8")).toContain("astaghfirullah_night_v2.caf in Resources");
   });
 
   it("the provider rebuilds the night group together with the others (location / day / foreground changes)", async () => {
@@ -704,8 +706,8 @@ describe("«تنبيهات الليل» switch and no conflict with the prayer n
     const night = buildNightItems(nightInput());
     const prayerIds = new Set(prayer.map((i) => i.id));
     expect(night.some((i) => prayerIds.has(i.id))).toBe(false);
-    expect(prayer.some((i) => i.sound === "astaghfirullah_night.caf")).toBe(false);
-    expect(night.every((i) => i.sound === "astaghfirullah_night.caf")).toBe(true);
+    expect(prayer.some((i) => i.sound === "astaghfirullah_night_v2.caf")).toBe(false);
+    expect(night.every((i) => i.sound === "astaghfirullah_night_v2.caf")).toBe(true);
     // NotificationRouter plays the full athan only for extra.kind === "athan"
     expect(night.every((i) => (i.extra as { kind: string }).kind === "night")).toBe(true);
     // all groups together still fit iOS's 64 pending notifications
